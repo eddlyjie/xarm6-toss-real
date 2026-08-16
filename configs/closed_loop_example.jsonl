@@ -1,5 +1,5 @@
-{"type":"encoder_detach_prior","time_s":0.520,"position_base_m":[0.20200,0.01465,0.38863],"velocity_base_m_s":[0.24735,0.01806,0.14642]}
-{"type":"global_camera_position","time_s":0.520,"position_base_m":[0.19004,0.01710,0.39576]}
-{"type":"global_camera_position","time_s":0.540,"position_base_m":[0.19521,0.01708,0.39724]}
-{"type":"global_camera_position","time_s":0.560,"position_base_m":[0.19593,0.01658,0.39537]}
-{"type":"global_camera_position","time_s":0.580,"position_base_m":[0.19429,0.01560,0.39036]}
+{"type":"encoder_detach_prior","time_s":0.720,"position_base_m":[0.55277,-0.00171,0.38681],"velocity_base_m_s":[0.06952,0.09101,0.47833]}
+{"type":"third_view_camera_position","time_s":0.720,"position_base_m":[0.54843,-0.00577,0.39127]}
+{"type":"third_view_camera_position","time_s":0.740,"position_base_m":[0.55107,-0.00153,0.39533]}
+{"type":"wrist_camera_position","time_s":0.760,"position_base_m":[0.55348,0.00401,0.39702]}
+{"type":"third_view_camera_position","time_s":0.780,"position_base_m":[0.55378,0.01057,0.39875]}

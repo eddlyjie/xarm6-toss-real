@@ -23,14 +23,17 @@ def _vector3(value, name: str) -> np.ndarray:
 
 @dataclass(frozen=True)
 class InterceptCommand:
+    source_camera: str
     observation_time_s: float
     time_since_release_s: float
+    prediction_horizon_s: float
     camera_sample_count: int
     fit_rms_m: float | None
     estimated_position_base_m: tuple[float, float, float]
     estimated_velocity_base_m_s: tuple[float, float, float]
     nominal_intercept_base_m: tuple[float, float, float]
     learned_residual_m: tuple[float, float, float]
+    learned_residual_applied: bool
     corrected_intercept_base_m: tuple[float, float, float]
 
     def as_dict(self) -> dict:
@@ -38,7 +41,7 @@ class InterceptCommand:
 
 
 class OnlineInterceptController:
-    """Fuse an encoder detach prior and timestamped global-camera positions."""
+    """Fuse an encoder detach prior and asynchronous timestamped camera poses."""
 
     def __init__(
         self,
@@ -46,11 +49,19 @@ class OnlineInterceptController:
         release_command_time_s: float,
         prediction_horizon_s: float,
         policy: InterceptResidualPolicy,
+        intercept_time_s: float | None = None,
+        minimum_camera_samples: int = 1,
     ) -> None:
         self.release_command_time_s = float(release_command_time_s)
         self.prediction_horizon_s = float(prediction_horizon_s)
         if self.prediction_horizon_s <= 0.0:
             raise ValueError("prediction_horizon_s must be positive")
+        self.intercept_time_s = (
+            None if intercept_time_s is None else float(intercept_time_s)
+        )
+        self.minimum_camera_samples = int(minimum_camera_samples)
+        if self.minimum_camera_samples < 1:
+            raise ValueError("minimum_camera_samples must be positive")
         self.policy = policy
         self.tracker = BallisticTracker()
         self._prior_time_s: float | None = None
@@ -64,11 +75,15 @@ class OnlineInterceptController:
         *,
         release_command_time_s: float,
         prediction_horizon_s: float,
+        intercept_time_s: float | None = None,
+        minimum_camera_samples: int = 1,
     ) -> "OnlineInterceptController":
         return cls(
             release_command_time_s=release_command_time_s,
             prediction_horizon_s=prediction_horizon_s,
             policy=InterceptResidualPolicy.load(checkpoint),
+            intercept_time_s=intercept_time_s,
+            minimum_camera_samples=minimum_camera_samples,
         )
 
     def set_encoder_detach_prior(
@@ -98,11 +113,14 @@ class OnlineInterceptController:
         velocity = self._prior_velocity + GRAVITY_BASE_M_S2 * age
         return position, velocity
 
-    def add_global_camera_position(
+    def add_camera_position(
         self,
+        source_camera: str,
         time_s: float,
         position_base_m,
     ) -> InterceptCommand:
+        if source_camera not in {"third_view", "wrist"}:
+            raise ValueError("source_camera must be third_view or wrist")
         observation_time = float(time_s)
         prior_position, prior_velocity = self._prior_at(observation_time)
         self.tracker.add_camera_position(observation_time, position_base_m)
@@ -110,6 +128,8 @@ class OnlineInterceptController:
         position = np.asarray(estimate.position_m)
         velocity = np.asarray(estimate.velocity_m_s)
         horizon = self.prediction_horizon_s
+        if self.intercept_time_s is not None:
+            horizon = max(0.0, self.intercept_time_s - observation_time)
         nominal_intercept = (
             position
             + velocity * horizon
@@ -124,18 +144,40 @@ class OnlineInterceptController:
             position_innovation_m=position - prior_position,
             velocity_innovation_m_s=velocity - prior_velocity,
         )
-        residual = self.policy.predict(feature)
+        learned_applied = (
+            estimate.camera_sample_count >= self.minimum_camera_samples
+        )
+        residual = (
+            self.policy.predict(feature)
+            if learned_applied
+            else np.zeros(3, dtype=float)
+        )
         corrected = nominal_intercept + residual
         return InterceptCommand(
+            source_camera=source_camera,
             observation_time_s=observation_time,
             time_since_release_s=(
                 observation_time - self.release_command_time_s
             ),
+            prediction_horizon_s=horizon,
             camera_sample_count=estimate.camera_sample_count,
             fit_rms_m=estimate.fit_rms_m,
             estimated_position_base_m=tuple(float(v) for v in position),
             estimated_velocity_base_m_s=tuple(float(v) for v in velocity),
             nominal_intercept_base_m=tuple(float(v) for v in nominal_intercept),
             learned_residual_m=tuple(float(v) for v in residual),
+            learned_residual_applied=learned_applied,
             corrected_intercept_base_m=tuple(float(v) for v in corrected),
         )
+
+    def add_global_camera_position(
+        self, time_s: float, position_base_m
+    ) -> InterceptCommand:
+        return self.add_camera_position(
+            "third_view", time_s, position_base_m
+        )
+
+    def add_wrist_camera_position(
+        self, time_s: float, position_base_m
+    ) -> InterceptCommand:
+        return self.add_camera_position("wrist", time_s, position_base_m)

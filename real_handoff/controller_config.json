@@ -1,0 +1,42 @@
+{
+  "schema": "xarm6_outward_camera_ballistic_controller_v1",
+  "fixed_cube_side_m": 0.038,
+  "nominal_cube_mass_kg": 0.035,
+  "arm": {
+    "control_period_s": 0.02,
+    "max_joint_speed_rad_s": 0.45,
+    "max_joint_acceleration_rad_s2": 1.5,
+    "tracking_delay_s": 0.09
+  },
+  "g1_real_positions": {
+    "held": 370.0,
+    "partial_open": 520.0,
+    "close": 370.0,
+    "firmware_speed": 5000
+  },
+  "timing_s": {
+    "release_command": 0.69,
+    "detach_prior": 0.03,
+    "catch_servo_start": 0.72,
+    "vision_control_end": 0.78,
+    "catch_close_command": 0.78,
+    "ballistic_intercept": 0.815
+  },
+  "catch_servo": {
+    "gain": 0.25,
+    "max_joint_step_rad": 0.005
+  },
+  "residual": {
+    "model": "../sim/models/intercept_residual_native_outward_v1.json",
+    "minimum_camera_samples": 3,
+    "action_norm_limit_m": 0.012
+  },
+  "camera": {
+    "rate_hz": 60,
+    "receive_latency_s": 0.022,
+    "third_view_serial": "317222073552",
+    "wrist_serial": "233622079809",
+    "missing_frames_propagate_ballistic_belief": true,
+    "wrist_detection_required_for_catch": false
+  }
+}

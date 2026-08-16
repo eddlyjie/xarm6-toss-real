@@ -44,6 +44,7 @@ parser.add_argument(
 )
 parser.add_argument("--held-drive-rad", type=float, default=0.37)
 parser.add_argument("--partial-open-drive-rad", type=float, default=0.52)
+parser.add_argument("--joint6-roll-offset-rad", type=float, default=0.0)
 parser.add_argument("--settle-s", type=float, default=0.40)
 parser.add_argument("--post-release-s", type=float, default=0.50)
 parser.add_argument("--release-time-s", type=float, default=0.60)
@@ -78,6 +79,12 @@ parser.add_argument(
     help="Ballistic lookahead used for the arm intercept target.",
 )
 parser.add_argument(
+    "--catch-intercept-time-s",
+    type=float,
+    default=None,
+    help="Fixed episode time for the ballistic catch intercept.",
+)
+parser.add_argument(
     "--detach-delay-prior-s",
     type=float,
     default=0.05,
@@ -90,16 +97,26 @@ parser.add_argument(
     help="Frozen deployable delta-intercept checkpoint.",
 )
 parser.add_argument(
+    "--residual-min-camera-samples",
+    type=int,
+    default=1,
+    help="Do not apply the learned residual before this many camera samples.",
+)
+parser.add_argument(
     "--catch-evidence-window-s",
     type=float,
     default=0.50,
 )
 parser.add_argument(
     "--observation-mode",
-    choices=("physics", "global_camera"),
+    choices=("physics", "global_camera", "policy_cameras"),
     default="physics",
-    help="Cube position source used by the post-release catch servo.",
+    help="Use physics, the legacy third-view camera, or third-view+wrist policy cameras.",
 )
+parser.add_argument("--arm-tracking-delay-s", type=float, default=0.09)
+parser.add_argument("--camera-receive-latency-s", type=float, default=0.02)
+parser.add_argument("--camera-dropout-probability", type=float, default=0.05)
+parser.add_argument("--camera-seed", type=int, default=20260816)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
 
@@ -113,7 +130,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import Articulation, ArticulationCfg, RigidObject, RigidObjectCfg
 from isaaclab.sensors import Camera, CameraCfg, ContactSensor, ContactSensorCfg
-from isaaclab.utils.math import quat_apply, quat_apply_inverse
+from isaaclab.utils.math import quat_apply, quat_apply_inverse, quat_mul
 
 
 sys.path.insert(0, str(XARM_ROOT / "src"))
@@ -140,6 +157,7 @@ GRIPPER_PRIM = (
     "/World/XArm6/Geometry/world/link_base/link1/link2/link3/link4/"
     "link5/link6/link_eef/xarm_gripper_base_link"
 )
+LINK_EEF_PRIM = GRIPPER_PRIM.rsplit("/xarm_gripper_base_link", 1)[0]
 LEFT_FINGER_PRIM = (
     GRIPPER_PRIM + "/left_outer_knuckle/left_finger"
 )
@@ -167,6 +185,14 @@ GLOBAL_CAMERA_POSITION_BASE_M = np.asarray(
     [1.00698621, 0.00035981, 0.64736570], dtype=np.float32
 )
 GLOBAL_CAMERA_QUAT_XYZW = (0.6272, -0.6327, -0.3275, 0.3132)
+WRIST_CAMERA_POSITION_EEF_M = (0.06950393, 0.03858712, 0.02487193)
+WRIST_CAMERA_QUAT_XYZW = (0.01337523, -0.00833076, -0.70187405, 0.71212676)
+SPECTATOR_CAMERA_POSITION_M = (1.20, -1.20, 0.95)
+SPECTATOR_CAMERA_QUAT_XYZW = (0.80707536, 0.21277731, -0.14040912, -0.53257906)
+SPECTATOR_CAMERA_K = np.asarray(
+    [[700.0, 0.0, 480.0], [0.0, 700.0, 270.0], [0.0, 0.0, 1.0]],
+    dtype=np.float32,
+)
 
 
 def robot_cfg(usd_path: Path, held_drive_rad: float) -> ArticulationCfg:
@@ -212,14 +238,14 @@ def robot_cfg(usd_path: Path, held_drive_rad: float) -> ArticulationCfg:
                     "joint[3-5]": 32.0,
                     "joint6": 20.0,
                 },
-                velocity_limit_sim=3.14,
+                velocity_limit_sim=0.45,
                 stiffness=400.0,
                 damping=40.0,
             ),
             "gripper_drive": ImplicitActuatorCfg(
                 joint_names_expr=["drive_joint"],
                 effort_limit_sim=50.0,
-                velocity_limit_sim=2.0,
+                velocity_limit_sim=5.0,
                 stiffness=120.0,
                 damping=5.0,
             ),
@@ -269,6 +295,9 @@ def cube_cfg(size_m: float, mass_kg: float) -> RigidObjectCfg:
 
 def load_reference(config_path: Path):
     config = json.loads(config_path.read_text(encoding="utf-8"))
+    for segment in config["reference_segments"]:
+        segment["start_joint_rad"][5] += args_cli.joint6_roll_offset_rad
+        segment["end_joint_rad"][5] += args_cli.joint6_roll_offset_rad
     segments = tuple(
         QuinticJointSegment(**segment)
         for segment in config["reference_segments"]
@@ -285,17 +314,17 @@ def step_assets(
     robot: Articulation,
     cube: RigidObject,
     contact_sensors: tuple[ContactSensor, ContactSensor],
-    camera: Camera | None,
+    cameras: tuple[Camera, ...],
 ) -> None:
     robot.write_data_to_sim()
     cube.write_data_to_sim()
-    sim.step(render=camera is not None)
+    sim.step(render=bool(cameras))
     dt = sim.get_physics_dt()
     robot.update(dt)
     cube.update(dt)
     for sensor in contact_sensors:
         sensor.update(dt, force_recompute=True)
-    if camera is not None:
+    for camera in cameras:
         camera.update(dt, force_recompute=True)
 
 
@@ -323,10 +352,28 @@ def cube_contact_force_n(sensor: ContactSensor) -> float:
     )
 
 
-def estimate_cube_position_from_global_camera(
+def xyzw_quaternion_to_matrix(quaternion: torch.Tensor) -> torch.Tensor:
+    x, y, z, w = quaternion.unbind()
+    return torch.stack(
+        (
+            1.0 - 2.0 * (y * y + z * z),
+            2.0 * (x * y - z * w),
+            2.0 * (x * z + y * w),
+            2.0 * (x * y + z * w),
+            1.0 - 2.0 * (x * x + z * z),
+            2.0 * (y * z - x * w),
+            2.0 * (x * z - y * w),
+            2.0 * (y * z + x * w),
+            1.0 - 2.0 * (x * x + y * y),
+        )
+    ).reshape(3, 3)
+
+
+def estimate_cube_position_from_camera(
     camera: Camera,
     cube_size_m: float,
     expected_position_base_m: torch.Tensor,
+    source_camera: str,
 ) -> tuple[torch.Tensor | None, dict[str, float]]:
     rgb_data = camera.data.output["rgb"]
     depth_data = camera.data.output["distance_to_image_plane"]
@@ -339,20 +386,36 @@ def estimate_cube_position_from_global_camera(
     rgb = rgb[..., :3].to(dtype=torch.float32)
     scale = 255.0 if float(torch.max(rgb).item()) > 1.5 else 1.0
     red, green, blue = rgb.unbind(dim=-1)
-    rotation = torch.as_tensor(GLOBAL_CAMERA_R_BASE, device=camera.device)
-    translation = torch.as_tensor(
-        GLOBAL_CAMERA_POSITION_BASE_M, device=camera.device
-    )
+    intrinsic = camera.data.intrinsic_matrices.torch[0]
+    rotation = xyzw_quaternion_to_matrix(camera.data.quat_w_ros.torch[0])
+    translation = camera.data.pos_w.torch[0]
     expected_camera = rotation.T @ (
         expected_position_base_m - translation
     )
+    metadata = {"source_camera": source_camera}
+    if float(expected_camera[2].item()) <= 0.0:
+        return None, {
+            **metadata,
+            "detected": 0.0,
+            "failure": "expected_point_behind_camera",
+            "expected_position_camera_m": [
+                float(value) for value in expected_camera.tolist()
+            ],
+            "camera_position_world_m": [
+                float(value) for value in translation.tolist()
+            ],
+            "camera_quaternion_ros_xyzw": [
+                float(value)
+                for value in camera.data.quat_w_ros.torch[0].tolist()
+            ],
+        }
     expected_u = (
-        GLOBAL_CAMERA_K[0, 0] * expected_camera[0] / expected_camera[2]
-        + GLOBAL_CAMERA_K[0, 2]
+        intrinsic[0, 0] * expected_camera[0] / expected_camera[2]
+        + intrinsic[0, 2]
     )
     expected_v = (
-        GLOBAL_CAMERA_K[1, 1] * expected_camera[1] / expected_camera[2]
-        + GLOBAL_CAMERA_K[1, 2]
+        intrinsic[1, 1] * expected_camera[1] / expected_camera[2]
+        + intrinsic[1, 2]
     )
     rows = torch.arange(rgb.shape[0], device=camera.device)[:, None]
     columns = torch.arange(rgb.shape[1], device=camera.device)[None, :]
@@ -368,6 +431,7 @@ def estimate_cube_position_from_global_camera(
     pixels = torch.nonzero(mask, as_tuple=False)
     if pixels.shape[0] < 3:
         failure_metadata = {
+            **metadata,
             "detected": 0.0,
             "rgb_max": float(torch.max(rgb).item()),
             "red_max": float(torch.max(red).item()),
@@ -392,13 +456,14 @@ def estimate_cube_position_from_global_camera(
     z_center = z_surface + 0.5 * cube_size_m
     camera_point = torch.stack(
         (
-            (u - GLOBAL_CAMERA_K[0, 2]) / GLOBAL_CAMERA_K[0, 0] * z_center,
-            (v - GLOBAL_CAMERA_K[1, 2]) / GLOBAL_CAMERA_K[1, 1] * z_center,
+            (u - intrinsic[0, 2]) / intrinsic[0, 0] * z_center,
+            (v - intrinsic[1, 2]) / intrinsic[1, 1] * z_center,
             z_center,
         )
     )
     position_base = rotation @ camera_point + translation
     return position_base, {
+        **metadata,
         "detected": 1.0,
         "u_px": float(u.item()),
         "v_px": float(v.item()),
@@ -418,6 +483,39 @@ def hand_state(
     gripper_pose = body_pose[gripper_body_id]
     finger_midpoint = body_pose[finger_body_ids, :3].mean(dim=0)
     return gripper_pose[:3], gripper_pose[3:7], finger_midpoint
+
+
+def update_wrist_camera_pose(
+    robot: Articulation,
+    gripper_body_id: int,
+    wrist_camera: Camera | None,
+) -> None:
+    if wrist_camera is None:
+        return
+    gripper_pose = robot.data.body_pose_w.torch[0, gripper_body_id]
+    hand_position = gripper_pose[:3]
+    hand_quaternion_wxyz = gripper_pose[3:7]
+    offset_position = torch.tensor(
+        [WRIST_CAMERA_POSITION_EEF_M],
+        dtype=torch.float32,
+        device=robot.device,
+    )
+    camera_position = hand_position + quat_apply(
+        hand_quaternion_wxyz.unsqueeze(0), offset_position
+    )[0]
+    offset_xyzw = WRIST_CAMERA_QUAT_XYZW
+    offset_wxyz = torch.tensor(
+        [offset_xyzw[3], offset_xyzw[0], offset_xyzw[1], offset_xyzw[2]],
+        dtype=torch.float32,
+        device=robot.device,
+    )
+    camera_wxyz = quat_mul(hand_quaternion_wxyz, offset_wxyz)
+    camera_xyzw = camera_wxyz[[1, 2, 3, 0]]
+    wrist_camera.set_world_poses(
+        camera_position.unsqueeze(0),
+        camera_xyzw.unsqueeze(0),
+        convention="ros",
+    )
 
 
 def place_cube_once(
@@ -491,6 +589,9 @@ def record_state(
         "hand_position_w_m": [
             float(value) for value in hand_position.tolist()
         ],
+        "hand_quaternion_wxyz": [
+            float(value) for value in hand_quaternion.tolist()
+        ],
         "finger_midpoint_w_m": [
             float(value) for value in finger_midpoint.tolist()
         ],
@@ -551,25 +652,52 @@ def summarize(
         for record in throw_records
     ]
     detach_time_s = None
+    contact_free_start_s = None
     for record in postrelease_records:
-        error = float(
-            np.linalg.norm(
-                np.asarray(record["cube_position_hand_m"], dtype=float)
-                - baseline
-            )
+        contact_free = (
+            record["left_finger_cube_contact_force_n"] <= 0.05
+            and record["right_finger_cube_contact_force_n"] <= 0.05
         )
-        if error >= 0.012:
-            detach_time_s = float(record["time_s"])
+        if contact_free and contact_free_start_s is None:
+            contact_free_start_s = float(record["time_s"])
+        elif not contact_free:
+            contact_free_start_s = None
+        if (
+            contact_free_start_s is not None
+            and float(record["time_s"]) - contact_free_start_s >= 0.005
+        ):
+            detach_time_s = contact_free_start_s
             break
 
-    release_height = float(
-        throw_records[-1]["cube_position_w_m"][2]
+    release_record = throw_records[-1]
+    release_height = float(release_record["cube_position_w_m"][2])
+    release_hand_position = np.asarray(
+        release_record["hand_position_w_m"], dtype=float
+    )
+    w, x, y, z = np.asarray(
+        release_record["hand_quaternion_wxyz"], dtype=float
+    )
+    release_tool_axis = np.asarray(
+        [2.0 * (x * z + w * y), 2.0 * (y * z - w * x), 1.0 - 2.0 * (x * x + y * y)]
+    )
+    release_tcp_radius_m = float(np.linalg.norm(release_hand_position[:2]))
+    release_outward_dot_m = float(
+        np.dot(release_tool_axis[:2], release_hand_position[:2])
     )
     maximum_height = max(
         float(record["cube_position_w_m"][2])
         for record in postrelease_records
     )
     final_record = records[-1]
+    maximum_separation_m = max(
+        float(
+            np.linalg.norm(
+                np.asarray(record["cube_position_hand_m"], dtype=float)
+                - baseline
+            )
+        )
+        for record in postrelease_records
+    )
     catch_records = [
         record for record in records
         if record["phase"] == "catch"
@@ -638,12 +766,18 @@ def summarize(
             else detach_time_s - args_cli.release_time_s
         ),
         "release_height_m": release_height,
+        "release_hand_position_m": release_hand_position.tolist(),
+        "release_tool_axis_world": release_tool_axis.tolist(),
+        "release_tcp_horizontal_radius_m": release_tcp_radius_m,
+        "release_outward_dot_m": release_outward_dot_m,
         "maximum_height_m": maximum_height,
         "free_vertical_displacement_m": maximum_height - release_height,
+        "maximum_separation_m": maximum_separation_m,
         "catch_servo_enabled": args_cli.catch_servo_start_time_s is not None,
         "catch_servo_start_time_s": args_cli.catch_servo_start_time_s,
         "catch_close_time_s": args_cli.catch_close_time_s,
         "catch_prediction_horizon_s": args_cli.catch_prediction_horizon_s,
+        "catch_intercept_time_s": args_cli.catch_intercept_time_s,
         "catch_max_relative_error_m": catch_max_relative_error,
         "catch_max_relative_motion_m": catch_max_relative_motion,
         "catch_stable": catch_stable,
@@ -712,7 +846,9 @@ def main() -> int:
     robot = Articulation(robot_cfg(args_cli.usd, args_cli.held_drive_rad))
     cube = RigidObject(cube_cfg(args_cli.cube_size_m, args_cli.cube_mass_kg))
     global_camera = None
-    if args_cli.observation_mode == "global_camera":
+    wrist_camera = None
+    spectator_camera = None
+    if args_cli.observation_mode in ("global_camera", "policy_cameras"):
         global_camera = Camera(
             CameraCfg(
                 prim_path="/World/GlobalCamera",
@@ -733,6 +869,54 @@ def main() -> int:
                 ),
             )
         )
+    if args_cli.observation_mode == "policy_cameras":
+        wrist_camera = Camera(
+            CameraCfg(
+                prim_path="/World/WristCamera",
+                update_period=1.0 / 60.0,
+                height=480,
+                width=640,
+                data_types=["rgb", "distance_to_image_plane"],
+                update_latest_camera_pose=True,
+                offset=CameraCfg.OffsetCfg(
+                    pos=WRIST_CAMERA_POSITION_EEF_M,
+                    rot=WRIST_CAMERA_QUAT_XYZW,
+                    convention="ros",
+                ),
+                spawn=sim_utils.PinholeCameraCfg.from_intrinsic_matrix(
+                    intrinsic_matrix=GLOBAL_CAMERA_K.reshape(-1).tolist(),
+                    width=640,
+                    height=480,
+                    clipping_range=(0.03, 2.0),
+                ),
+            )
+        )
+    if args_cli.video_path is not None:
+        spectator_camera = Camera(
+            CameraCfg(
+                prim_path="/World/SpectatorCamera",
+                update_period=1.0 / 60.0,
+                height=540,
+                width=960,
+                data_types=["rgb"],
+                offset=CameraCfg.OffsetCfg(
+                    pos=SPECTATOR_CAMERA_POSITION_M,
+                    rot=SPECTATOR_CAMERA_QUAT_XYZW,
+                    convention="ros",
+                ),
+                spawn=sim_utils.PinholeCameraCfg.from_intrinsic_matrix(
+                    intrinsic_matrix=SPECTATOR_CAMERA_K.reshape(-1).tolist(),
+                    width=960,
+                    height=540,
+                    clipping_range=(0.10, 3.0),
+                ),
+            )
+        )
+    cameras = tuple(
+        camera
+        for camera in (global_camera, wrist_camera, spectator_camera)
+        if camera is not None
+    )
     sim_utils.activate_contact_sensors(LEFT_FINGER_PRIM)
     sim_utils.activate_contact_sensors(RIGHT_FINGER_PRIM)
     contact_sensors = (
@@ -773,7 +957,8 @@ def main() -> int:
     robot.write_joint_velocity_to_sim_index(velocity=dq)
     robot.set_joint_position_target_index(target=q)
     robot.reset()
-    step_assets(sim, robot, cube, contact_sensors, global_camera)
+    update_wrist_camera_pose(robot, gripper_body_id, wrist_camera)
+    step_assets(sim, robot, cube, contact_sensors, cameras)
     placed_pose = place_cube_once(
         robot,
         cube,
@@ -790,18 +975,29 @@ def main() -> int:
         joint_ids=drive_ids,
     )
     video_frames: list[np.ndarray] = []
+    third_view_video_frames: list[np.ndarray] = []
+    wrist_video_frames: list[np.ndarray] = []
+    video_frame_times_s: list[float] = []
     last_video_frame_index = -1
     records: list[dict[str, object]] = []
     time_s = -args_cli.settle_s
     while time_s < 0.0:
-        step_assets(sim, robot, cube, contact_sensors, global_camera)
+        update_wrist_camera_pose(robot, gripper_body_id, wrist_camera)
+        step_assets(sim, robot, cube, contact_sensors, cameras)
         time_s += sim.get_physics_dt()
         video_frame_index = int((time_s + args_cli.settle_s) * 60.0)
         if (
             args_cli.video_path is not None
             and video_frame_index > last_video_frame_index
         ):
-            video_frames.append(camera_rgb_frame(global_camera))
+            video_frames.append(camera_rgb_frame(spectator_camera))
+            if global_camera is not None:
+                third_view_video_frames.append(
+                    camera_rgb_frame(global_camera)
+                )
+            if wrist_camera is not None:
+                wrist_video_frames.append(camera_rgb_frame(wrist_camera))
+            video_frame_times_s.append(float(time_s))
             last_video_frame_index = video_frame_index
         records.append(
             record_state(
@@ -828,10 +1024,30 @@ def main() -> int:
     )
     dt = sim.get_physics_dt()
     last_control_index = -1
+    commanded_arm_position = torch.tensor(
+        reference[0].joint_position_rad,
+        dtype=torch.float32,
+        device=sim.device,
+    )
+    commanded_arm_velocity = torch.zeros(6, device=sim.device)
+    commanded_speed_max_rad_s = 0.0
+    commanded_acceleration_max_rad_s2 = 0.0
     catch_arm_target = None
-    camera_measurements: list[dict[str, float]] = []
+    camera_measurements: list[dict[str, object]] = []
     camera_position_errors_m: list[float] = []
     ballistic_tracker = BallisticTracker() if global_camera is not None else None
+    policy_cameras = tuple(
+        item
+        for item in (
+            ("third_view", global_camera, 0.0),
+            ("wrist", wrist_camera, 1.0 / 120.0),
+        )
+        if item[1] is not None
+    )
+    camera_rng = np.random.default_rng(args_cli.camera_seed)
+    last_camera_capture_index = {
+        source_camera: -1 for source_camera, _, _ in policy_cameras
+    }
     residual_policy = (
         None
         if args_cli.intercept_residual_model is None
@@ -922,19 +1138,75 @@ def main() -> int:
                 cube_position = cube_position_truth
                 cube_velocity = cube.data.root_com_lin_vel_w.torch[0]
             else:
-                measured_position, camera_metadata = (
-                    estimate_cube_position_from_global_camera(
-                        global_camera,
-                        args_cli.cube_size_m,
-                        prior_cube_position,
+                new_camera_metadata = []
+                delivered_sources = []
+                for source_camera, camera, phase_s in policy_cameras:
+                    capture_index = int(
+                        np.floor(
+                            (
+                                time_s
+                                - args_cli.camera_receive_latency_s
+                                - phase_s
+                            )
+                            * 60.0
+                            + 1.0e-9
+                        )
                     )
-                )
-                if measured_position is not None:
-                    last_detected_camera_time_s = time_s
-                    ballistic_tracker.add_camera_position(
-                        time_s,
-                        measured_position.detach().cpu().numpy(),
+                    if capture_index <= last_camera_capture_index[source_camera]:
+                        continue
+                    last_camera_capture_index[source_camera] = capture_index
+                    capture_time_s = phase_s + capture_index / 60.0
+                    dropped = (
+                        camera_rng.random()
+                        < args_cli.camera_dropout_probability
                     )
+                    if dropped:
+                        measured_position = None
+                        camera_metadata = {
+                            "source_camera": source_camera,
+                            "detected": 0.0,
+                            "failure": "modeled_transport_dropout",
+                        }
+                    else:
+                        before_wrist_update = (
+                            np.asarray(
+                                ballistic_tracker.estimate(time_s).position_m
+                            )
+                            if source_camera == "wrist"
+                            else None
+                        )
+                        measured_position, camera_metadata = (
+                            estimate_cube_position_from_camera(
+                                camera,
+                                args_cli.cube_size_m,
+                                prior_cube_position,
+                                source_camera,
+                            )
+                        )
+                    if measured_position is not None:
+                        last_detected_camera_time_s = capture_time_s
+                        ballistic_tracker.add_camera_position(
+                            capture_time_s,
+                            measured_position.detach().cpu().numpy(),
+                        )
+                        delivered_sources.append(source_camera)
+                        if source_camera == "wrist":
+                            after_wrist_update = np.asarray(
+                                ballistic_tracker.estimate(time_s).position_m
+                            )
+                            camera_metadata["wrist_state_update_norm_m"] = float(
+                                np.linalg.norm(
+                                    after_wrist_update - before_wrist_update
+                                )
+                            )
+                    camera_metadata.update(
+                        time_s=float(time_s),
+                        capture_time_s=float(capture_time_s),
+                        receive_latency_s=float(
+                            time_s - capture_time_s
+                        ),
+                    )
+                    new_camera_metadata.append(camera_metadata)
                 estimate = ballistic_tracker.estimate(time_s)
                 cube_position = torch.tensor(
                     estimate.position_m,
@@ -946,12 +1218,12 @@ def main() -> int:
                     dtype=torch.float32,
                     device=sim.device,
                 )
-                if measured_position is not None:
+                if delivered_sources:
                     prediction_age_s = 0.0
                     state_source = (
-                        "global_camera_ballistic_fit"
+                        "+".join(delivered_sources) + "_ballistic_fit"
                         if estimate.camera_sample_count >= 2
-                        else "global_camera_encoder_velocity"
+                        else "+".join(delivered_sources) + "_encoder_velocity"
                     )
                 else:
                     state_source = (
@@ -969,21 +1241,30 @@ def main() -> int:
                         cube_position - cube_position_truth
                     ).item()
                 )
-                camera_metadata.update(
-                    time_s=float(time_s),
-                    position_error_m=position_error_m,
-                    prediction_age_s=float(prediction_age_s),
-                    ballistic_camera_sample_count=float(
-                        estimate.camera_sample_count
-                    ),
-                    ballistic_fit_rms_m=estimate.fit_rms_m,
-                    estimated_position_base_m=list(estimate.position_m),
-                    estimated_velocity_base_m_s=list(estimate.velocity_m_s),
-                    state_source=state_source,
+                for camera_metadata in new_camera_metadata:
+                    camera_metadata.update(
+                        position_error_m=position_error_m,
+                        prediction_age_s=float(prediction_age_s),
+                        ballistic_camera_sample_count=float(
+                            estimate.camera_sample_count
+                        ),
+                        ballistic_fit_rms_m=estimate.fit_rms_m,
+                        estimated_position_base_m=list(estimate.position_m),
+                        estimated_velocity_base_m_s=list(estimate.velocity_m_s),
+                        state_source=state_source,
+                    )
+                    camera_measurements.append(camera_metadata)
+                    camera_position_errors_m.append(position_error_m)
+                camera_metadata = (
+                    new_camera_metadata[-1]
+                    if new_camera_metadata
+                    else {"state_source": state_source}
                 )
-                camera_measurements.append(camera_metadata)
-                camera_position_errors_m.append(position_error_m)
             prediction_horizon_s = args_cli.catch_prediction_horizon_s
+            if args_cli.catch_intercept_time_s is not None:
+                prediction_horizon_s = max(
+                    0.0, args_cli.catch_intercept_time_s - time_s
+                )
             state_position_current = cube_position
             state_velocity_current = cube_velocity
             if prediction_horizon_s > 0.0:
@@ -996,12 +1277,12 @@ def main() -> int:
                     + 0.5 * gravity * prediction_horizon_s**2
                 )
             residual_action = np.zeros(3, dtype=float)
+            residual_feature = None
             if (
-                residual_policy is not None
-                and global_camera is not None
+                global_camera is not None
                 and estimate.camera_sample_count > 0
             ):
-                feature = residual_features(
+                residual_feature = residual_features(
                     time_since_release_s=time_s - args_cli.release_time_s,
                     camera_sample_count=estimate.camera_sample_count,
                     fit_rms_m=estimate.fit_rms_m,
@@ -1012,7 +1293,16 @@ def main() -> int:
                         state_velocity_current - prior_cube_velocity
                     ).detach().cpu().numpy(),
                 )
-                residual_action = residual_policy.predict(feature)
+                camera_metadata["residual_feature"] = (
+                    residual_feature.tolist()
+                )
+            if (
+                residual_policy is not None
+                and residual_feature is not None
+                and estimate.camera_sample_count
+                >= args_cli.residual_min_camera_samples
+            ):
+                residual_action = residual_policy.predict(residual_feature)
                 cube_position = cube_position + torch.tensor(
                     residual_action,
                     dtype=torch.float32,
@@ -1049,6 +1339,9 @@ def main() -> int:
                 camera_metadata.update(
                     residual_action_m=residual_action.tolist(),
                     residual_action_norm_m=residual_action_norm_m,
+                    intercept_residual_target_m=(
+                        true_intercept - nominal_intercept
+                    ).detach().cpu().numpy().tolist(),
                     intercept_error_before_residual_m=intercept_error_before_m,
                     intercept_error_after_residual_m=intercept_error_after_m,
                 )
@@ -1070,9 +1363,49 @@ def main() -> int:
             catch_arm_target = (
                 robot.data.joint_pos.torch[0, arm_ids] + delta_joint
             ).unsqueeze(0)
-        last_control_index = sample_index
         if catch_active and catch_arm_target is not None:
             arm_target = catch_arm_target
+        if sample_index != last_control_index:
+            if catch_active and catch_arm_target is not None:
+                raw_velocity = (
+                    arm_target[0] - commanded_arm_position
+                ) / control_period
+                speed_limited = torch.clamp(raw_velocity, -0.45, 0.45)
+                acceleration = torch.clamp(
+                    (speed_limited - commanded_arm_velocity)
+                    / control_period,
+                    -1.5,
+                    1.5,
+                )
+                commanded_arm_velocity = (
+                    commanded_arm_velocity
+                    + acceleration * control_period
+                )
+                commanded_arm_position = (
+                    commanded_arm_position
+                    + commanded_arm_velocity * control_period
+                )
+            else:
+                next_velocity = torch.tensor(
+                    reference[sample_index].joint_velocity_rad_s,
+                    dtype=torch.float32,
+                    device=sim.device,
+                )
+                acceleration = (
+                    next_velocity - commanded_arm_velocity
+                ) / control_period
+                commanded_arm_position = arm_target[0]
+                commanded_arm_velocity = next_velocity
+            commanded_speed_max_rad_s = max(
+                commanded_speed_max_rad_s,
+                float(torch.max(torch.abs(commanded_arm_velocity)).item()),
+            )
+            commanded_acceleration_max_rad_s2 = max(
+                commanded_acceleration_max_rad_s2,
+                float(torch.max(torch.abs(acceleration)).item()),
+            )
+            last_control_index = sample_index
+        arm_target = commanded_arm_position.unsqueeze(0)
         robot.set_joint_position_target_index(
             target=arm_target,
             joint_ids=arm_ids,
@@ -1080,7 +1413,12 @@ def main() -> int:
         phase = "throw"
         if time_s >= args_cli.release_time_s:
             phase = "flight"
-            gripper_target = open_target
+            gripper_target = held_target
+            physical_open_start_s = (
+                args_cli.release_time_s + args_cli.detach_delay_prior_s
+            )
+            if time_s >= physical_open_start_s:
+                gripper_target = open_target
             if (
                 args_cli.catch_close_time_s is not None
                 and time_s >= args_cli.catch_close_time_s
@@ -1096,7 +1434,8 @@ def main() -> int:
                 target=held_target,
                 joint_ids=drive_ids,
             )
-        step_assets(sim, robot, cube, contact_sensors, global_camera)
+        update_wrist_camera_pose(robot, gripper_body_id, wrist_camera)
+        step_assets(sim, robot, cube, contact_sensors, cameras)
         records.append(
             record_state(
                 time_s,
@@ -1115,7 +1454,14 @@ def main() -> int:
             args_cli.video_path is not None
             and video_frame_index > last_video_frame_index
         ):
-            video_frames.append(camera_rgb_frame(global_camera))
+            video_frames.append(camera_rgb_frame(spectator_camera))
+            if global_camera is not None:
+                third_view_video_frames.append(
+                    camera_rgb_frame(global_camera)
+                )
+            if wrist_camera is not None:
+                wrist_video_frames.append(camera_rgb_frame(wrist_camera))
+            video_frame_times_s.append(float(time_s))
             last_video_frame_index = video_frame_index
         time_s += dt
 
@@ -1126,7 +1472,39 @@ def main() -> int:
         for measurement in camera_measurements
         if detach_time_s is not None
         and measurement["time_s"] > detach_time_s
+        and measurement.get("detected", 0.0) == 1.0
         and measurement["state_source"] != "encoder_prior"
+    ]
+    terminal_window_start_s = (
+        None
+        if args_cli.catch_close_time_s is None
+        else args_cli.catch_close_time_s - 0.10
+    )
+    terminal_wrist_observations = [
+        measurement
+        for measurement in camera_measurements
+        if terminal_window_start_s is not None
+        and measurement.get("source_camera") == "wrist"
+        and measurement.get("detected", 0.0) == 1.0
+        and terminal_window_start_s
+        <= measurement["capture_time_s"]
+        <= args_cli.catch_close_time_s
+    ]
+    terminal_wrist_decision_changes = [
+        measurement
+        for measurement in terminal_wrist_observations
+        if measurement.get("wrist_state_update_norm_m", 0.0) > 1.0e-4
+    ]
+    spectator_flight_end_s = (
+        duration
+        if args_cli.catch_close_time_s is None
+        else args_cli.catch_close_time_s
+    )
+    spectator_post_detach_frames = [
+        frame_time_s
+        for frame_time_s in video_frame_times_s
+        if detach_time_s is not None
+        and detach_time_s < frame_time_s <= spectator_flight_end_s
     ]
     learned_updates_after_detach = [
         measurement
@@ -1135,14 +1513,41 @@ def main() -> int:
         and measurement["time_s"] > detach_time_s
         and measurement.get("residual_action_norm_m", 0.0) > 1.0e-6
     ]
+    policy_video_paths = {}
+    if args_cli.video_path is not None:
+        for source, frames in (
+            ("third_view", third_view_video_frames),
+            ("wrist", wrist_video_frames),
+        ):
+            if frames:
+                path = args_cli.video_path.with_name(
+                    f"{args_cli.video_path.stem}_{source}"
+                    f"{args_cli.video_path.suffix}"
+                )
+                policy_video_paths[source] = str(path)
     summary.update(
         observation_mode=args_cli.observation_mode,
+        policy_observation_sources=[
+            source_camera for source_camera, _, _ in policy_cameras
+        ],
+        spectator_used_for_control=False,
+        arm_tracking_delay_s=args_cli.arm_tracking_delay_s,
+        commanded_max_joint_speed_rad_s=commanded_speed_max_rad_s,
+        commanded_max_joint_acceleration_rad_s2=(
+            commanded_acceleration_max_rad_s2
+        ),
         detach_delay_prior_s=args_cli.detach_delay_prior_s,
+        free_flight_before_close_s=(
+            None
+            if detach_time_s is None
+            else spectator_flight_end_s - detach_time_s
+        ),
         intercept_residual_model=(
             None
             if args_cli.intercept_residual_model is None
             else str(args_cli.intercept_residual_model)
         ),
+        residual_min_camera_samples=args_cli.residual_min_camera_samples,
         learned_residual_action_count=sum(
             action > 1.0e-6 for action in intercept_residual_actions_m
         ),
@@ -1150,6 +1555,10 @@ def main() -> int:
         vision_control_end_time_s=args_cli.vision_control_end_time_s,
         camera_measurement_count=len(camera_measurements),
         camera_control_updates_after_detach=len(post_detach_camera_updates),
+        terminal_wrist_observation_count=len(terminal_wrist_observations),
+        terminal_wrist_changed_decision=(
+            len(terminal_wrist_decision_changes) > 0
+        ),
         first_camera_control_update_after_detach_s=(
             None
             if not post_detach_camera_updates
@@ -1181,6 +1590,8 @@ def main() -> int:
             None if args_cli.video_path is None else str(args_cli.video_path)
         ),
         video_frame_count=len(video_frames),
+        policy_video_paths=policy_video_paths,
+        spectator_post_detach_frame_count=len(spectator_post_detach_frames),
     )
     if args_cli.video_path is not None:
         import imageio.v2 as imageio
@@ -1191,6 +1602,18 @@ def main() -> int:
         ) as writer:
             for frame in video_frames:
                 writer.append_data(frame)
+        for source, frames in (
+            ("third_view", third_view_video_frames),
+            ("wrist", wrist_video_frames),
+        ):
+            if not frames:
+                continue
+            path = Path(policy_video_paths[source])
+            with imageio.get_writer(
+                path, fps=60, codec="libx264", quality=8
+            ) as writer:
+                for frame in frames:
+                    writer.append_data(frame)
     if camera_measurements:
         (args_cli.output / "camera_measurements.json").write_text(
             json.dumps(camera_measurements, indent=2) + "\n",

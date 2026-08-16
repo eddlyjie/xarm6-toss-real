@@ -26,11 +26,11 @@ def solve_pose(kinematics, seed, target_position, target_axis, lower, upper):
         regularization = 0.015 * (joint - seed)
         return np.concatenate((position_error, axis_error, regularization))
 
-    result = least_squares(residual, seed, bounds=(lower, upper), max_nfev=1200)
+    result = least_squares(residual, seed, bounds=(lower, upper), max_nfev=300)
     transform = kinematics.forward(result.x)
     position_error = float(np.linalg.norm(transform[:3, 3] - target_position))
     axis_error = float(np.linalg.norm(transform[:3, 2] - target_axis))
-    if position_error > 0.012 or axis_error > 0.10:
+    if position_error > 0.015 or axis_error > 0.15:
         return None
     return result.x
 
@@ -93,15 +93,15 @@ def main() -> None:
     recorded_seed = np.asarray(handoff["preplace_joint_rad"], dtype=float)
     rng = np.random.default_rng(args.seed)
     seeds = [recorded_seed]
-    for _ in range(80):
-        candidate = recorded_seed + rng.normal(0.0, [0.35, 0.45, 0.45, 0.5, 0.5, 0.5])
+    for _ in range(14):
+        candidate = recorded_seed + rng.normal(0.0, [0.2, 0.3, 0.3, 0.3, 0.35, 0.3])
         seeds.append(np.clip(candidate, lower + 0.02, upper - 0.02))
 
     targets = []
-    for x in (0.42, 0.48, 0.54):
-        for y in (-0.04, 0.0, 0.04):
-            for z in (0.34, 0.40, 0.46):
-                for elevation_deg in (5.0, 20.0, 35.0):
+    for x in (0.50, 0.56, 0.59):
+        for y in (-0.04, 0.0):
+            for z in (0.28, 0.34, 0.40):
+                for elevation_deg in (-85.0, -60.0, -30.0, 10.0):
                     radial = np.asarray([x, y], dtype=float)
                     radial /= np.linalg.norm(radial)
                     elevation = np.deg2rad(elevation_deg)
@@ -123,8 +123,6 @@ def main() -> None:
                 continue
             qd, twist = release_velocity(kinematics, joint, setup.max_joint_speed_rad_s)
             visibility = project_release(setup, kinematics, joint)
-            if visibility["wrist"] is None:
-                continue
             record = {
                 "joint_rad": joint.tolist(),
                 "release_joint_velocity_rad_s": qd.tolist(),

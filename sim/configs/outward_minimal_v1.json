@@ -1,0 +1,60 @@
+{
+  "schema": "xarm6_g1_cube_sim_v1",
+  "name": "outward_minimal_v1",
+  "physics_dt_s": 0.005,
+  "control_period_s": 0.02,
+  "arm_tracking_delay_s": 0.09,
+  "limits": {
+    "joint_speed_rad_s": 0.45,
+    "joint_acceleration_rad_s2": 1.5
+  },
+  "release_geometry": {
+    "tcp_position_m": [0.590000861, -0.000000025, 0.480001049],
+    "tcp_horizontal_radius_m": 0.590000861,
+    "tool_axis_world": [0.984809705, 0.000000049, 0.173637107],
+    "outward_dot_m": 0.581038574,
+    "tool_axis_elevation_deg": 9.999356,
+    "release_linear_velocity_m_s": [-0.117771364, 0.000001417, 0.623648262]
+  },
+  "reference_segments": [
+    {
+      "phase": "throw",
+      "duration_s": 0.60,
+      "start_joint_rad": [-0.000048674, 0.108124062, -0.599756365, -0.000109202, -0.848685707, 0.177296985],
+      "start_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "end_joint_rad": [-0.000004218, -0.026875938, -0.734756365, -0.000008695, -0.983685707, 0.177245000],
+      "end_joint_velocity_rad_s": [0.000148185, -0.450000000, -0.450000000, 0.000335024, -0.450000000, -0.000173285]
+    },
+    {
+      "phase": "followthrough",
+      "duration_s": 0.60,
+      "start_joint_rad": [-0.000004218, -0.026875938, -0.734756365, -0.000008695, -0.983685707, 0.177245000],
+      "start_joint_velocity_rad_s": [0.000148185, -0.450000000, -0.450000000, 0.000335024, -0.450000000, -0.000173285],
+      "end_joint_rad": [0.000040237, -0.161875938, -0.869756365, 0.000091813, -1.118685707, 0.177193015],
+      "end_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    }
+  ],
+  "gripper_events": [
+    {
+      "time_s": 0.69,
+      "name": "release_partial_open",
+      "real_position": 520.0
+    },
+    {
+      "time_s": 0.78,
+      "name": "catch_close",
+      "real_position": 370.0
+    }
+  ],
+  "validation": {
+    "reference_max_joint_speed_rad_s": 0.45,
+    "reference_max_joint_acceleration_rad_s2": 1.125,
+    "third_view_release_pixel": [329.392365, 393.976984],
+    "third_view_release_depth_m": 0.435406
+  },
+  "notes": [
+    "The release event includes the measured 90 ms arm tracking delay.",
+    "The fixed third-view camera sees the external release workspace.",
+    "Third-view and wrist measurements are opportunistic; missing frames propagate the ballistic belief and never block the catch."
+  ]
+}

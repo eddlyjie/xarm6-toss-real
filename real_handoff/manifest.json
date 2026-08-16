@@ -1,0 +1,22 @@
+{
+  "schema": "xarm6_outward_real_handoff_v1",
+  "source_config": "sim/configs/outward_minimal_v1.json",
+  "source_result": "outputs/final_handoff_nominal",
+  "timeline": "nominal_timeline.json",
+  "controller": "controller_config.json",
+  "constraints_report": "real_constraints_report.json",
+  "videos": {
+    "spectator": "../outputs/final_handoff_nominal/spectator.mp4",
+    "spectator_slow": "../outputs/final_handoff_nominal/spectator_slow_0p4x.mp4",
+    "third_view": "../outputs/final_handoff_nominal/spectator_third_view.mp4",
+    "wrist": "../outputs/final_handoff_nominal/spectator_wrist.mp4",
+    "three_view": "../outputs/final_handoff_nominal/three_view.mp4"
+  },
+  "validated_scope": "fixed 38 mm cube near 35 g; nominal calibration",
+  "known_limits": [
+    "25--45 g mass sweep was not 3/3; weigh/probe the real cube before timing transfer.",
+    "Wrist camera did not see the cube during this short catch; third-view updates carried the belief.",
+    "The sim catch window is timing-sensitive: 0.785 s close missed for the nominal opening."
+  ],
+  "real_execution_status": "run disconnected dry-run and empty-gripper preview first"
+}

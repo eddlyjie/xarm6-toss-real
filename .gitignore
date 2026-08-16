@@ -14,6 +14,19 @@ venv/
 .env
 *.log
 
+# Keep only the validated outward handoff evidence from root-level rollouts.
+outputs/*
+!outputs/final_handoff_nominal/
+outputs/final_handoff_nominal/*
+!outputs/final_handoff_nominal/summary.json
+!outputs/final_handoff_nominal/trajectory.json
+!outputs/final_handoff_nominal/camera_measurements.json
+!outputs/final_handoff_nominal/spectator.mp4
+!outputs/final_handoff_nominal/spectator_slow_0p4x.mp4
+!outputs/final_handoff_nominal/spectator_third_view.mp4
+!outputs/final_handoff_nominal/spectator_wrist.mp4
+!outputs/final_handoff_nominal/three_view.mp4
+
 # Incoming/export archives are not source
 *.tar
 *.tar.gz

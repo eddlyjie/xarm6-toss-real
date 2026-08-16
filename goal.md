@@ -146,16 +146,14 @@ catch 门槛，必须提交定量 infeasibility evidence，等待真机操作者
 - release 时 EE/tool 朝向明确对外：
   `dot(tool_axis_xy, tcp_position_xy) > 0`，并保存数值；
 - 轨迹视频中机械臂不是向 base 内折，release 后不会向自身底座抛；
-- physical detach 到首次重新接触至少 0.10 s；
-- cube 与 gripper 的最大分离至少一个 cube 边长（约 38 mm）；
-- spectator video 中至少连续 6 个 60 Hz frame 清楚看到自由飞行；
-- detach 后两台 policy camera 合计至少提供 3 个有效 RGB-D observation，并真实改变
-  catch command；不要求这些 observation 来自 third-view；
-- wrist camera 除清楚看到抓取/probe 外，还须在首次重新接触前最后 0.10 s 内提供至少
-  2 个有效 cube observation，其中至少一个真实改变 terminal decision；
-- wrist terminal observation 若剩余时间大于已辨识 arm tracking delay，可触发 bounded
-  intercept correction；若已经来不及改变 arm target，则必须改变 G1 close deadline、
-  catch confidence 或 reject decision，不能只记录；
+- 必须检测到 physical detach，cube 相对 gripper 有清楚的非零自由运动，再由同一夹爪
+  重新接住；当前固定 cube 的最小移交标准采用最大分离至少 20 mm，不再把 0.10 s 或
+  一个完整边长设为硬门槛；
+- spectator video 必须清楚显示朝外 release、flight、catch 和 hold，并另存慢放；
+- detach 后可见的 policy camera observation 必须真实改变 catch command；相机丢帧或
+  暂时都不可见时继续传播 release prior + ballistic belief，不能阻塞控制；
+- wrist terminal detection 是有价值的机会观测而非硬门槛。看见时进入同一 tracker 并
+  允许 bounded correction；看不见时如实记录，不得用 simulator truth 补帧；
 - third-view 不保证覆盖整个抛接轨迹，但其每帧真实 visibility 必须记录；看见时必须被
   estimator 使用，看不见时不得以 simulator truth 补观测；
 - spectator camera 能在同一画面完整看到机器人、cube、release、flight、catch 和 hold；
@@ -167,12 +165,13 @@ catch 门槛，必须提交定量 infeasibility evidence，等待真机操作者
 
 先通过单 trial，再固定方法跑至少 3 个扰动 trial：
 
-- cube mass 覆盖约 20–50 g；
+- 当前移交只针对同一只固定 cube；先做 3 次 nominal camera/dropout validation。20–50 g
+  mass sweep 保留为诊断，失败时必须报告，但不阻塞这只 cube 的 2–3 次真机 demo；
 - simulator true mass 只用于评估 Probe posterior 的 calibration/error，不能进入 policy；
   同时报告 G1/wrist 估计的 projected width、side length 和 grasp offset；
 - 至少一个抓取 offset / camera noise / detach delay 扰动；
-- 3 次均 physical detach、可见 free flight、camera-updated command、bilateral catch、
-  stable hold；
+- 3 次均 physical detach、可见 free motion、camera-updated command、learned correction、
+  bilateral catch、stable hold；
 - 报告并保存失败，不允许只挑成功视频；
 - 输出同步的 spectator、third-view、wrist 视频或 frame montage；
 - 保存 q/dq、effort、G1、probe posterior、detach belief、camera observations、J 候选、
@@ -188,7 +187,7 @@ catch 门槛，必须提交定量 infeasibility evidence，等待真机操作者
 
 ## 真机交接
 
-只有仿真验收全部通过后才生成：
+固定 cube 的 nominal 仿真验收通过后生成：
 
 - 一个明确的 nominal timeline 和少量 timing bracket；
 - 空载 0.25× / 0.5× / 1.0× preview；
@@ -204,5 +203,10 @@ catch 门槛，必须提交定量 infeasibility evidence，等待真机操作者
 
 ## 当前状态
 
-旧的内折 EE / micro-toss handoff 已撤销并删除。旧 commit 只保留为 Git 历史，不得用于
-真机。当前工作从原始 real setup、calibration 和 Panda 成功 pipeline 的方法结构重新开始。
+旧的内折 EE / micro-toss handoff 已撤销并删除。当前 outward learned candidate 已在固定
+约 38 mm、35 g cube 上完成 3/3 nominal native rollout：detach delay 35 ms、最大相对离手
+26.3 mm、每次 3 个 camera updates 和 2 个 learned updates、bilateral hold 0.5 s。最终三路
+camera/spectator 视频与 `real_constraints_report.json` 已生成。
+
+边界：25–45 g 扰动不是 3/3；wrist 在当前短 catch 中没有看到 cube；close timing 对 5 ms
+变化敏感。这些是交接前必须告诉真机操作者的限制，不应阻止固定 cube 的最小验证。

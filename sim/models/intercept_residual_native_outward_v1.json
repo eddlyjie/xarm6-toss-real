@@ -1,0 +1,105 @@
+{
+  "schema": "xarm6_intercept_residual_v1",
+  "feature_names": [
+    "time_since_release_s",
+    "camera_sample_count",
+    "fit_rms_m",
+    "position_innovation_x_m",
+    "position_innovation_y_m",
+    "position_innovation_z_m",
+    "velocity_innovation_x_m_s",
+    "velocity_innovation_y_m_s",
+    "velocity_innovation_z_m_s"
+  ],
+  "feature_mean": [
+    0.08000000000000085,
+    3.5,
+    0.0008715706891168892,
+    0.000958368182182312,
+    0.009301815647631884,
+    0.0035803765058517456,
+    0.07374230772256851,
+    0.19359199702739716,
+    -0.07982124388217926
+  ],
+  "feature_scale": [
+    0.010000000000000009,
+    0.5,
+    0.00034495787708225525,
+    0.0001291731900724058,
+    0.003278947782040485,
+    0.0008111666738230536,
+    0.01034724667989716,
+    0.0228146378275678,
+    0.02732343416044784
+  ],
+  "weight": [
+    [
+      3.774496147889563e-05,
+      3.7744961478895635e-05,
+      3.764819654722823e-05,
+      3.682789749199655e-05,
+      3.7792224598650415e-05,
+      3.78880509004644e-05,
+      -3.7824918130187345e-05,
+      3.783917298688517e-05,
+      3.77996878522331e-05
+    ],
+    [
+      -5.0101797833683546e-05,
+      -5.010179783368352e-05,
+      -4.9910781872014915e-05,
+      -4.817521386110598e-05,
+      -5.0318094900966326e-05,
+      -5.054937548505898e-05,
+      5.031137344875629e-05,
+      -5.0647566482811605e-05,
+      -5.028507382656039e-05
+    ],
+    [
+      3.240122962908054e-05,
+      3.2401229629080545e-05,
+      3.2525348882109154e-05,
+      3.311119844517425e-05,
+      3.2296236064480684e-05,
+      3.211134659405863e-05,
+      -3.226269697905431e-05,
+      3.2130293417668017e-05,
+      3.229853395405483e-05
+    ]
+  ],
+  "bias": [
+    -0.0017807632684707642,
+    -0.004597320221364498,
+    0.016288205981254578
+  ],
+  "action_norm_limit_m": 0.012,
+  "native_training": {
+    "minimum_camera_samples": 3,
+    "ridge": 20.0,
+    "training_rollouts": [
+      "outputs/native_residual_collection/l15",
+      "outputs/native_residual_collection/l20"
+    ],
+    "validation_rollout": "outputs/native_residual_collection/l25",
+    "sim_truth_used_only_for_training_label": true
+  },
+  "train_metrics": {
+    "sample_count": 4,
+    "mean_error_before_m": 0.017037423715785045,
+    "mean_error_after_m": 0.005044088023159048,
+    "p95_error_before_m": 0.017626036252015885,
+    "p95_error_after_m": 0.005629843936802149,
+    "fraction_improved": 1.0,
+    "mean_action_norm_m": 0.012000000000000002
+  },
+  "validation_metrics": {
+    "sample_count": 2,
+    "mean_error_before_m": 0.03275534024947722,
+    "mean_error_after_m": 0.021434883231795796,
+    "p95_error_before_m": 0.034096463102807915,
+    "p95_error_after_m": 0.02280597798171349,
+    "fraction_improved": 1.0,
+    "mean_action_norm_m": 0.012
+  }
+}

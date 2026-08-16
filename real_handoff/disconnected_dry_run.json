@@ -1,0 +1,149 @@
+{
+  "schema": "xarm6_closed_loop_dry_run_v1",
+  "robot_commands_sent": 0,
+  "observation_count": 4,
+  "post_release_update_count": 4,
+  "learned_update_count": 2,
+  "source_camera_counts": {
+    "third_view": 3,
+    "wrist": 1
+  },
+  "commands": [
+    {
+      "source_camera": "third_view",
+      "observation_time_s": 0.72,
+      "time_since_release_s": 0.030000000000000027,
+      "prediction_horizon_s": 0.09499999999999997,
+      "camera_sample_count": 1,
+      "fit_rms_m": null,
+      "estimated_position_base_m": [
+        0.54843,
+        -0.00577,
+        0.39127
+      ],
+      "estimated_velocity_base_m_s": [
+        0.06952,
+        0.09101,
+        0.47833
+      ],
+      "nominal_intercept_base_m": [
+        0.5550343999999999,
+        0.0028759499999999978,
+        0.392443725
+      ],
+      "learned_residual_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "learned_residual_applied": false,
+      "corrected_intercept_base_m": [
+        0.5550343999999999,
+        0.0028759499999999978,
+        0.392443725
+      ]
+    },
+    {
+      "source_camera": "third_view",
+      "observation_time_s": 0.74,
+      "time_since_release_s": 0.050000000000000044,
+      "prediction_horizon_s": 0.07499999999999996,
+      "camera_sample_count": 2,
+      "fit_rms_m": 8.77731134552502e-17,
+      "estimated_position_base_m": [
+        0.55107,
+        -0.0015300000000000001,
+        0.39533
+      ],
+      "estimated_velocity_base_m_s": [
+        0.13200000000000273,
+        0.21199999999999986,
+        0.10490000000000152
+      ],
+      "nominal_intercept_base_m": [
+        0.5609700000000002,
+        0.01436999999999998,
+        0.3756068750000001
+      ],
+      "learned_residual_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "learned_residual_applied": false,
+      "corrected_intercept_base_m": [
+        0.5609700000000002,
+        0.01436999999999998,
+        0.3756068750000001
+      ]
+    },
+    {
+      "source_camera": "wrist",
+      "observation_time_s": 0.76,
+      "time_since_release_s": 0.07000000000000006,
+      "prediction_horizon_s": 0.05499999999999994,
+      "camera_sample_count": 3,
+      "fit_rms_m": 0.0004806139591998652,
+      "estimated_position_base_m": [
+        0.5535183333333336,
+        0.0037933333333333343,
+        0.3967610000000002
+      ],
+      "estimated_velocity_base_m_s": [
+        0.1262499999999972,
+        0.24449999999999986,
+        -0.05244999999999898
+      ],
+      "nominal_intercept_base_m": [
+        0.5604620833333334,
+        0.01724083333333331,
+        0.3790386250000003
+      ],
+      "learned_residual_m": [
+        -0.0024161165438927423,
+        -0.0021389438758415286,
+        0.011557997228859671
+      ],
+      "learned_residual_applied": true,
+      "corrected_intercept_base_m": [
+        0.5580459667894406,
+        0.01510188945749178,
+        0.39059662222886
+      ]
+    },
+    {
+      "source_camera": "third_view",
+      "observation_time_s": 0.78,
+      "time_since_release_s": 0.09000000000000008,
+      "prediction_horizon_s": 0.03499999999999992,
+      "camera_sample_count": 4,
+      "fit_rms_m": 0.0016429870662911354,
+      "estimated_position_base_m": [
+        0.5544589999999999,
+        0.010003999999999999,
+        0.39725
+      ],
+      "estimated_velocity_base_m_s": [
+        0.09230000000000155,
+        0.27279999999999976,
+        -0.1736500000000005
+      ],
+      "nominal_intercept_base_m": [
+        0.5576895,
+        0.01955199999999997,
+        0.385163625
+      ],
+      "learned_residual_m": [
+        -0.0019685147993141316,
+        -0.002584770269429612,
+        0.011551792594188747
+      ],
+      "learned_residual_applied": true,
+      "corrected_intercept_base_m": [
+        0.5557209852006858,
+        0.016967229730570358,
+        0.39671541759418877
+      ]
+    }
+  ]
+}

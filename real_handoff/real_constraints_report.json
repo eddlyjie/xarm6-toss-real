@@ -1,0 +1,61 @@
+{
+  "schema": "xarm6_real_constraints_report_v1",
+  "source_result": "outputs/final_handoff_nominal",
+  "success": {
+    "detach_detected": true,
+    "catch_stable": true,
+    "bilateral_contact_fraction": 1.0,
+    "maximum_separation_m": 0.026257619163005952,
+    "free_vertical_displacement_m": 0.1054389476776123,
+    "detach_to_first_bilateral_contact_s": 0.08500000000000008
+  },
+  "geometry": {
+    "release_hand_horizontal_radius_m": 0.4303709751575296,
+    "release_outward_dot_m": 0.42998740251253936,
+    "planned_tcp_horizontal_radius_m": 0.590000861,
+    "planned_tcp_outward_dot_m": 0.581038574
+  },
+  "limits": {
+    "commanded_max_joint_speed_rad_s": 0.44999998807907104,
+    "allowed_max_joint_speed_rad_s": 0.45,
+    "commanded_max_joint_acceleration_rad_s2": 1.5,
+    "allowed_max_joint_acceleration_rad_s2": 1.5,
+    "minimum_actual_joint_margin_rad": [
+      3.1236490098387004,
+      1.8968424797803163,
+      0.775765355091095,
+      3.1022736386954786,
+      0.6365254742813111,
+      2.371519584174347
+    ]
+  },
+  "delays_s": {
+    "arm_tracking": 0.09,
+    "g1_prior": 0.03,
+    "g1_measured_sim_detach": 0.03500000000000081,
+    "real_measured_detach_range": [
+      0.025,
+      0.044
+    ],
+    "camera_receive": 0.022
+  },
+  "policy": {
+    "camera_counts": {
+      "third_view": {
+        "frames_reported": 4,
+        "detections": 4,
+        "post_detach_detections": 3
+      },
+      "wrist": {
+        "frames_reported": 4,
+        "detections": 0,
+        "post_detach_detections": 0
+      }
+    },
+    "camera_updates_after_detach": 3,
+    "learned_updates_after_detach": 2,
+    "intercept_mean_error_before_m": 0.03275625128298998,
+    "intercept_mean_error_after_m": 0.027150959707796574,
+    "spectator_used_for_control": false
+  }
+}

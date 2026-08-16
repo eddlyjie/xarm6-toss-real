@@ -44,6 +44,8 @@ class QuinticJointSegment:
     start_joint_velocity_rad_s: tuple[float, ...]
     end_joint_rad: tuple[float, ...]
     end_joint_velocity_rad_s: tuple[float, ...]
+    start_joint_acceleration_rad_s2: tuple[float, ...] = (0.0,) * ARM_DOF
+    end_joint_acceleration_rad_s2: tuple[float, ...] = (0.0,) * ARM_DOF
 
 
 @dataclass(frozen=True)
@@ -80,9 +82,18 @@ def _quintic_coefficients(segment: QuinticJointSegment) -> np.ndarray:
         segment.end_joint_velocity_rad_s,
         "end_joint_velocity_rad_s",
     )
+    a0 = _joint_vector(
+        segment.start_joint_acceleration_rad_s2,
+        "start_joint_acceleration_rad_s2",
+    )
+    a1 = _joint_vector(
+        segment.end_joint_acceleration_rad_s2,
+        "end_joint_acceleration_rad_s2",
+    )
     coefficients = np.zeros((ARM_DOF, 6), dtype=float)
     coefficients[:, 0] = q0
     coefficients[:, 1] = v0
+    coefficients[:, 2] = 0.5 * a0
     system = np.asarray(
         [
             [duration**3, duration**4, duration**5],
@@ -92,9 +103,9 @@ def _quintic_coefficients(segment: QuinticJointSegment) -> np.ndarray:
     )
     target = np.stack(
         (
-            q1 - q0 - v0 * duration,
-            v1 - v0,
-            np.zeros(ARM_DOF),
+            q1 - q0 - v0 * duration - 0.5 * a0 * duration**2,
+            v1 - v0 - a0 * duration,
+            a1 - a0,
         ),
         axis=0,
     )

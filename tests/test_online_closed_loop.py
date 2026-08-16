@@ -39,6 +39,8 @@ class OnlineInterceptControllerTest(unittest.TestCase):
             corrected - nominal, [0.004, -0.003, 0.002]
         )
         self.assertEqual(command.camera_sample_count, 1)
+        self.assertEqual(command.source_camera, "third_view")
+        self.assertTrue(command.learned_residual_applied)
         self.assertGreater(command.time_since_release_s, 0.0)
 
     def test_two_camera_frames_fit_velocity(self):
@@ -57,6 +59,33 @@ class OnlineInterceptControllerTest(unittest.TestCase):
         self.assertEqual(command.camera_sample_count, 2)
         self.assertIsNotNone(command.fit_rms_m)
         self.assertEqual(len(command.corrected_intercept_base_m), 3)
+
+    def test_async_camera_sources_share_belief_and_gate_residual(self):
+        controller = OnlineInterceptController(
+            release_command_time_s=0.30,
+            prediction_horizon_s=0.09,
+            intercept_time_s=0.50,
+            minimum_camera_samples=3,
+            policy=self.policy(),
+        )
+        controller.set_encoder_detach_prior(
+            0.32, [0.2, 0.0, 0.4], [0.3, 0.0, 0.3]
+        )
+        first = controller.add_camera_position(
+            "third_view", 0.34, [0.206, 0.0, 0.404]
+        )
+        second = controller.add_camera_position(
+            "wrist", 0.36, [0.212, 0.0, 0.404]
+        )
+        third = controller.add_camera_position(
+            "third_view", 0.38, [0.218, 0.0, 0.400]
+        )
+        self.assertFalse(first.learned_residual_applied)
+        self.assertFalse(second.learned_residual_applied)
+        self.assertTrue(third.learned_residual_applied)
+        self.assertEqual(second.source_camera, "wrist")
+        self.assertAlmostEqual(third.prediction_horizon_s, 0.12)
+        np.testing.assert_allclose(first.learned_residual_m, np.zeros(3))
 
     def test_checkpoint_loader_uses_frozen_schema(self):
         payload = {

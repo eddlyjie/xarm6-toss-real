@@ -1,0 +1,97 @@
+{
+  "schema": "xarm6_native_release_smoke_v1",
+  "cube_state_writes_after_initialization": 0,
+  "placed_cube_pose_w": [
+    0.5362088680267334,
+    -3.2708048820495605e-06,
+    0.3044828474521637,
+    0.7807267904281616,
+    -0.06935227662324905,
+    0.6185740232467651,
+    -0.05497234687209129
+  ],
+  "prethrow_max_relative_error_m": 1.862543726023352e-05,
+  "prethrow_stable": true,
+  "detach_detected": true,
+  "detach_time_s": 0.7250000000000008,
+  "release_command_time_s": 0.69,
+  "detach_delay_s": 0.03500000000000081,
+  "release_height_m": 0.36788854002952576,
+  "release_hand_position_m": [
+    0.430370956659317,
+    -0.00012618314940482378,
+    0.3729689419269562
+  ],
+  "release_tool_axis_world": [
+    0.9991183478510757,
+    0.032624546334320215,
+    0.02641930038869189
+  ],
+  "release_tcp_horizontal_radius_m": 0.4303709751575296,
+  "release_outward_dot_m": 0.42998740251253936,
+  "maximum_height_m": 0.47332748770713806,
+  "free_vertical_displacement_m": 0.1054389476776123,
+  "maximum_separation_m": 0.026257619163005952,
+  "catch_servo_enabled": true,
+  "catch_servo_start_time_s": 0.72,
+  "catch_close_time_s": 0.78,
+  "catch_prediction_horizon_s": 0.0,
+  "catch_intercept_time_s": 0.815,
+  "catch_max_relative_error_m": 0.02598992453417119,
+  "catch_max_relative_motion_m": 1.0023171863755636e-05,
+  "catch_stable": true,
+  "catch_evidence_window_s": 0.5,
+  "bilateral_contact_fraction": 1.0,
+  "final_cube_position_w_m": [
+    0.5458763837814331,
+    0.018786754459142685,
+    0.46784722805023193
+  ],
+  "final_cube_linear_velocity_w_m_s": [
+    0.17850254476070404,
+    -0.3102359473705292,
+    0.06253911554813385
+  ],
+  "cube_size_m": 0.038,
+  "cube_mass_kg": 0.035,
+  "held_drive_rad": 0.56,
+  "partial_open_drive_rad": 0.39,
+  "cube_offset_hand_m": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "observation_mode": "policy_cameras",
+  "policy_observation_sources": [
+    "third_view",
+    "wrist"
+  ],
+  "spectator_used_for_control": false,
+  "arm_tracking_delay_s": 0.09,
+  "commanded_max_joint_speed_rad_s": 0.44999998807907104,
+  "commanded_max_joint_acceleration_rad_s2": 1.5,
+  "detach_delay_prior_s": 0.03,
+  "free_flight_before_close_s": 0.05499999999999927,
+  "intercept_residual_model": "sim/models/intercept_residual_native_outward_v1.json",
+  "residual_min_camera_samples": 3,
+  "learned_residual_action_count": 2,
+  "learned_control_updates_after_detach": 2,
+  "vision_control_end_time_s": 0.78,
+  "camera_measurement_count": 8,
+  "camera_control_updates_after_detach": 3,
+  "terminal_wrist_observation_count": 0,
+  "terminal_wrist_changed_decision": false,
+  "first_camera_control_update_after_detach_s": 0.7400000000000008,
+  "camera_mean_position_error_m": 0.011927838320843875,
+  "camera_max_position_error_m": 0.02275603823363781,
+  "intercept_mean_error_before_residual_m": 0.03275625128298998,
+  "intercept_mean_error_after_residual_m": 0.027150959707796574,
+  "intercept_residual_fraction_improved": 0.5,
+  "video_path": "outputs/final_handoff_nominal/spectator.mp4",
+  "video_frame_count": 126,
+  "policy_video_paths": {
+    "third_view": "outputs/final_handoff_nominal/spectator_third_view.mp4",
+    "wrist": "outputs/final_handoff_nominal/spectator_wrist.mp4"
+  },
+  "spectator_post_detach_frame_count": 3
+}
