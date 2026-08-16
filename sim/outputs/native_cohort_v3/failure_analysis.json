@@ -1,0 +1,68 @@
+{
+  "schema": "xarm6_native_cohort_failure_analysis_v1",
+  "cohort": "native_cohort_v3",
+  "initial_grasp_valid_count": 20,
+  "failure_stage": "catch",
+  "shared_reason": "cube passed the closing fingers without bilateral contact",
+  "fixed": [
+    {
+      "trial": "trial_02",
+      "summary": "fixed/trial_02/summary.json",
+      "conditions": {
+        "cube_mass_kg": 0.025,
+        "cube_offset_hand_m": [-0.001, 0.0, 0.028],
+        "release_command_time_s": 0.295
+      },
+      "prethrow_stable": true,
+      "detach_time_s": 0.365,
+      "bilateral_contact_fraction": 0.0,
+      "catch_stable": false
+    },
+    {
+      "trial": "trial_06",
+      "summary": "fixed/trial_06/summary.json",
+      "conditions": {
+        "cube_mass_kg": 0.050,
+        "cube_offset_hand_m": [-0.001, 0.0, 0.028],
+        "release_command_time_s": 0.295
+      },
+      "prethrow_stable": true,
+      "detach_time_s": 0.365,
+      "bilateral_contact_fraction": 0.0,
+      "catch_stable": false
+    }
+  ],
+  "learned": [
+    {
+      "trial": "trial_02",
+      "summary": "learned/trial_02/summary.json",
+      "prethrow_stable": true,
+      "detach_time_s": 0.370,
+      "camera_control_updates_after_detach": 1,
+      "learned_control_updates_after_detach": 1,
+      "intercept_mean_error_before_m": 0.0260,
+      "intercept_mean_error_after_m": 0.0202,
+      "bilateral_contact_fraction": 0.0,
+      "catch_stable": false,
+      "reason": "residual reduced intercept error but not enough for bilateral capture"
+    },
+    {
+      "trial": "trial_06",
+      "summary": "learned/trial_06/summary.json",
+      "prethrow_stable": true,
+      "detach_time_s": 0.370,
+      "camera_control_updates_after_detach": 1,
+      "learned_control_updates_after_detach": 1,
+      "intercept_mean_error_before_m": 0.0246,
+      "intercept_mean_error_after_m": 0.0195,
+      "bilateral_contact_fraction": 0.0,
+      "catch_stable": false,
+      "reason": "residual reduced intercept error but not enough for bilateral capture"
+    }
+  ],
+  "decision": [
+    "Keep these trials as real failures; do not exclude them from the 8/10 gate.",
+    "Do not expand the residual action beyond 20 mm for the first real demo.",
+    "Use the nominal 35 g fixed-grasp candidate for the first 2-3 real attempts."
+  ]
+}

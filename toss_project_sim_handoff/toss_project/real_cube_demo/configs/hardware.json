@@ -1,0 +1,49 @@
+{
+  "schema": "real_cube_hardware_v1",
+  "motion_confirmed": true,
+  "robot": {
+    "ip": "192.168.2.232",
+    "dof": 6,
+    "control_period_s": 0.02,
+    "joint_speed_rad_s": 0.45,
+    "joint_acceleration_rad_s2": 1.5
+  },
+  "gripper": {
+    "kind": "xarm_gripper_g1",
+    "model_confirmed": true,
+    "firmware": "3.6.0",
+    "open_position": 850,
+    "closed_position": 0,
+    "speed": 5000
+  },
+  "contact_sensing": {
+    "gelsight_installed": false,
+    "wrist_ft_sensor_installed": false,
+    "available_signals": [
+      "joint_position",
+      "joint_velocity",
+      "joint_effort",
+      "motor_current",
+      "gripper_position"
+    ]
+  },
+  "cameras": {
+    "global": {
+      "model": "Intel RealSense D435",
+      "serial": "317222073552",
+      "intrinsics": "RobotCamCalib/RobotCamCalib/outputs/intrinsics_new.yaml",
+      "extrinsics": "RobotCamCalib/RobotCamCalib/outputs/extrinsics_thirdview.yaml"
+    },
+    "wrist": {
+      "model": "Intel RealSense D435",
+      "serial": "233622079809",
+      "intrinsics": "RobotCamCalib/RobotCamCalib/outputs/intrinsics_new.yaml",
+      "extrinsics": "RobotCamCalib/RobotCamCalib/outputs/extrinsics_wrist_new.yaml"
+    }
+  },
+  "sources": {
+    "method": "xarm_6",
+    "calibration": "RobotCamCalib/RobotCamCalib",
+    "legacy_control_reference": "dro_real-master"
+  }
+}

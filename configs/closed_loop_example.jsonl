@@ -1,0 +1,5 @@
+{"type":"encoder_detach_prior","time_s":0.520,"position_base_m":[0.20200,0.01465,0.38863],"velocity_base_m_s":[0.24735,0.01806,0.14642]}
+{"type":"global_camera_position","time_s":0.520,"position_base_m":[0.19004,0.01710,0.39576]}
+{"type":"global_camera_position","time_s":0.540,"position_base_m":[0.19521,0.01708,0.39724]}
+{"type":"global_camera_position","time_s":0.560,"position_base_m":[0.19593,0.01658,0.39537]}
+{"type":"global_camera_position","time_s":0.580,"position_base_m":[0.19429,0.01560,0.39036]}

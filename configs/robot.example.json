@@ -1,0 +1,41 @@
+{
+  "schema": "xarm6_toss_robot_config_v1",
+  "hardware_confirmed": false,
+  "robot": {
+    "ip": "192.168.1.XXX",
+    "dof": 6,
+    "joint_units": "radian",
+    "control_period_s": 0.02,
+    "joint_speed_rad_s": 0.15,
+    "joint_acceleration_rad_s2": 0.3,
+    "home_joint_rad": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  },
+  "gripper": {
+    "kind": "xarm_gripper_or_replace_me",
+    "open_position": null,
+    "closed_position": null,
+    "speed": null
+  },
+  "cameras": {
+    "global": {
+      "enabled": true,
+      "kind": "replace_me",
+      "serial": "replace_me",
+      "role": "flight_tracking_and_trial_video",
+      "base_extrinsic_calibrated": false
+    },
+    "wrist": {
+      "enabled": true,
+      "kind": "replace_me",
+      "serial": "replace_me",
+      "role": "grasp_pose_and_active_multiview",
+      "hand_extrinsic_calibrated": false
+    }
+  },
+  "experiment": {
+    "object_id": "cube_seen_01",
+    "catch_bin_confirmed": false,
+    "operator_estop_ready": false,
+    "streaming_servo_confirmed": false
+  }
+}

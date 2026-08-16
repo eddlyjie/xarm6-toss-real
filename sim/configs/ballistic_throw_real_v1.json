@@ -1,0 +1,43 @@
+{
+  "schema": "xarm6_g1_cube_sim_v1",
+  "name": "ballistic_throw_real_v1_time_scaled_1p2x",
+  "physics_dt_s": 0.005,
+  "control_period_s": 0.02,
+  "cube_physics": {
+    "hidden_from_policy": true,
+    "side_length_m_range": [0.035, 0.040],
+    "mass_kg_range": [0.020, 0.050],
+    "com_offset_m_range": [-0.002, 0.002],
+    "friction_range": [0.6, 1.2]
+  },
+  "reference_segments": [
+    {
+      "phase": "throw",
+      "duration_s": 0.50,
+      "start_joint_rad": [0.061075, -0.103783710, -1.121817371, 0.022688, 2.359877067, 0.331612],
+      "start_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "end_joint_rad": [0.061075, 0.317977938, -1.416652121, 0.022688, 2.931220523, 0.331612],
+      "end_joint_velocity_rad_s": [0.0, 0.479190304, -1.593756985, 0.0, 1.714928402, 0.0]
+    },
+    {
+      "phase": "followthrough",
+      "duration_s": 0.14,
+      "start_joint_rad": [0.061075, 0.317977938, -1.416652121, 0.022688, 2.931220523, 0.331612],
+      "start_joint_velocity_rad_s": [0.0, 0.479190304, -1.593756985, 0.0, 1.714928402, 0.0],
+      "end_joint_rad": [0.061075, 0.349923959, -1.522902586, 0.022688, 3.045549083, 0.331612],
+      "end_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    }
+  ],
+  "gripper_events": [
+    {
+      "time_s": 0.50,
+      "name": "release_partial_open",
+      "real_position": 520.0
+    }
+  ],
+  "notes": [
+    "1.2x time scaling of the measured real candidate, keeping qdd near 20 rad/s^2.",
+    "This is the transfer candidate; the 2x simulator backbone is not a real-robot command.",
+    "Use empty preview and the timing brackets before any cube trial."
+  ]
+}

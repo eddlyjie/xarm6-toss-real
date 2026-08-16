@@ -1,0 +1,40 @@
+{
+  "schema": "real_cube_handoff_place_v1",
+  "joint_units": "radian",
+  "tcp_translation_units": "millimeter",
+  "handoff_joint_rad": [
+    0.061075,
+    -1.21475,
+    -0.300198,
+    0.022688,
+    1.439898,
+    0.331612
+  ],
+  "preplace_joint_rad": [
+    -0.089162,
+    0.346276,
+    -1.769666,
+    0.034285,
+    1.352634,
+    0.177245
+  ],
+  "preplace_tcp": [
+    590.3,
+    -44.3,
+    280.0,
+    -3.095668,
+    -0.063531,
+    -0.274113
+  ],
+  "place_tcp": [
+    590.3,
+    -44.3,
+    195.0,
+    -3.095668,
+    -0.063531,
+    -0.274113
+  ],
+  "tcp_speed_mm_s": 120.0,
+  "tcp_acceleration_mm_s2": 500.0,
+  "destination_source": "global camera yellow cube observation 20260815_190528"
+}

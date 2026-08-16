@@ -1,0 +1,14 @@
+{
+  "schema": "real_cube_pick_place_v1",
+  "joint_units": "radian",
+  "poses": {
+    "home": null,
+    "pregrasp": null,
+    "grasp": null,
+    "lift": null,
+    "preplace": null,
+    "place": null
+  },
+  "tcp_poses_at_recording": {}
+}
+

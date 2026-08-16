@@ -1,0 +1,85 @@
+{
+  "schema": "xarm6_real_handoff_v1",
+  "task": "fixed grasp, low-energy self toss, camera-updated self catch",
+  "versions": {
+    "isaac_sim": "6.0.1",
+    "isaac_lab": "6.1.16",
+    "python": "3.12"
+  },
+  "asset": "../sim/assets/xarm6_g1/xarm6_g1.usd/xarm6_g1/xarm6_g1.usda",
+  "source_config": "sim/configs/ballistic_throw_real_v1.json",
+  "control_period_s": 0.02,
+  "reference_sample_count": 33,
+  "reference_duration_s": 0.64,
+  "peak_joint_speed_rad_s": 1.7556268902399985,
+  "peak_joint_acceleration_rad_s2": 18.611467886285453,
+  "g1_real": {
+    "held_position": 370.0,
+    "partial_open_position": 520.0,
+    "partial_motion_s": 0.1,
+    "measured_detach_delay_s_range": [
+      0.025,
+      0.044
+    ],
+    "sim_drive_direction_is_not_a_real_command": true
+  },
+  "timing": {
+    "arm_tracking_delay_s": 0.09,
+    "catch_servo_start_s": 0.52,
+    "camera_control_end_s": 0.58,
+    "prediction_horizon_s": 0.05,
+    "catch_close_command_s": 0.58
+  },
+  "predicted_sim_state": {
+    "release_command_position_base_m": [
+      0.19706,
+      0.01429,
+      0.38416
+    ],
+    "release_command_velocity_base_m_s": [
+      0.24738,
+      0.018,
+      0.34241
+    ],
+    "rendered_camera_detach_threshold_s": 0.565,
+    "free_vertical_displacement_m": 0.00694
+  },
+  "model": "../sim/models/intercept_residual_real_v1.json",
+  "observation_schema": "../sim/models/intercept_residual_real_v1.json#feature_names",
+  "camera_calibration": "../configs/global_camera_real.json",
+  "wrist_camera_calibration": "../configs/wrist_camera_real.json",
+  "dry_run": "../scripts/20_closed_loop_dry_run.py",
+  "candidate_timelines": [
+    {
+      "name": "release_early",
+      "release_time_s": 0.48,
+      "predicted_real_detach_time_s": 0.515,
+      "close_time_s": 0.58,
+      "json": "timelines/release_early.json",
+      "csv": "timelines/release_early.csv"
+    },
+    {
+      "name": "nominal",
+      "release_time_s": 0.5,
+      "predicted_real_detach_time_s": 0.535,
+      "close_time_s": 0.58,
+      "json": "timelines/nominal.json",
+      "csv": "timelines/nominal.csv"
+    },
+    {
+      "name": "release_late",
+      "release_time_s": 0.52,
+      "predicted_real_detach_time_s": 0.555,
+      "close_time_s": 0.58,
+      "json": "timelines/release_late.json",
+      "csv": "timelines/release_late.csv"
+    }
+  ],
+  "evaluation": {
+    "summary": "evaluation_summary.json",
+    "perturbed_native_cohort": "../sim/outputs/native_cohort_v3/summary.json",
+    "failure_analysis": "../sim/outputs/native_cohort_v3/failure_analysis.json",
+    "real_candidate_3": "../sim/outputs/real_candidate_learned_3/summary.json"
+  },
+  "real_execution_status": "requires empty preview on the robot computer"
+}

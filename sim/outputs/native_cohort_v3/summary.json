@@ -1,0 +1,28 @@
+{
+  "schema": "xarm6_native_cohort_v3",
+  "trial_count_per_mode": 10,
+  "fixed": {
+    "completed_count": 10,
+    "missing_trials": [],
+    "success_count": 8,
+    "bilateral_success_count": 8,
+    "postdetach_camera_count": 10,
+    "postdetach_learned_count": 0,
+    "mean_intercept_error_before_m": 0.020895659446250648,
+    "mean_intercept_error_after_m": 0.020895659446250648
+  },
+  "learned": {
+    "completed_count": 10,
+    "missing_trials": [],
+    "success_count": 8,
+    "bilateral_success_count": 8,
+    "postdetach_camera_count": 10,
+    "postdetach_learned_count": 10,
+    "mean_intercept_error_before_m": 0.020132093771826474,
+    "mean_intercept_error_after_m": 0.01751124463044107
+  },
+  "comparison": {
+    "learned_minus_fixed_successes": 0,
+    "learned_intercept_error_reduction_fraction": 0.16196736094954164
+  }
+}

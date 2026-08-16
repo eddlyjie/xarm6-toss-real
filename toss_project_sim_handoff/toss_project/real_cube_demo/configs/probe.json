@@ -1,0 +1,32 @@
+{
+  "schema": "real_cube_joint_probe_v1",
+  "joint_units": "radian",
+  "control_period_s": 0.02,
+  "settle_s": 0.8,
+  "recover_s": 0.8,
+  "center_joint_rad": [
+    0.061075,
+    -1.21475,
+    -0.300198,
+    0.022688,
+    1.439898,
+    0.331612
+  ],
+  "motions": [
+    {
+      "name": "wrist_joint_4_tilt",
+      "joint_index": 4,
+      "amplitude_rad": 0.04,
+      "frequency_hz": 0.5,
+      "duration_s": 4.0
+    },
+    {
+      "name": "wrist_joint_5_tilt",
+      "joint_index": 5,
+      "amplitude_rad": 0.04,
+      "frequency_hz": 0.5,
+      "duration_s": 4.0
+    }
+  ]
+}
+

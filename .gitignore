@@ -1,0 +1,49 @@
+# Python/editor caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.vscode/
+.idea/
+.DS_Store
+
+# Local environments and run logs
+.venv/
+venv/
+.env
+*.log
+
+# Incoming/export archives are not source
+*.tar
+*.tar.gz
+*.zip
+
+# Keep only the compact evidence referenced by real_handoff/manifest.json.
+sim/outputs/*
+!sim/outputs/closed_loop_dry_run_real_v1.json
+!sim/outputs/real_candidate_learned_3/
+sim/outputs/real_candidate_learned_3/*
+!sim/outputs/real_candidate_learned_3/summary.json
+!sim/outputs/real_candidate_learned_3/trial_01.mp4
+!sim/outputs/real_candidate_learned_3/trial_02.mp4
+!sim/outputs/real_candidate_learned_3/trial_03.mp4
+!sim/outputs/real_candidate_learned_3/verification_montage.jpg
+!sim/outputs/native_cohort_v3/
+sim/outputs/native_cohort_v3/*
+!sim/outputs/native_cohort_v3/summary.json
+!sim/outputs/native_cohort_v3/failure_analysis.json
+
+# The received archive contains a duplicate project and raw calibration work.
+# Retain only the real-robot integration code used by the current handoff.
+toss_project_sim_handoff/*
+!toss_project_sim_handoff/toss_project/
+toss_project_sim_handoff/toss_project/*
+!toss_project_sim_handoff/toss_project/real_cube_demo/
+!toss_project_sim_handoff/toss_project/real_cube_demo/**
+
+# Re-apply generated-file exclusions after the recursive handoff exception.
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/*.log

@@ -1,0 +1,15 @@
+{
+  "schema": "xarm6_real_candidate_learned_3_v1",
+  "trial_count": 3,
+  "success_count": 3,
+  "all_bilateral": true,
+  "all_postdetach_camera": true,
+  "all_postdetach_learned": true,
+  "mean_intercept_error_before_m": 0.020838592667132616,
+  "mean_intercept_error_after_m": 0.019396720454096794,
+  "video_paths": [
+    "/home/ubuntu/toss_project/xarm_6/sim/outputs/real_candidate_learned_3/trial_01.mp4",
+    "/home/ubuntu/toss_project/xarm_6/sim/outputs/real_candidate_learned_3/trial_02.mp4",
+    "/home/ubuntu/toss_project/xarm_6/sim/outputs/real_candidate_learned_3/trial_03.mp4"
+  ]
+}

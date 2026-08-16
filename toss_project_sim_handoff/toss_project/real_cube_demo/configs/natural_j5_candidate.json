@@ -1,0 +1,67 @@
+{
+  "schema": "real_cube_natural_j5_candidate_v1",
+  "throw_execution_ready": false,
+  "empty_throw_execution_ready": false,
+  "inspection_speed_rad_s": 0.18,
+  "inspection_acceleration_rad_s2": 0.6,
+  "held_gripper_position": 370,
+  "handoff_joint_rad": [
+    0.061075,
+    -1.214749,
+    -0.300197,
+    0.022688,
+    1.439897,
+    0.331612
+  ],
+  "previous_start_joint_rad": [
+    0.061075,
+    -0.092996717,
+    -1.767186233,
+    0.022688,
+    1.588913031,
+    0.331612
+  ],
+  "start_joint_rad": [
+    0.061075,
+    -0.103783710,
+    -1.121817371,
+    0.022688,
+    2.359877067,
+    0.331612
+  ],
+  "release_joint_rad": [
+    0.061075,
+    0.317977938,
+    -1.416652121,
+    0.022688,
+    2.931220523,
+    0.331612
+  ],
+  "release_joint_velocity_rad_s": [
+    0.0,
+    0.399325253,
+    -1.328130821,
+    0.0,
+    1.429107002,
+    0.0
+  ],
+  "throw_duration_s": 0.60,
+  "followthrough_duration_s": 0.16,
+  "final_hold_duration_s": 0.20,
+  "active_joints": [2, 3, 5],
+  "fixed_joints": [1, 4, 6],
+  "predicted_release_twist": [
+    0.180000000,
+    0.002979099,
+    0.400000000,
+    -0.015797695,
+    0.499901020,
+    0.028872285
+  ],
+  "predicted_tool_z_elevation_deg": {
+    "start": -25.0,
+    "release": 15.0,
+    "followthrough": 17.2917
+  },
+  "candidate_source": "scripts/21_search_upward_ee_throw.py"
+}
