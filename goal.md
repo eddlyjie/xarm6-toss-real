@@ -8,7 +8,7 @@
 固定抓取小 cube
 → 轻量 Active Probe
 → 估计 detach / flight belief
-→ 释放后 third-view RGB-D 更新弹道
+→ 释放后 third-view / wrist RGB-D 依可见性接力更新弹道
 → 用 J 评分并选择可达 catch candidate
 → bounded learned residual 修正 catch target
 → 同一夹爪重新接住并稳定保持
@@ -24,9 +24,14 @@ probe、camera observation、J 和 learned correction 必须真实进入控制�
 
 - xArm 实际 q、dq、joint effort/current 和 controller timestamp；
 - G1 commanded/actual position；
-- wrist D435：抓取前定位、抓取后 probe 期间的 hand-object observation；
-- third-view D435：release 后 cube RGB-D center 和 timestamp；
+- wrist D435：抓取/probe observation，以及 release 后随 EE 运动获得的 cube RGB-D
+  center、depth、confidence 和 timestamp，尤其是 catch 前的 terminal observation；
+- third-view D435：cube 落在其实际 FOV 内时的 RGB-D center、depth、confidence 和
+  timestamp；不能假设它是覆盖整个抛接空间的全局相机；
 - 已提供的相机内参、外参和 xArm/G1 URDF。
+
+两台 policy camera 按时间戳异步接力；无需同时看到 cube，也不指定 third-view 永远是
+主相机。estimator 必须消费当前真正可见且通过 gating 的 observation。
 
 不得使用 cube 真值 pose、真值 velocity、质量、摩擦、接触标签或 simulator-only state
 作为 policy 输入。Isaac 中 cube pose/velocity 只允许 episode 初始化写一次。
@@ -69,9 +74,18 @@ probe、camera observation、J 和 learned correction 必须真实进入控制�
   `t=[0.0695039316,0.0385871165,0.0248719289]`；
 - raw calibration YAML 的 frame semantics 是权威定义。third-view 固定在 base frame，
   wrist camera 附着 `link_eef` 并每帧重算 pose；必须写 conversion test 后才能进入
-  Isaac/控制代码。两台 policy camera 不要求同时看到 cube：wrist 服务抓取/probe，
-  third-view 服务 release 后 flight tracking；另设正常全局 spectator camera，仅用于
-  验收，绝不进入 policy observation；
+  Isaac/控制代码，不能把 co-moving wrist image 中的 pixel motion 直接当作 cube velocity；
+- 两台 policy camera 不要求同时看到 cube：third-view 在实际可见时提供固定视角的
+  中段 flight observation；wrist 除抓取/probe 外，还必须用于 release 后和 catch 前的
+  terminal tracking。estimator 应支持 third→wrist、wrist-only 和短暂全丢失后的 belief
+  propagation，而不是绑定固定 camera order；
+- 每个 wrist detection 必须使用该图像 `camera_timestamp_s` 对齐/插值得到的 q 做 FK，
+  再由 `T_base_eef(q) @ X_CammountCam` 变换到 base frame；不得使用处理完成时的最新 q；
+- 真机 motion recorder 请求 640×480@60 Hz，并保存 `camera_timestamp_s`、
+  `host_received_s` 和 frame number。仿真使用真机 dry-run 测得的实际 rate、clock offset、
+  receive/processing latency 和 dropped-frame pattern；
+- 另设正常全局 spectator camera，仅用于人工验收和论文视频，绝不进入 policy
+  observation；
 - camera timestamps、实际可见 ROI、measurement noise 和 dropout 必须进入仿真；不能
   用理想真值相机代替标定后的成像几何。
 
@@ -94,12 +108,18 @@ catch 门槛，必须提交定量 infeasibility evidence，等待真机操作者
 2. Probe：执行一个短、小幅、可回到中心的安全 excitation；由 q/dq/effort/current、
    gripper position 和 wrist RGB-D 得到低维 posterior。posterior 至少影响 detach
    uncertainty、release timing 或 J，不能是装饰模块。
+   对规则 cube，不要求 Probe 稳定辨识质量、惯量或摩擦；它只需确认 held/slip 状态并收紧
+   detach timing / grasp offset uncertainty。Probe 不能比一次短小 wrist excitation 更复杂，
+   也不能成为先完成 camera ballistic catch 的阻塞项。
 3. Detach prior：用实际 q/dq、FK/Jacobian、固定 T_hand_object 和实测 G1 delay 得到
    release position/velocity belief。
-4. Flight tracking：third-view 60 Hz RGB-D 在 base frame 下做 gravity-constrained fit，
-   覆盖 encoder prior 的 tracking、gripper delay 和滑移误差。
+4. Flight tracking：对 third-view 和 time-aligned wrist RGB-D 做 visibility-gated、
+   asynchronous fusion，在 base frame 下做 gravity-constrained fit；没有 observation 时
+   propagate belief，有任一相机重新看见 cube 时更新，而不是依赖理想连续 tracking。
 5. Catch candidates/J：在多个时间/位置候选中，用 catch probability、相对速度、
-   uncertainty、IK/reachability 和 collision margin 计算 J，选择真实可执行的 candidate。
+   uncertainty、IK/reachability、collision margin 和 predicted wrist-FOV visibility 计算 J，
+   优先选择既可达、又能在 catch 前给 wrist camera 留出 terminal observation window 的
+   candidate。
 6. Learning：训练一个小型 residual，只修正 detach/intercept 或 J；输入必须是上述
    deployable observation，输出必须 bounded。不要做端到端 RGB/RL。
 7. Catch：corrected candidate 进入 IK/Jacobian 和真实 joint target；G1 在 deadline
@@ -116,8 +136,15 @@ catch 门槛，必须提交定量 infeasibility evidence，等待真机操作者
 - physical detach 到首次重新接触至少 0.10 s；
 - cube 与 gripper 的最大分离至少一个 cube 边长（约 38 mm）；
 - spectator video 中至少连续 6 个 60 Hz frame 清楚看到自由飞行；
-- third-view 在 detach 后至少提供 3 个有效 observation，并真实改变 catch command；
-- wrist camera 至少清楚看到抓取或 probe 阶段的 cube；
+- detach 后两台 policy camera 合计至少提供 3 个有效 RGB-D observation，并真实改变
+  catch command；不要求这些 observation 来自 third-view；
+- wrist camera 除清楚看到抓取/probe 外，还须在首次重新接触前最后 0.10 s 内提供至少
+  2 个有效 cube observation，其中至少一个真实改变 terminal decision；
+- wrist terminal observation 若剩余时间大于已辨识 arm tracking delay，可触发 bounded
+  intercept correction；若已经来不及改变 arm target，则必须改变 G1 close deadline、
+  catch confidence 或 reject decision，不能只记录；
+- third-view 不保证覆盖整个抛接轨迹，但其每帧真实 visibility 必须记录；看见时必须被
+  estimator 使用，看不见时不得以 simulator truth 补观测；
 - spectator camera 能在同一画面完整看到机器人、cube、release、flight、catch 和 hold；
 - spectator camera 绝不进入 policy observation，只用于人工验收和论文视频；
 - catch 必须 bilateral contact，并稳定保持至少 0.5 s；
