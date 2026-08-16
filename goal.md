@@ -31,6 +31,63 @@ probe、camera observation、J 和 learned correction 必须真实进入控制�
 不得使用 cube 真值 pose、真值 velocity、质量、摩擦、接触标签或 simulator-only state
 作为 policy 输入。Isaac 中 cube pose/velocity 只允许 episode 初始化写一次。
 
+## 真机反馈是仿真硬约束
+
+以下原始真机文件是权威输入，不能把数值另抄一份后脱离源文件使用：
+
+- `toss_project_sim_handoff/toss_project/real_cube_demo/configs/hardware.json`；
+- `toss_project_sim_handoff/toss_project/RobotCamCalib/RobotCamCalib/outputs/intrinsics_new.yaml`；
+- `toss_project_sim_handoff/toss_project/RobotCamCalib/RobotCamCalib/outputs/extrinsics_thirdview.yaml`；
+- `toss_project_sim_handoff/toss_project/RobotCamCalib/RobotCamCalib/outputs/extrinsics_wrist_new.yaml`；
+- `toss_project_sim_handoff/toss_project/real_cube_demo/` 中的实机时序和接口实现。
+
+仿真、搜索、训练和 handoff 必须共同遵守：
+
+- xArm6 command period 为 0.02 s；当前真机 transfer cap 为 joint speed 0.45 rad/s、
+  joint acceleration 1.5 rad/s²。URDF 的 3.14 rad/s velocity limit 只是机械/模型上限，
+  不是允许仿真超过当前真机配置的依据；
+- URDF joint bounds：J1 [-3.14, 3.14]、J2 [-1.92, 2.0944]、
+  J3 [-3.927, 0.19198]、J4 [-3.14, 3.14]、J5 [-1.69297, pi]、J6 [-pi, pi]；
+- arm tracking delay nominal 为约 0.09 s，必须进入 command/measurement 对齐和
+  trajectory execution model，并在空载执行中重新辨识；
+- G1 held/partial-open/close/full-open 分别为 370/520/370/850，speed 5000，命令是
+  nonblocking；detach delay 必须在实测 0.025–0.044 s 内采样，而不是瞬时释放；
+- cube 边长约 38 mm、轻量低填充 3D print；得到实测质量前，仿真质量覆盖 20–50 g，
+  质量不得作为 policy observation；
+- third-view D435 serial `317222073552`，wrist D435 serial `233622079809`，分辨率
+  640×480；两者使用 raw intrinsic K：fx 597.4084346880913、fy 595.7611918577373、
+  cx 316.83407708591676、cy 242.68429790012132；
+- third-view raw `X_CammountCam` 为
+  `R=[[-0.0150689073,-0.5894024786,-0.8076989824],`
+  `[-0.9997740237,-0.0032319837,0.0210108489],`
+  `[-0.0149943164,0.8078330722,-0.5892205852]],`
+  `t=[1.0069862113,0.0003598100,0.6473656984]`；
+- wrist raw `X_CammountCam` 为
+  `R=[[0.0146068394,0.9994237319,-0.0306405670],`
+  `[-0.9998694352,0.0143878488,-0.0073554334],`
+  `[-0.0069103429,0.0307440061,0.9995034033]],`
+  `t=[0.0695039316,0.0385871165,0.0248719289]`；
+- raw calibration YAML 的 frame semantics 是权威定义。third-view 固定在 base frame，
+  wrist camera 附着 `link_eef` 并每帧重算 pose；必须写 conversion test 后才能进入
+  Isaac/控制代码。两台 policy camera 不要求同时看到 cube：wrist 服务抓取/probe，
+  third-view 服务 release 后 flight tracking；另设正常全局 spectator camera，仅用于
+  验收，绝不进入 policy observation；
+- camera timestamps、实际可见 ROI、measurement noise 和 dropout 必须进入仿真；不能
+  用理想真值相机代替标定后的成像几何。
+
+这些约束必须进入 executable config 和 simulator，而不只是文档。每个可交付候选必须
+输出 `real_constraints_report.json`，至少记录实际 max |qdot|、max |qddot|、全部 joint
+margin、TCP 水平半径与 outward dot、所用 arm/G1 delay 分布、两台 policy camera 的
+逐帧 cube visibility 和有效 timestamp 数量。任何一项越界都不是可移交结果。
+
+`real_cube_demo/configs/natural_j5_candidate.json` 只能作为失败反例，禁止复用其中的
+轨迹或姿态：它明确 `throw_execution_ready=false`，旧 release TCP 水平半径约 0.20 m，
+tool axis 朝向 base 内侧。
+
+如果 0.45 rad/s / 1.5 rad/s² 的当前 transfer cap 下无法同时达到可见 free flight 和
+catch 门槛，必须提交定量 infeasibility evidence，等待真机操作者明确批准新的实机上限；
+不得为得到好看的仿真结果静默提高限制。
+
 ## 最小方法
 
 1. 固定抓取：先用已知 cube pose 和示教/硬编码抓取点，不把抓取学习作为阻塞项。
