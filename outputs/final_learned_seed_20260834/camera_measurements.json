@@ -1,0 +1,940 @@
+[
+  {
+    "source_camera": "third_view",
+    "detected": 1.0,
+    "u_px": 323.54547119140625,
+    "v_px": 478.0,
+    "depth_surface_m": 0.49346956610679626,
+    "pixel_count": 22.0,
+    "expected_u_px": 332.2901306152344,
+    "expected_v_px": 511.65081787109375,
+    "time_s": 0.7000000000000007,
+    "capture_time_s": 0.6666666666666666,
+    "receive_latency_s": 0.0333333333333341,
+    "position_error_m": 0.03853820264339447,
+    "prediction_age_s": 0.0,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.46461695830027244,
+      0.007882631378015502,
+      0.5465824361960102
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      0.9121688008308411
+    ],
+    "state_source": "third_view_encoder_velocity"
+  },
+  {
+    "source_camera": "wrist",
+    "detected": 0.0,
+    "rgb_max": 246.0,
+    "red_max": 246.0,
+    "green_max": 246.0,
+    "blue_min": 27.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 3.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 501.9924011230469,
+    "expected_v_px": -836.129150390625,
+    "time_s": 0.7000000000000007,
+    "capture_time_s": 0.6749999999999999,
+    "receive_latency_s": 0.0250000000000008,
+    "position_error_m": 0.03853820264339447,
+    "prediction_age_s": 0.0,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.46461695830027244,
+      0.007882631378015502,
+      0.5465824361960102
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      0.9121688008308411
+    ],
+    "state_source": "third_view_encoder_velocity",
+    "residual_feature": [
+      0.010000000000000786,
+      1.0,
+      0.0,
+      -0.036270201206207275,
+      0.007547242566943169,
+      0.003242194652557373,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "residual_action_m": [
+      0.007858718497133307,
+      0.0007076945170267598,
+      0.0013189814454286617
+    ],
+    "residual_action_norm_m": 0.008,
+    "intercept_residual_target_m": [
+      0.06123831868171692,
+      0.004913416691124439,
+      0.011834979057312012
+    ],
+    "intercept_error_before_residual_m": 0.06256468594074249,
+    "intercept_error_after_residual_m": 0.05456789582967758,
+    "camera_servo_ready": true
+  },
+  {
+    "source_camera": "third_view",
+    "detected": 0.0,
+    "rgb_max": 244.0,
+    "red_max": 244.0,
+    "green_max": 244.0,
+    "blue_min": 120.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 24.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 332.2563781738281,
+    "expected_v_px": 535.5030517578125,
+    "time_s": 0.7200000000000008,
+    "capture_time_s": 0.7,
+    "receive_latency_s": 0.020000000000000795,
+    "position_error_m": 0.041487038135528564,
+    "prediction_age_s": 0.05333333333333412,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4599020663897195,
+      0.007867717174813152,
+      0.562863812212627
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      0.7159688008308408
+    ],
+    "state_source": "camera_ballistic_prediction"
+  },
+  {
+    "source_camera": "wrist",
+    "detected": 0.0,
+    "failure": "modeled_transport_dropout",
+    "time_s": 0.7200000000000008,
+    "capture_time_s": 0.6916666666666667,
+    "receive_latency_s": 0.0283333333333341,
+    "position_error_m": 0.041487038135528564,
+    "prediction_age_s": 0.05333333333333412,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4599020663897195,
+      0.007867717174813152,
+      0.562863812212627
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      0.7159688008308408
+    ],
+    "state_source": "camera_ballistic_prediction",
+    "residual_feature": [
+      0.030000000000000804,
+      1.0,
+      0.0,
+      -0.03627017140388489,
+      0.007547242566943169,
+      0.003242194652557373,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "residual_action_m": [
+      0.007807697275364274,
+      0.0009083183565785058,
+      0.0014882274756809967
+    ],
+    "residual_action_norm_m": 0.008,
+    "intercept_residual_target_m": [
+      0.06123816967010498,
+      0.0049134171567857265,
+      0.011344492435455322
+    ],
+    "intercept_error_before_residual_m": 0.06247361749410629,
+    "intercept_error_after_residual_m": 0.05447937175631523,
+    "camera_servo_ready": true
+  },
+  {
+    "source_camera": "third_view",
+    "detected": 0.0,
+    "rgb_max": 244.0,
+    "red_max": 244.0,
+    "green_max": 244.0,
+    "blue_min": 116.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 27.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 332.2341613769531,
+    "expected_v_px": 554.2476806640625,
+    "time_s": 0.7400000000000008,
+    "capture_time_s": 0.7166666666666667,
+    "receive_latency_s": 0.023333333333334094,
+    "position_error_m": 0.04461909085512161,
+    "prediction_age_s": 0.07333333333333414,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.45518717447916646,
+      0.0078528029716108,
+      0.575221188229244
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      0.5197688008308406
+    ],
+    "state_source": "camera_ballistic_prediction"
+  },
+  {
+    "source_camera": "wrist",
+    "detected": 0.0,
+    "failure": "modeled_transport_dropout",
+    "time_s": 0.7400000000000008,
+    "capture_time_s": 0.7083333333333333,
+    "receive_latency_s": 0.03166666666666751,
+    "position_error_m": 0.04461909085512161,
+    "prediction_age_s": 0.07333333333333414,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.45518717447916646,
+      0.0078528029716108,
+      0.575221188229244
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      0.5197688008308406
+    ],
+    "state_source": "camera_ballistic_prediction",
+    "residual_feature": [
+      0.05000000000000082,
+      1.0,
+      0.0,
+      -0.036270201206207275,
+      0.007547242566943169,
+      0.003242194652557373,
+      0.0,
+      0.0,
+      -5.960464477539063e-08
+    ],
+    "residual_action_m": [
+      0.007867720288217134,
+      0.0007955385266471744,
+      0.0012108244790210233
+    ],
+    "residual_action_norm_m": 0.007999999999999998,
+    "intercept_residual_target_m": [
+      0.06123816967010498,
+      0.004913416691124439,
+      0.010854125022888184
+    ],
+    "intercept_error_before_residual_m": 0.06238643452525139,
+    "intercept_error_after_residual_m": 0.05439075827598572,
+    "camera_servo_ready": true
+  },
+  {
+    "source_camera": "third_view",
+    "detected": 0.0,
+    "rgb_max": 244.0,
+    "red_max": 244.0,
+    "green_max": 244.0,
+    "blue_min": 157.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 25.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 332.2240905761719,
+    "expected_v_px": 567.4866943359375,
+    "time_s": 0.7600000000000008,
+    "capture_time_s": 0.7333333333333333,
+    "receive_latency_s": 0.026666666666667505,
+    "position_error_m": 0.047898393124341965,
+    "prediction_age_s": 0.09333333333333416,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4504722825686135,
+      0.007837888768408447,
+      0.5836545642458607
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      0.3235688008308405
+    ],
+    "state_source": "camera_ballistic_prediction"
+  },
+  {
+    "source_camera": "wrist",
+    "detected": 0.0,
+    "rgb_max": 245.0,
+    "red_max": 245.0,
+    "green_max": 245.0,
+    "blue_min": 63.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 8.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 382.00665283203125,
+    "expected_v_px": -891.3448486328125,
+    "time_s": 0.7600000000000008,
+    "capture_time_s": 0.725,
+    "receive_latency_s": 0.03500000000000081,
+    "position_error_m": 0.047898393124341965,
+    "prediction_age_s": 0.09333333333333416,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4504722825686135,
+      0.007837888768408447,
+      0.5836545642458607
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      0.3235688008308405
+    ],
+    "state_source": "camera_ballistic_prediction",
+    "residual_feature": [
+      0.07000000000000084,
+      1.0,
+      0.0,
+      -0.03627017140388489,
+      0.007547242566943169,
+      0.003242194652557373,
+      0.0,
+      0.0,
+      2.9802322387695312e-08
+    ],
+    "residual_action_m": [
+      0.007607527287858291,
+      0.001436223284328181,
+      0.002015636684039323
+    ],
+    "residual_action_norm_m": 0.007999999999999998,
+    "intercept_residual_target_m": [
+      0.06123813986778259,
+      0.004913415759801865,
+      0.010363578796386719
+    ],
+    "intercept_error_before_residual_m": 0.062302932143211365,
+    "intercept_error_after_residual_m": 0.05438769981265068,
+    "camera_servo_ready": true
+  },
+  {
+    "source_camera": "third_view",
+    "detected": 0.0,
+    "rgb_max": 244.0,
+    "red_max": 243.0,
+    "green_max": 244.0,
+    "blue_min": 165.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 20.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 332.2264404296875,
+    "expected_v_px": 574.9793701171875,
+    "time_s": 0.7800000000000008,
+    "capture_time_s": 0.75,
+    "receive_latency_s": 0.030000000000000804,
+    "position_error_m": 0.051296722143888474,
+    "prediction_age_s": 0.11333333333333417,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4457573906580605,
+      0.007822974565206095,
+      0.5881639402624776
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      0.12736880083084023
+    ],
+    "state_source": "camera_ballistic_prediction"
+  },
+  {
+    "source_camera": "wrist",
+    "detected": 0.0,
+    "rgb_max": 245.0,
+    "red_max": 245.0,
+    "green_max": 245.0,
+    "blue_min": 56.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 5.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 378.1437072753906,
+    "expected_v_px": -876.7198486328125,
+    "time_s": 0.7800000000000008,
+    "capture_time_s": 0.7583333333333333,
+    "receive_latency_s": 0.0216666666666675,
+    "position_error_m": 0.051296722143888474,
+    "prediction_age_s": 0.11333333333333417,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4457573906580605,
+      0.007822974565206095,
+      0.5881639402624776
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      0.12736880083084023
+    ],
+    "state_source": "camera_ballistic_prediction",
+    "residual_feature": [
+      0.09000000000000086,
+      1.0,
+      0.0,
+      -0.036270201206207275,
+      0.007547242566943169,
+      0.0032421350479125977,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "residual_action_m": [
+      0.007611974191150133,
+      0.0014804351503372678,
+      0.001966255496854402
+    ],
+    "residual_action_norm_m": 0.008,
+    "intercept_residual_target_m": [
+      0.06123819947242737,
+      0.004913415759801865,
+      0.00987309217453003
+    ],
+    "intercept_error_before_residual_m": 0.06222328171133995,
+    "intercept_error_after_residual_m": 0.054314613342285156,
+    "camera_servo_ready": true
+  },
+  {
+    "source_camera": "third_view",
+    "detected": 0.0,
+    "rgb_max": 243.0,
+    "red_max": 243.0,
+    "green_max": 243.0,
+    "blue_min": 157.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 21.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 332.24102783203125,
+    "expected_v_px": 576.6566162109375,
+    "time_s": 0.8000000000000008,
+    "capture_time_s": 0.7666666666666667,
+    "receive_latency_s": 0.0333333333333341,
+    "position_error_m": 0.05479187145829201,
+    "prediction_age_s": 0.1333333333333342,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4410424987475075,
+      0.007808060362003743,
+      0.5887493162790943
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      -0.06883119916915992
+    ],
+    "state_source": "camera_ballistic_prediction"
+  },
+  {
+    "source_camera": "wrist",
+    "detected": 0.0,
+    "rgb_max": 245.0,
+    "red_max": 245.0,
+    "green_max": 245.0,
+    "blue_min": 49.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 5.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 407.119140625,
+    "expected_v_px": -848.2427978515625,
+    "time_s": 0.8000000000000008,
+    "capture_time_s": 0.775,
+    "receive_latency_s": 0.0250000000000008,
+    "position_error_m": 0.05479187145829201,
+    "prediction_age_s": 0.1333333333333342,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4410424987475075,
+      0.007808060362003743,
+      0.5887493162790943
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      -0.06883119916915992
+    ],
+    "state_source": "camera_ballistic_prediction",
+    "residual_feature": [
+      0.11000000000000087,
+      1.0,
+      0.0,
+      -0.03627017140388489,
+      0.007547242566943169,
+      0.0032421350479125977,
+      0.0,
+      0.0,
+      6.705522537231445e-08
+    ],
+    "residual_action_m": [
+      0.007336097313085062,
+      0.001942878432538041,
+      0.0025311854158327983
+    ],
+    "residual_action_norm_m": 0.008,
+    "intercept_residual_target_m": [
+      0.06123819947242737,
+      0.00491341482847929,
+      0.00938260555267334
+    ],
+    "intercept_error_before_residual_m": 0.062147341668605804,
+    "intercept_error_after_residual_m": 0.054416920989751816,
+    "camera_servo_ready": true
+  },
+  {
+    "source_camera": "third_view",
+    "detected": 0.0,
+    "rgb_max": 244.0,
+    "red_max": 244.0,
+    "green_max": 244.0,
+    "blue_min": 129.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 16.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 332.2674255371094,
+    "expected_v_px": 572.6221923828125,
+    "time_s": 0.8200000000000008,
+    "capture_time_s": 0.8,
+    "receive_latency_s": 0.020000000000000795,
+    "position_error_m": 0.05811532959342003,
+    "prediction_age_s": 0.1533333333333342,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.43632760683695454,
+      0.007793146158801391,
+      0.5854106922957112
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      -0.26503119916916007
+    ],
+    "state_source": "camera_ballistic_prediction"
+  },
+  {
+    "source_camera": "wrist",
+    "detected": 0.0,
+    "rgb_max": 245.0,
+    "red_max": 245.0,
+    "green_max": 245.0,
+    "blue_min": 38.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 4.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 478.71246337890625,
+    "expected_v_px": -807.963134765625,
+    "time_s": 0.8200000000000008,
+    "capture_time_s": 0.7916666666666666,
+    "receive_latency_s": 0.02833333333333421,
+    "position_error_m": 0.05811532959342003,
+    "prediction_age_s": 0.1533333333333342,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.43632760683695454,
+      0.007793146158801391,
+      0.5854106922957112
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      -0.26503119916916007
+    ],
+    "state_source": "camera_ballistic_prediction",
+    "residual_feature": [
+      0.1300000000000009,
+      1.0,
+      0.0,
+      -0.036270201206207275,
+      0.007547242566943169,
+      0.003242194652557373,
+      0.0,
+      0.0,
+      8.940696716308594e-08
+    ],
+    "residual_action_m": [
+      0.00717453389605019,
+      0.0021860115435621626,
+      0.0027834182053439005
+    ],
+    "residual_action_norm_m": 0.008,
+    "intercept_residual_target_m": [
+      0.05837741494178772,
+      0.01752210408449173,
+      0.01730257272720337
+    ],
+    "intercept_error_before_residual_m": 0.06335870921611786,
+    "intercept_error_after_residual_m": 0.055387165397405624,
+    "camera_servo_ready": true
+  },
+  {
+    "source_camera": "third_view",
+    "detected": 0.0,
+    "rgb_max": 243.0,
+    "red_max": 243.0,
+    "green_max": 243.0,
+    "blue_min": 131.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 10.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 332.3047790527344,
+    "expected_v_px": 563.1415405273438,
+    "time_s": 0.8400000000000009,
+    "capture_time_s": 0.8166666666666667,
+    "receive_latency_s": 0.023333333333334205,
+    "position_error_m": 0.06500889360904694,
+    "prediction_age_s": 0.17333333333333423,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4316127149264016,
+      0.007778231955599039,
+      0.578148068312328
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      -0.4612311991691602
+    ],
+    "state_source": "camera_ballistic_prediction"
+  },
+  {
+    "source_camera": "wrist",
+    "detected": 0.0,
+    "rgb_max": 245.0,
+    "red_max": 245.0,
+    "green_max": 245.0,
+    "blue_min": 32.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 4.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 592.018798828125,
+    "expected_v_px": -744.5942993164062,
+    "time_s": 0.8400000000000009,
+    "capture_time_s": 0.8083333333333333,
+    "receive_latency_s": 0.03166666666666751,
+    "position_error_m": 0.06500889360904694,
+    "prediction_age_s": 0.17333333333333423,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4316127149264016,
+      0.007778231955599039,
+      0.578148068312328
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      -0.4612311991691602
+    ],
+    "state_source": "camera_ballistic_prediction",
+    "residual_feature": [
+      0.1500000000000009,
+      1.0,
+      0.0,
+      -0.036270201206207275,
+      0.007547242566943169,
+      0.003242194652557373,
+      0.0,
+      0.0,
+      8.940696716308594e-08
+    ],
+    "residual_action_m": [
+      0.007080588961911362,
+      0.002335125023213291,
+      0.0029004225689409644
+    ],
+    "residual_action_norm_m": 0.007999999999999998,
+    "intercept_residual_target_m": [
+      0.059227973222732544,
+      0.019385790452361107,
+      0.018503904342651367
+    ],
+    "intercept_error_before_residual_m": 0.06500889360904694,
+    "intercept_error_after_residual_m": 0.05703984573483467,
+    "camera_servo_ready": true
+  },
+  {
+    "source_camera": "third_view",
+    "detected": 0.0,
+    "rgb_max": 244.0,
+    "red_max": 244.0,
+    "green_max": 244.0,
+    "blue_min": 127.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 10.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 332.35205078125,
+    "expected_v_px": 548.6197509765625,
+    "time_s": 0.8600000000000009,
+    "capture_time_s": 0.8333333333333334,
+    "receive_latency_s": 0.026666666666667505,
+    "position_error_m": 0.0745353251695633,
+    "prediction_age_s": 0.19333333333333425,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.42689782301584855,
+      0.007763317752396687,
+      0.5669614443289448
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      -0.6574311991691604
+    ],
+    "state_source": "camera_ballistic_prediction"
+  },
+  {
+    "source_camera": "wrist",
+    "detected": 0.0,
+    "rgb_max": 245.0,
+    "red_max": 245.0,
+    "green_max": 245.0,
+    "blue_min": 28.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 4.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 736.015869140625,
+    "expected_v_px": -646.1874389648438,
+    "time_s": 0.8600000000000009,
+    "capture_time_s": 0.825,
+    "receive_latency_s": 0.03500000000000092,
+    "position_error_m": 0.0745353251695633,
+    "prediction_age_s": 0.19333333333333425,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.42689782301584855,
+      0.007763317752396687,
+      0.5669614443289448
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      -0.6574311991691604
+    ],
+    "state_source": "camera_ballistic_prediction",
+    "residual_feature": [
+      0.17000000000000093,
+      1.0,
+      0.0,
+      -0.036270201206207275,
+      0.007547242566943169,
+      0.003242194652557373,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "residual_action_m": [
+      0.0072764624615831225,
+      0.002161412314001776,
+      0.0025261414952557925
+    ],
+    "residual_action_norm_m": 0.008,
+    "intercept_residual_target_m": [
+      0.062046706676483154,
+      0.031060952693223953,
+      0.027220189571380615
+    ],
+    "intercept_error_before_residual_m": 0.0745353251695633,
+    "intercept_error_after_residual_m": 0.06666900962591171,
+    "camera_servo_ready": true
+  },
+  {
+    "source_camera": "third_view",
+    "detected": 0.0,
+    "rgb_max": 244.0,
+    "red_max": 244.0,
+    "green_max": 244.0,
+    "blue_min": 129.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 8.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 332.4079284667969,
+    "expected_v_px": 529.571044921875,
+    "time_s": 0.8800000000000009,
+    "capture_time_s": 0.85,
+    "receive_latency_s": 0.030000000000000915,
+    "position_error_m": 0.08691355586051941,
+    "prediction_age_s": 0.21333333333333426,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4221829311052956,
+      0.007748403549194335,
+      0.5518508203455615
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      -0.8536311991691607
+    ],
+    "state_source": "camera_ballistic_prediction"
+  },
+  {
+    "source_camera": "wrist",
+    "detected": 0.0,
+    "rgb_max": 246.0,
+    "red_max": 246.0,
+    "green_max": 245.0,
+    "blue_min": 40.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 4.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 888.0745849609375,
+    "expected_v_px": -511.841064453125,
+    "time_s": 0.8800000000000009,
+    "capture_time_s": 0.8583333333333333,
+    "receive_latency_s": 0.02166666666666761,
+    "position_error_m": 0.08691355586051941,
+    "prediction_age_s": 0.21333333333333426,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4221829311052956,
+      0.007748403549194335,
+      0.5518508203455615
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      -0.8536311991691607
+    ],
+    "state_source": "camera_ballistic_prediction",
+    "residual_feature": [
+      0.19000000000000095,
+      1.0,
+      0.0,
+      -0.036270201206207275,
+      0.007547242566943169,
+      0.0032421350479125977,
+      0.0,
+      0.0,
+      1.1920928955078125e-07
+    ],
+    "residual_action_m": [
+      0.006787541711600989,
+      0.0027042580907075614,
+      0.0032582611454761287
+    ],
+    "residual_action_norm_m": 0.008,
+    "intercept_residual_target_m": [
+      0.06546750664710999,
+      0.040766455233097076,
+      0.04007577896118164
+    ],
+    "intercept_error_before_residual_m": 0.08691355586051941,
+    "intercept_error_after_residual_m": 0.0790417417883873,
+    "camera_servo_ready": true
+  },
+  {
+    "source_camera": "third_view",
+    "detected": 0.0,
+    "rgb_max": 244.0,
+    "red_max": 244.0,
+    "green_max": 244.0,
+    "blue_min": 125.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 8.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 332.4710388183594,
+    "expected_v_px": 506.58551025390625,
+    "time_s": 0.9000000000000009,
+    "capture_time_s": 0.8666666666666667,
+    "receive_latency_s": 0.033333333333334214,
+    "position_error_m": 0.10296787321567535,
+    "prediction_age_s": 0.23333333333333428,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4174680391947426,
+      0.007733489345991983,
+      0.5328161963621783
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      -1.049831199169161
+    ],
+    "state_source": "camera_ballistic_prediction"
+  },
+  {
+    "source_camera": "wrist",
+    "detected": 0.0,
+    "rgb_max": 246.0,
+    "red_max": 246.0,
+    "green_max": 246.0,
+    "blue_min": 30.0,
+    "pixel_count": 0.0,
+    "max_yellow_score": 7.0,
+    "red_green_count": 0.0,
+    "expected_u_px": 1020.6338500976562,
+    "expected_v_px": -353.54083251953125,
+    "time_s": 0.9000000000000009,
+    "capture_time_s": 0.875,
+    "receive_latency_s": 0.02500000000000091,
+    "position_error_m": 0.10296787321567535,
+    "prediction_age_s": 0.23333333333333428,
+    "ballistic_camera_sample_count": 1.0,
+    "ballistic_fit_rms_m": null,
+    "estimated_position_base_m": [
+      0.4174680391947426,
+      0.007733489345991983,
+      0.5328161963621783
+    ],
+    "estimated_velocity_base_m_s": [
+      -0.23574459552764893,
+      -0.0007457101601175964,
+      -1.049831199169161
+    ],
+    "state_source": "camera_ballistic_prediction",
+    "residual_feature": [
+      0.21000000000000096,
+      1.0,
+      0.0,
+      -0.036270201206207275,
+      0.007547242566943169,
+      0.0032421350479125977,
+      0.0,
+      0.0,
+      2.384185791015625e-07
+    ],
+    "residual_action_m": [
+      0.006295142241591487,
+      0.003120857560251555,
+      0.0038251055209956235
+    ],
+    "residual_action_norm_m": 0.007999999999999998,
+    "intercept_residual_target_m": [
+      0.06913501024246216,
+      0.04695706069469452,
+      0.060147881507873535
+    ],
+    "intercept_error_before_residual_m": 0.10296787321567535,
+    "intercept_error_after_residual_m": 0.09509318321943283,
+    "camera_servo_ready": true
+  }
+]

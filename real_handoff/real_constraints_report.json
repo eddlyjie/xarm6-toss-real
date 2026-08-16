@@ -1,61 +1,102 @@
 {
-  "schema": "xarm6_real_constraints_report_v1",
-  "source_result": "outputs/final_handoff_nominal",
+  "schema": "xarm6_real_constraints_report_v2",
+  "source_result": "outputs/final_learned_seed_20260834",
   "success": {
     "detach_detected": true,
     "catch_stable": true,
     "bilateral_contact_fraction": 1.0,
-    "maximum_separation_m": 0.026257619163005952,
-    "free_vertical_displacement_m": 0.1054389476776123,
-    "detach_to_first_bilateral_contact_s": 0.08500000000000008
+    "continuous_free_flight_duration_s": 0.1100000000000001,
+    "free_flight_rise_from_kinematic_release_m": 0.06010401248931885,
+    "free_flight_apex_is_internal": false,
+    "precontact_vertical_velocity_m_s": 0.20752376317977905,
+    "obvious_free_flight": false,
+    "obvious_toss_success": false,
+    "maximum_separation_m": 0.011800694858747072,
+    "free_vertical_displacement_m": 0.06699085235595703,
+    "detach_to_first_bilateral_contact_s": 0.17500000000000016
   },
   "geometry": {
-    "release_hand_horizontal_radius_m": 0.4303709751575296,
-    "release_outward_dot_m": 0.42998740251253936,
-    "planned_tcp_horizontal_radius_m": 0.590000861,
-    "planned_tcp_outward_dot_m": 0.581038574
+    "release_hand_horizontal_radius_m": 0.39007751896852844,
+    "release_outward_dot_m": 0.36297046581814846,
+    "configured_gripper_base_position_m": [
+      0.383,
+      0.0,
+      0.508
+    ],
+    "baked_joint6_roll_rad": 0.177245
   },
   "limits": {
-    "commanded_max_joint_speed_rad_s": 0.44999998807907104,
-    "allowed_max_joint_speed_rad_s": 0.45,
-    "commanded_max_joint_acceleration_rad_s2": 1.5,
-    "allowed_max_joint_acceleration_rad_s2": 1.5,
+    "actual_max_joint_speed_rad_s": 1.545880913734436,
+    "actual_max_joint_acceleration_rad_s2": 86.65337562561028,
+    "commanded_max_joint_speed_rad_s": 1.750000238418579,
+    "commanded_max_joint_acceleration_rad_s2": 20.0,
+    "reference_max_joint_speed_rad_s": 1.7448344405333414,
+    "reference_max_joint_acceleration_rad_s2": 13.057392423703774,
+    "candidate_command_cap": {
+      "joint_speed_rad_s": 3.1,
+      "joint_acceleration_rad_s2": 20.0
+    },
+    "real_configured_transfer_cap": {
+      "joint_speed_rad_s": 0.45,
+      "joint_acceleration_rad_s2": 1.5
+    },
+    "candidate_exceeds_transfer_cap": true,
+    "operator_approval_required": true,
     "minimum_actual_joint_margin_rad": [
-      3.1236490098387004,
-      1.8968424797803163,
-      0.775765355091095,
-      3.1022736386954786,
-      0.6365254742813111,
-      2.371519584174347
+      3.0051569336652757,
+      1.755282728075981,
+      0.3992188529777527,
+      3.121945227831602,
+      0.18409915992736825,
+      2.963966641540718
     ]
   },
   "delays_s": {
-    "arm_tracking": 0.09,
+    "real_arm_tracking_measured": 0.09,
+    "sim_explicit_command_delay": 0.0,
+    "sim_measured_tracking_lag": 0.09,
     "g1_prior": 0.03,
-    "g1_measured_sim_detach": 0.03500000000000081,
+    "g1_measured_sim_detach": 0.0350000000000007,
     "real_measured_detach_range": [
       0.025,
       0.044
     ],
-    "camera_receive": 0.022
+    "camera_receive": 0.02
   },
   "policy": {
+    "flight_primary_camera": "third_view",
+    "wrist_terminal_required": false,
     "camera_counts": {
       "third_view": {
-        "frames_reported": 4,
-        "detections": 4,
-        "post_detach_detections": 3
+        "frames_reported": 11,
+        "detections": 1,
+        "post_detach_detections": 1
       },
       "wrist": {
-        "frames_reported": 4,
+        "frames_reported": 11,
         "detections": 0,
         "post_detach_detections": 0
       }
     },
-    "camera_updates_after_detach": 3,
-    "learned_updates_after_detach": 2,
-    "intercept_mean_error_before_m": 0.03275625128298998,
-    "intercept_mean_error_after_m": 0.027150959707796574,
+    "camera_updates_after_detach": 1,
+    "learned_updates_after_detach": 11,
+    "terminal_wrist_observation_count": 0,
+    "intercept_mean_error_before_m": 0.06971660459583456,
+    "intercept_mean_error_after_m": 0.06179892779751257,
+    "intercept_residual_fraction_improved": 1.0,
     "spectator_used_for_control": false
+  },
+  "probe": {
+    "required_before_cube_throw": true,
+    "source_config": "../toss_project_sim_handoff/toss_project/real_cube_demo/configs/probe.json",
+    "empty_run_script": "../toss_project_sim_handoff/toss_project/real_cube_demo/scripts/07_probe_cube.py",
+    "comparison_script": "../toss_project_sim_handoff/toss_project/real_cube_demo/scripts/08_compare_probe.py",
+    "required_outputs": [
+      "effective_payload_posterior",
+      "held_probability",
+      "slip_probability",
+      "detach_timing_uncertainty"
+    ],
+    "current_sim_evidence_consumes_real_probe_output": false
   }
 }

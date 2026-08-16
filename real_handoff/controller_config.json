@@ -1,12 +1,22 @@
 {
-  "schema": "xarm6_outward_camera_ballistic_controller_v1",
+  "schema": "xarm6_outward_camera_ballistic_controller_v2",
   "fixed_cube_side_m": 0.038,
   "nominal_cube_mass_kg": 0.035,
   "arm": {
     "control_period_s": 0.02,
-    "max_joint_speed_rad_s": 0.45,
-    "max_joint_acceleration_rad_s2": 1.5,
-    "tracking_delay_s": 0.09
+    "real_configured_transfer_cap": {
+      "joint_speed_rad_s": 0.45,
+      "joint_acceleration_rad_s2": 1.5
+    },
+    "candidate_command_cap": {
+      "joint_speed_rad_s": 3.1,
+      "joint_acceleration_rad_s2": 20.0
+    },
+    "reference_max_joint_speed_rad_s": 1.7448344405333414,
+    "reference_max_joint_acceleration_rad_s2": 13.057392423703774,
+    "candidate_exceeds_transfer_cap": true,
+    "operator_approval_required": true,
+    "measured_tracking_delay_s": 0.09
   },
   "g1_real_positions": {
     "held": 370.0,
@@ -15,28 +25,45 @@
     "firmware_speed": 5000
   },
   "timing_s": {
-    "release_command": 0.69,
+    "release_command": 0.655,
     "detach_prior": 0.03,
-    "catch_servo_start": 0.72,
-    "vision_control_end": 0.78,
-    "catch_close_command": 0.78,
-    "ballistic_intercept": 0.815
+    "catch_servo_start": 0.7,
+    "vision_control_end": 0.9,
+    "catch_close_command": 0.7,
+    "ballistic_intercept": 0.84
   },
   "catch_servo": {
-    "gain": 0.25,
-    "max_joint_step_rad": 0.005
+    "mode": "third_view_lateral_joint1",
+    "gain": 0.75,
+    "max_joint_step_rad": 0.035
   },
   "residual": {
-    "model": "../sim/models/intercept_residual_native_outward_v1.json",
-    "minimum_camera_samples": 3,
-    "action_norm_limit_m": 0.012
+    "model": "../sim/models/intercept_residual_vertical_third_view_v1.json",
+    "minimum_camera_samples": 1,
+    "action_norm_limit_m": 0.008
   },
   "camera": {
     "rate_hz": 60,
-    "receive_latency_s": 0.022,
+    "receive_latency_s": 0.02,
     "third_view_serial": "317222073552",
     "wrist_serial": "233622079809",
+    "flight_primary": "third_view",
+    "wrist_role": "grasp_probe_and_opportunistic_flight_updates",
     "missing_frames_propagate_ballistic_belief": true,
     "wrist_detection_required_for_catch": false
-  }
+  },
+  "probe_preflight": {
+    "required_before_cube_throw": true,
+    "source_config": "../toss_project_sim_handoff/toss_project/real_cube_demo/configs/probe.json",
+    "empty_run_script": "../toss_project_sim_handoff/toss_project/real_cube_demo/scripts/07_probe_cube.py",
+    "comparison_script": "../toss_project_sim_handoff/toss_project/real_cube_demo/scripts/08_compare_probe.py",
+    "required_outputs": [
+      "effective_payload_posterior",
+      "held_probability",
+      "slip_probability",
+      "detach_timing_uncertainty"
+    ],
+    "current_sim_evidence_consumes_real_probe_output": false
+  },
+  "spectator_used_for_control": false
 }

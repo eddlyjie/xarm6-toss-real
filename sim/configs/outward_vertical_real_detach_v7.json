@@ -5,6 +5,18 @@
   "control_period_s": 0.02,
   "arm_tracking_delay_s": 0.09,
   "execution_envelope": "obvious_toss_sim_requires_real_operator_approval",
+  "operator_approval_required_for_real_execution": true,
+  "real_transfer_cap": {
+    "joint_speed_rad_s": 0.45,
+    "joint_acceleration_rad_s2": 1.5
+  },
+  "sim_actuator_calibration": {
+    "explicit_command_delay_s": 0.0,
+    "effort_scale": 2.0,
+    "stiffness_scale": 2.5,
+    "measured_best_tracking_lag_s": 0.09,
+    "measured_tracking_rms_rad": 0.0181
+  },
   "limits": {
     "joint_speed_rad_s": 3.1,
     "joint_acceleration_rad_s2": 20.0
@@ -44,17 +56,15 @@
       "end_joint_acceleration_rad_s2": [0.0, 6.666666667, 12.500000000, 0.0, 8.333333333, 0.0]
     }
   ],
-  "gripper_events": [
-    {
-      "time_s": 0.655,
-      "name": "release_partial_open",
-      "real_position": 100.0
-    },
-    {
-      "time_s": 0.86,
-      "name": "catch_close",
-      "real_position": 560.0
-    }
+  "sim_gripper_events": [
+    {"time_s": 0.655, "name": "release_partial_open", "drive_rad": 0.30},
+    {"time_s": 0.700, "name": "stable_candidate_close", "drive_rad": 0.60},
+    {"time_s": 0.800, "name": "clear_flight_upgrade_close", "drive_rad": 0.60}
+  ],
+  "real_g1_events": [
+    {"time_s": 0.655, "name": "release_partial_open", "position": 520.0},
+    {"time_s": 0.700, "name": "stable_candidate_close", "position": 370.0},
+    {"time_s": 0.800, "name": "clear_flight_upgrade_close", "position": 370.0}
   ],
   "initial_pose_evidence": {
     "joint6_roll_is_baked_into_reference": true,
@@ -64,14 +74,31 @@
   },
   "validation": {
     "reference_max_joint_speed_rad_s": 1.745000,
-    "reference_max_joint_acceleration_rad_s2": 13.057000
+    "reference_max_joint_acceleration_rad_s2": 13.057000,
+    "stable_camera_candidate": {
+      "source_results": [
+        "outputs/final_learned_seed_20260834",
+        "outputs/final_learned_seed_20260835",
+        "outputs/final_learned_seed_20260836"
+      ],
+      "stable_catch_count": 3,
+      "trial_count": 3,
+      "strict_obvious_flight": false
+    },
+    "clear_flight_physics_candidate": {
+      "source_result": "outputs/v7_clear_flight_hold/final_physics",
+      "stable_catch": true,
+      "strict_obvious_flight": true,
+      "policy_camera_closed_loop": false
+    }
   },
   "notes": [
-    "The reversed-wrist geometry is intentional because it increases toss workspace and keeps the full flight visible to third_view.",
-    "The baked joint6 roll rotates the G1 opening plane away from the ballistic path without changing the outward tool axis.",
-    "The terminal joint velocity is Jacobian-shaped for a mostly vertical release at the measured lagged release pose.",
+    "The reversed-wrist geometry is intentional: it increases toss workspace and keeps the full flight visible to third_view.",
+    "J6=0.177245 rad is baked into the reference; do not add the previous 0.785398 rad offset again.",
+    "third_view is the flight/catch policy camera; wrist is grasp/probe plus opportunistic observations only.",
+    "The real arm has about 90 ms tracking lag. The calibrated simulator reproduces that lag naturally with zero extra command delay, effort scale 2.0 and stiffness scale 2.5.",
     "The G1 command-to-detach prior is 25-44 ms; simulation replays a 25 ms start delay and 35 ms aperture transition.",
-    "third_view is the flight-phase policy camera; wrist is only for grasp/probe and opportunistic observations.",
+    "Simulation drive radians and real G1 integer positions are different namespaces and must never be interchanged.",
     "This is a simulator search envelope, not a directly executable real-arm trajectory.",
     "Do not execute on the real arm until the operator approves the reported qdot/qdd envelope."
   ]

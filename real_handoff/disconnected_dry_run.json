@@ -3,7 +3,7 @@
   "robot_commands_sent": 0,
   "observation_count": 4,
   "post_release_update_count": 4,
-  "learned_update_count": 2,
+  "learned_update_count": 4,
   "source_camera_counts": {
     "third_view": 3,
     "wrist": 1
@@ -12,8 +12,8 @@
     {
       "source_camera": "third_view",
       "observation_time_s": 0.72,
-      "time_since_release_s": 0.030000000000000027,
-      "prediction_horizon_s": 0.09499999999999997,
+      "time_since_release_s": 0.06499999999999995,
+      "prediction_horizon_s": 0.12,
       "camera_sample_count": 1,
       "fit_rms_m": null,
       "estimated_position_base_m": [
@@ -27,27 +27,27 @@
         0.47833
       ],
       "nominal_intercept_base_m": [
-        0.5550343999999999,
-        0.0028759499999999978,
-        0.392443725
+        0.5567724,
+        0.005151199999999999,
+        0.3780376
       ],
       "learned_residual_m": [
-        0.0,
-        0.0,
-        0.0
+        0.0041439700866583,
+        -0.006170570511689125,
+        0.002958305508420965
       ],
-      "learned_residual_applied": false,
+      "learned_residual_applied": true,
       "corrected_intercept_base_m": [
-        0.5550343999999999,
-        0.0028759499999999978,
-        0.392443725
+        0.5609163700866583,
+        -0.0010193705116891263,
+        0.38099590550842094
       ]
     },
     {
       "source_camera": "third_view",
       "observation_time_s": 0.74,
-      "time_since_release_s": 0.050000000000000044,
-      "prediction_horizon_s": 0.07499999999999996,
+      "time_since_release_s": 0.08499999999999996,
+      "prediction_horizon_s": 0.09999999999999998,
       "camera_sample_count": 2,
       "fit_rms_m": 8.77731134552502e-17,
       "estimated_position_base_m": [
@@ -61,27 +61,27 @@
         0.10490000000000152
       ],
       "nominal_intercept_base_m": [
-        0.5609700000000002,
-        0.01436999999999998,
-        0.3756068750000001
+        0.5642700000000003,
+        0.01966999999999998,
+        0.3567700000000002
       ],
       "learned_residual_m": [
-        0.0,
-        0.0,
-        0.0
+        -0.0010010966055075288,
+        -0.004534474226571473,
+        -0.0065143187729032985
       ],
-      "learned_residual_applied": false,
+      "learned_residual_applied": true,
       "corrected_intercept_base_m": [
-        0.5609700000000002,
-        0.01436999999999998,
-        0.3756068750000001
+        0.5632689033944928,
+        0.015135525773428506,
+        0.3502556812270969
       ]
     },
     {
       "source_camera": "wrist",
       "observation_time_s": 0.76,
-      "time_since_release_s": 0.07000000000000006,
-      "prediction_horizon_s": 0.05499999999999994,
+      "time_since_release_s": 0.10499999999999998,
+      "prediction_horizon_s": 0.07999999999999996,
       "camera_sample_count": 3,
       "fit_rms_m": 0.0004806139591998652,
       "estimated_position_base_m": [
@@ -95,27 +95,27 @@
         -0.05244999999999898
       ],
       "nominal_intercept_base_m": [
-        0.5604620833333334,
-        0.01724083333333331,
-        0.3790386250000003
+        0.5636183333333333,
+        0.023353333333333316,
+        0.3611730000000003
       ],
       "learned_residual_m": [
-        -0.0024161165438927423,
-        -0.0021389438758415286,
-        0.011557997228859671
+        -0.0010010849457063058,
+        -0.004534482268846476,
+        -0.0065143149666712545
       ],
       "learned_residual_applied": true,
       "corrected_intercept_base_m": [
-        0.5580459667894406,
-        0.01510188945749178,
-        0.39059662222886
+        0.5626172483876271,
+        0.01881885106448684,
+        0.35465868503332904
       ]
     },
     {
       "source_camera": "third_view",
       "observation_time_s": 0.78,
-      "time_since_release_s": 0.09000000000000008,
-      "prediction_horizon_s": 0.03499999999999992,
+      "time_since_release_s": 0.125,
+      "prediction_horizon_s": 0.05999999999999994,
       "camera_sample_count": 4,
       "fit_rms_m": 0.0016429870662911354,
       "estimated_position_base_m": [
@@ -129,20 +129,20 @@
         -0.1736500000000005
       ],
       "nominal_intercept_base_m": [
-        0.5576895,
-        0.01955199999999997,
-        0.385163625
+        0.559997,
+        0.02637199999999997,
+        0.36917300000000003
       ],
       "learned_residual_m": [
-        -0.0019685147993141316,
-        -0.002584770269429612,
-        0.011551792594188747
+        -0.0010010249106423906,
+        -0.004534550589175159,
+        -0.006514276635397411
       ],
       "learned_residual_applied": true,
       "corrected_intercept_base_m": [
-        0.5557209852006858,
-        0.016967229730570358,
-        0.39671541759418877
+        0.5589959750893576,
+        0.02183744941082481,
+        0.36265872336460264
       ]
     }
   ]

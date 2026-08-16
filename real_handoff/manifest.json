@@ -1,22 +1,33 @@
 {
-  "schema": "xarm6_outward_real_handoff_v1",
-  "source_config": "sim/configs/outward_minimal_v1.json",
-  "source_result": "outputs/final_handoff_nominal",
+  "schema": "xarm6_outward_real_handoff_v2",
+  "source_config": "sim/configs/outward_vertical_real_detach_v7.json",
+  "source_result": "outputs/final_learned_seed_20260834",
+  "primary_candidate": "stable_third_view_learned",
   "timeline": "nominal_timeline.json",
   "controller": "controller_config.json",
   "constraints_report": "real_constraints_report.json",
   "videos": {
-    "spectator": "../outputs/final_handoff_nominal/spectator.mp4",
-    "spectator_slow": "../outputs/final_handoff_nominal/spectator_slow_0p4x.mp4",
-    "third_view": "../outputs/final_handoff_nominal/spectator_third_view.mp4",
-    "wrist": "../outputs/final_handoff_nominal/spectator_wrist.mp4",
-    "three_view": "../outputs/final_handoff_nominal/three_view.mp4"
+    "spectator": "../outputs/final_learned_seed_20260834/spectator.mp4",
+    "spectator_slow": "../outputs/final_learned_seed_20260834/spectator_slow_0p4x.mp4",
+    "spectator_zoom_slow": "../outputs/final_learned_seed_20260834/spectator_zoom_slow_0p4x.mp4",
+    "third_view": "../outputs/final_learned_seed_20260834/spectator_third_view.mp4",
+    "wrist": "../outputs/final_learned_seed_20260834/spectator_wrist.mp4",
+    "three_view": "../outputs/final_learned_seed_20260834/three_view.mp4",
+    "clear_flight_camera_diagnostic": "../outputs/final_clear_camera_seed_20260841/spectator.mp4",
+    "clear_flight_camera_diagnostic_zoom_slow": "../outputs/final_clear_camera_seed_20260841/spectator_zoom_slow_0p4x.mp4"
   },
-  "validated_scope": "fixed 38 mm cube near 35 g; nominal calibration",
+  "evidence": {
+    "stable_camera_learned": "3/3 catches; 110 ms free flight; strict obvious-flight gate false",
+    "clear_flight_physics": "1/1 stable catch; 245 ms free flight; apex and descending catch; no policy camera",
+    "clear_flight_rendered_camera": "160 ms free flight and apex; final bilateral fraction 0.667; not a stable catch"
+  },
+  "validated_scope": "one fixed 38 mm cube near 35 g; nominal camera/dropout seeds",
   "known_limits": [
-    "25--45 g mass sweep was not 3/3; weigh/probe the real cube before timing transfer.",
-    "Wrist camera did not see the cube during this short catch; third-view updates carried the belief.",
-    "The sim catch window is timing-sensitive: 0.785 s close missed for the nominal opening."
+    "The stable 3/3 candidate renews contact at 110 ms, just before the strict internal-apex gate.",
+    "The strict clear-flight stable success uses physics observation; rendered-camera clear flight is not yet a stable catch.",
+    "The real paired empty/held Probe has not yet been run or consumed by this simulator result.",
+    "Wrist has zero terminal detections in this reversed-wrist candidate; third_view carries flight tracking.",
+    "The 1x reference reaches about 1.745 rad/s and 13.057 rad/s^2, above the current 0.45/1.5 transfer cap."
   ],
-  "real_execution_status": "run disconnected dry-run and empty-gripper preview first"
+  "real_execution_status": "disconnected dry-run, paired Probe, empty 0.25x preview; 0.5x/1x review only until explicit operator approval"
 }

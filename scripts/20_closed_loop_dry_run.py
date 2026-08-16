@@ -17,7 +17,7 @@ from xarm6_toss.online_closed_loop import OnlineInterceptController  # noqa: E40
 
 DEFAULT_OBSERVATIONS = ROOT / "configs" / "closed_loop_example.jsonl"
 DEFAULT_MODEL = (
-    ROOT / "sim" / "models" / "intercept_residual_native_outward_v1.json"
+    ROOT / "sim" / "models" / "intercept_residual_vertical_third_view_v1.json"
 )
 
 
@@ -84,10 +84,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--observations", default=str(DEFAULT_OBSERVATIONS))
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
-    parser.add_argument("--release-time-s", type=float, default=0.69)
+    parser.add_argument("--release-time-s", type=float, default=0.655)
     parser.add_argument("--prediction-horizon-s", type=float, default=0.075)
-    parser.add_argument("--intercept-time-s", type=float, default=0.815)
-    parser.add_argument("--minimum-camera-samples", type=int, default=3)
+    parser.add_argument("--intercept-time-s", type=float, default=0.840)
+    parser.add_argument("--minimum-camera-samples", type=int, default=1)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 

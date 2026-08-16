@@ -1,24 +1,27 @@
 # xArm6 fixed-cube toss/catch
 
-当前可移交候选是朝外的 xArm6 + G1 固定 cube 自抛自接，不再使用旧的 inward-facing
-姿态。Isaac native learned controller 在固定约 38 mm、35 g cube 上完成 3/3：真实 detach、
-third-view 异步弹道更新、bounded residual、小幅 catch pose correction、双指重新夹住并保持。
+当前可移交候选是反腕、朝外工作区的 xArm6 + G1 固定 cube 抛接。反腕是有意选择：换取更大的
+抛接空间与完整 third_view 覆盖；wrist 只做 grasp/probe 和机会观测。Isaac native learned
+controller 在固定约 38 mm、35 g cube 上完成 3/3 stable bilateral catch。
 
 关键结果：
 
-- command limits：0.45 rad/s、1.5 rad/s²，arm tracking delay 90 ms；
+- stable candidate：上升 60.1 mm、连续离手 110 ms、3/3 catch；
+- clear physics candidate：连续离手 245 ms，过 apex 后下降再接并稳定保持；
+- rendered-camera clear diagnostic：离手 160 ms，但 bilateral fraction 0.667，不算稳定成功；
 - sim detach delay 35 ms，位于真机反馈的 25–44 ms 范围；
-- cube 相对 gripper 最大离手 26.3 mm，最高上升约 105 mm；
-- 每次离手后 3 个 camera updates、2 个 learned updates；
-- 三次均 bilateral catch，0.5 s hold；
+- 每次离手后 11 个 learned updates，8 mm bounded residual；
 - wrist 本次没有看到 cube，belief 由 release prior、ballistic propagation 和 third-view
   observation 维持；spectator 从不进入控制。
+- 1× reference 达 `1.745 rad/s / 13.057 rad/s²`，超过当前真机 `0.45 / 1.5` cap；只有
+  0.25× preview 在当前 cap 内。
 
 先看结果：
 
 ```text
-outputs/final_handoff_nominal/spectator_slow_0p4x.mp4
-outputs/final_handoff_nominal/three_view.mp4
+outputs/final_learned_seed_20260834/spectator_zoom_slow_0p4x.mp4
+outputs/final_learned_seed_20260834/three_view.mp4
+outputs/final_clear_camera_seed_20260841/spectator_zoom_slow_0p4x.mp4
 real_handoff/real_constraints_report.json
 ```
 
@@ -40,5 +43,6 @@ python scripts/21_preview_handoff.py --speed-scale 1.0 \
 
 真机 timeline、真实 G1 数值、相机角色、执行顺序和已知风险见
 [docs/REAL_ROBOT_HANDOFF.md](docs/REAL_ROBOT_HANDOFF.md)。本候选只验证固定的这一只 cube；
-25–45 g mass sweep 没有 3/3，因此真机前必须称重/做短 probe，并重新测 arm/G1 latency，
-不能把 nominal timing 当成跨物体通用参数。
+真机前必须做 paired empty/held current Probe、重新测 arm/G1 latency，并先执行 0.25× 空载预览。
+当前 sim 没有消费真实 Probe 输出，strict clear-flight success 也还是 physics observation；这些限制
+已经写进 manifest，不能把 nominal timing 当成跨物体通用参数或把 1× 当成已批准真机动作。

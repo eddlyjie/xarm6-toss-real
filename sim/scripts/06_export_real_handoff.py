@@ -22,9 +22,9 @@ from xarm6_toss.control_reference import (  # noqa: E402
 from xarm6_toss_sim import URDFKinematics, load_real_setup  # noqa: E402
 
 
-DEFAULT_CONFIG = ROOT / "sim" / "configs" / "outward_minimal_v1.json"
-DEFAULT_RESULT = ROOT / "outputs" / "final_handoff_nominal"
-DEFAULT_MODEL = ROOT / "sim" / "models" / "intercept_residual_native_outward_v1.json"
+DEFAULT_CONFIG = ROOT / "sim" / "configs" / "outward_vertical_real_detach_v7.json"
+DEFAULT_RESULT = ROOT / "outputs" / "final_learned_seed_20260834"
+DEFAULT_MODEL = ROOT / "sim" / "models" / "intercept_residual_vertical_third_view_v1.json"
 DEFAULT_OUTPUT = ROOT / "real_handoff"
 
 
@@ -103,7 +103,7 @@ def main() -> int:
     parser.add_argument("--result", type=Path, default=DEFAULT_RESULT)
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--joint6-roll-offset-rad", type=float, default=0.785398)
+    parser.add_argument("--joint6-roll-offset-rad", type=float, default=0.0)
     args = parser.parse_args()
 
     setup = load_real_setup()
@@ -120,15 +120,29 @@ def main() -> int:
 
     args.output.mkdir(parents=True, exist_ok=True)
     rows = [sample_dict(sample) for sample in reference]
+    reference_qd = np.asarray([row["joint_velocity_rad_s"] for row in rows])
+    reference_qdd = np.asarray(
+        [row["joint_acceleration_rad_s2"] for row in rows]
+    )
+    reference_max_speed = float(np.max(np.abs(reference_qd)))
+    reference_max_acceleration = float(np.max(np.abs(reference_qdd)))
     timeline = {
-        "schema": "xarm6_outward_toss_timeline_v1",
+        "schema": "xarm6_outward_toss_timeline_v2",
         "control_period_s": setup.control_period_s,
         "joint6_roll_offset_rad": args.joint6_roll_offset_rad,
+        "joint6_roll_is_baked_into_reference": True,
+        "execution_envelope": source_config["execution_envelope"],
+        "operator_approval_required": True,
+        "reference_max_joint_speed_rad_s": reference_max_speed,
+        "reference_max_joint_acceleration_rad_s2": reference_max_acceleration,
         "g1_events_are_asynchronous_to_arm_ticks": True,
         "g1_events": [
-            {"time_s": 0.69, "name": "release_partial_open", "position": setup.partial_open_gripper_position},
-            {"time_s": 0.78, "name": "catch_close", "position": setup.close_gripper_position},
+            {"time_s": 0.655, "name": "release_partial_open", "position": setup.partial_open_gripper_position},
+            {"time_s": 0.700, "name": "stable_candidate_close", "position": setup.close_gripper_position},
         ],
+        "clear_flight_upgrade_g1_event": {
+            "time_s": 0.800, "name": "clear_flight_upgrade_close", "position": setup.close_gripper_position
+        },
         "samples": rows,
     }
     (args.output / "nominal_timeline.json").write_text(
@@ -137,14 +151,21 @@ def main() -> int:
     write_csv(args.output / "nominal_timeline.csv", rows)
 
     controller = {
-        "schema": "xarm6_outward_camera_ballistic_controller_v1",
+        "schema": "xarm6_outward_camera_ballistic_controller_v2",
         "fixed_cube_side_m": setup.cube_side_m,
         "nominal_cube_mass_kg": setup.nominal_cube_mass_kg,
         "arm": {
             "control_period_s": setup.control_period_s,
-            "max_joint_speed_rad_s": setup.max_joint_speed_rad_s,
-            "max_joint_acceleration_rad_s2": setup.max_joint_acceleration_rad_s2,
-            "tracking_delay_s": setup.arm_tracking_delay_s,
+            "real_configured_transfer_cap": {
+                "joint_speed_rad_s": setup.max_joint_speed_rad_s,
+                "joint_acceleration_rad_s2": setup.max_joint_acceleration_rad_s2,
+            },
+            "candidate_command_cap": source_config["limits"],
+            "reference_max_joint_speed_rad_s": reference_max_speed,
+            "reference_max_joint_acceleration_rad_s2": reference_max_acceleration,
+            "candidate_exceeds_transfer_cap": True,
+            "operator_approval_required": True,
+            "measured_tracking_delay_s": setup.arm_tracking_delay_s,
         },
         "g1_real_positions": {
             "held": setup.held_gripper_position,
@@ -153,30 +174,47 @@ def main() -> int:
             "firmware_speed": 5000,
         },
         "timing_s": {
-            "release_command": 0.69,
+            "release_command": 0.655,
             "detach_prior": 0.030,
-            "catch_servo_start": 0.72,
-            "vision_control_end": 0.78,
-            "catch_close_command": 0.78,
-            "ballistic_intercept": 0.815,
+            "catch_servo_start": 0.700,
+            "vision_control_end": 0.900,
+            "catch_close_command": 0.700,
+            "ballistic_intercept": 0.840,
         },
         "catch_servo": {
-            "gain": 0.25,
-            "max_joint_step_rad": 0.005,
+            "mode": "third_view_lateral_joint1",
+            "gain": 0.75,
+            "max_joint_step_rad": 0.035,
         },
         "residual": {
-            "model": "../sim/models/intercept_residual_native_outward_v1.json",
-            "minimum_camera_samples": 3,
+            "model": "../sim/models/intercept_residual_vertical_third_view_v1.json",
+            "minimum_camera_samples": 1,
             "action_norm_limit_m": model["action_norm_limit_m"],
         },
         "camera": {
             "rate_hz": setup.third_view.fps,
-            "receive_latency_s": 0.022,
+            "receive_latency_s": 0.020,
             "third_view_serial": setup.third_view.serial,
             "wrist_serial": setup.wrist.serial,
+            "flight_primary": "third_view",
+            "wrist_role": "grasp_probe_and_opportunistic_flight_updates",
             "missing_frames_propagate_ballistic_belief": True,
             "wrist_detection_required_for_catch": False,
         },
+        "probe_preflight": {
+            "required_before_cube_throw": True,
+            "source_config": "../toss_project_sim_handoff/toss_project/real_cube_demo/configs/probe.json",
+            "empty_run_script": "../toss_project_sim_handoff/toss_project/real_cube_demo/scripts/07_probe_cube.py",
+            "comparison_script": "../toss_project_sim_handoff/toss_project/real_cube_demo/scripts/08_compare_probe.py",
+            "required_outputs": [
+                "effective_payload_posterior",
+                "held_probability",
+                "slip_probability",
+                "detach_timing_uncertainty",
+            ],
+            "current_sim_evidence_consumes_real_probe_output": False,
+        },
+        "spectator_used_for_control": False,
     }
     (args.output / "controller_config.json").write_text(
         json.dumps(controller, indent=2) + "\n", encoding="utf-8"
@@ -199,12 +237,18 @@ def main() -> int:
             ),
         }
     report = {
-        "schema": "xarm6_real_constraints_report_v1",
+        "schema": "xarm6_real_constraints_report_v2",
         "source_result": str(args.result.relative_to(ROOT)),
         "success": {
             "detach_detected": summary["detach_detected"],
             "catch_stable": summary["catch_stable"],
             "bilateral_contact_fraction": summary["bilateral_contact_fraction"],
+            "continuous_free_flight_duration_s": summary["continuous_free_flight_duration_s"],
+            "free_flight_rise_from_kinematic_release_m": summary["free_flight_rise_from_kinematic_release_m"],
+            "free_flight_apex_is_internal": summary["free_flight_apex_is_internal"],
+            "precontact_vertical_velocity_m_s": summary["precontact_vertical_velocity_m_s"],
+            "obvious_free_flight": summary["obvious_free_flight"],
+            "obvious_toss_success": summary["obvious_toss_success"],
             "maximum_separation_m": summary["maximum_separation_m"],
             "free_vertical_displacement_m": summary["free_vertical_displacement_m"],
             "detach_to_first_bilateral_contact_s": (
@@ -214,57 +258,84 @@ def main() -> int:
         "geometry": {
             "release_hand_horizontal_radius_m": summary["release_tcp_horizontal_radius_m"],
             "release_outward_dot_m": summary["release_outward_dot_m"],
-            "planned_tcp_horizontal_radius_m": source_config["release_geometry"]["tcp_horizontal_radius_m"],
-            "planned_tcp_outward_dot_m": source_config["release_geometry"]["outward_dot_m"],
+            "configured_gripper_base_position_m": source_config["release_geometry"]["gripper_base_position_m"],
+            "baked_joint6_roll_rad": source_config["release_geometry"]["joint6_roll_rad"],
         },
         "limits": {
+            "actual_max_joint_speed_rad_s": summary["actual_max_joint_speed_rad_s"],
+            "actual_max_joint_acceleration_rad_s2": summary["actual_max_joint_acceleration_rad_s2"],
             "commanded_max_joint_speed_rad_s": summary["commanded_max_joint_speed_rad_s"],
-            "allowed_max_joint_speed_rad_s": setup.max_joint_speed_rad_s,
             "commanded_max_joint_acceleration_rad_s2": summary["commanded_max_joint_acceleration_rad_s2"],
-            "allowed_max_joint_acceleration_rad_s2": setup.max_joint_acceleration_rad_s2,
+            "reference_max_joint_speed_rad_s": reference_max_speed,
+            "reference_max_joint_acceleration_rad_s2": reference_max_acceleration,
+            "candidate_command_cap": source_config["limits"],
+            "real_configured_transfer_cap": {
+                "joint_speed_rad_s": setup.max_joint_speed_rad_s,
+                "joint_acceleration_rad_s2": setup.max_joint_acceleration_rad_s2,
+            },
+            "candidate_exceeds_transfer_cap": True,
+            "operator_approval_required": True,
             "minimum_actual_joint_margin_rad": np.min(margin, axis=0).tolist(),
         },
         "delays_s": {
-            "arm_tracking": setup.arm_tracking_delay_s,
+            "real_arm_tracking_measured": setup.arm_tracking_delay_s,
+            "sim_explicit_command_delay": source_config["sim_actuator_calibration"]["explicit_command_delay_s"],
+            "sim_measured_tracking_lag": source_config["sim_actuator_calibration"]["measured_best_tracking_lag_s"],
             "g1_prior": summary["detach_delay_prior_s"],
             "g1_measured_sim_detach": summary["detach_delay_s"],
             "real_measured_detach_range": list(setup.detach_delay_range_s),
             "camera_receive": controller["camera"]["receive_latency_s"],
         },
         "policy": {
+            "flight_primary_camera": "third_view",
+            "wrist_terminal_required": False,
             "camera_counts": camera_counts,
             "camera_updates_after_detach": summary["camera_control_updates_after_detach"],
             "learned_updates_after_detach": summary["learned_control_updates_after_detach"],
+            "terminal_wrist_observation_count": summary["terminal_wrist_observation_count"],
             "intercept_mean_error_before_m": summary["intercept_mean_error_before_residual_m"],
             "intercept_mean_error_after_m": summary["intercept_mean_error_after_residual_m"],
+            "intercept_residual_fraction_improved": summary["intercept_residual_fraction_improved"],
             "spectator_used_for_control": summary["spectator_used_for_control"],
         },
+        "probe": controller["probe_preflight"],
     }
     (args.output / "real_constraints_report.json").write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8"
     )
 
     manifest = {
-        "schema": "xarm6_outward_real_handoff_v1",
+        "schema": "xarm6_outward_real_handoff_v2",
         "source_config": str(args.config.relative_to(ROOT)),
         "source_result": str(args.result.relative_to(ROOT)),
+        "primary_candidate": "stable_third_view_learned",
         "timeline": "nominal_timeline.json",
         "controller": "controller_config.json",
         "constraints_report": "real_constraints_report.json",
         "videos": {
-            "spectator": "../outputs/final_handoff_nominal/spectator.mp4",
-            "spectator_slow": "../outputs/final_handoff_nominal/spectator_slow_0p4x.mp4",
-            "third_view": "../outputs/final_handoff_nominal/spectator_third_view.mp4",
-            "wrist": "../outputs/final_handoff_nominal/spectator_wrist.mp4",
-            "three_view": "../outputs/final_handoff_nominal/three_view.mp4",
+            "spectator": "../outputs/final_learned_seed_20260834/spectator.mp4",
+            "spectator_slow": "../outputs/final_learned_seed_20260834/spectator_slow_0p4x.mp4",
+            "spectator_zoom_slow": "../outputs/final_learned_seed_20260834/spectator_zoom_slow_0p4x.mp4",
+            "third_view": "../outputs/final_learned_seed_20260834/spectator_third_view.mp4",
+            "wrist": "../outputs/final_learned_seed_20260834/spectator_wrist.mp4",
+            "three_view": "../outputs/final_learned_seed_20260834/three_view.mp4",
+            "clear_flight_camera_diagnostic": "../outputs/final_clear_camera_seed_20260841/spectator.mp4",
+            "clear_flight_camera_diagnostic_zoom_slow": "../outputs/final_clear_camera_seed_20260841/spectator_zoom_slow_0p4x.mp4",
         },
-        "validated_scope": "fixed 38 mm cube near 35 g; nominal calibration",
+        "evidence": {
+            "stable_camera_learned": "3/3 catches; 110 ms free flight; strict obvious-flight gate false",
+            "clear_flight_physics": "1/1 stable catch; 245 ms free flight; apex and descending catch; no policy camera",
+            "clear_flight_rendered_camera": "160 ms free flight and apex; final bilateral fraction 0.667; not a stable catch",
+        },
+        "validated_scope": "one fixed 38 mm cube near 35 g; nominal camera/dropout seeds",
         "known_limits": [
-            "25--45 g mass sweep was not 3/3; weigh/probe the real cube before timing transfer.",
-            "Wrist camera did not see the cube during this short catch; third-view updates carried the belief.",
-            "The sim catch window is timing-sensitive: 0.785 s close missed for the nominal opening.",
+            "The stable 3/3 candidate renews contact at 110 ms, just before the strict internal-apex gate.",
+            "The strict clear-flight stable success uses physics observation; rendered-camera clear flight is not yet a stable catch.",
+            "The real paired empty/held Probe has not yet been run or consumed by this simulator result.",
+            "Wrist has zero terminal detections in this reversed-wrist candidate; third_view carries flight tracking.",
+            "The 1x reference reaches about 1.745 rad/s and 13.057 rad/s^2, above the current 0.45/1.5 transfer cap.",
         ],
-        "real_execution_status": "run disconnected dry-run and empty-gripper preview first",
+        "real_execution_status": "disconnected dry-run, paired Probe, empty 0.25x preview; 0.5x/1x review only until explicit operator approval",
     }
     (args.output / "manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
