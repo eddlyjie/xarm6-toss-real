@@ -1,208 +1,109 @@
-# xArm6 最小 learned closed-loop 自抛自接 goal
+# xArm6 最小 Probe–Toss–Catch 真机验证目标
 
-## 总目标
+## 最终目标
 
-在不恢复、不替换当前 paused 长期 sim goal，也不改写 Panda 主线方法的前提下，
-在 `/home/ubuntu/toss_project/xarm_6/` 建立一套 xArm6 + UFACTORY G1 针对单个轻质
-3D 打印小 cube 的最小 learned closed-loop 自抛自接系统，并形成可交给真机电脑直接继续
-验证的完整 handoff。
-
-最终追求的不是论文级 xArm6 复刻，而是让真机在固定抓取和安全实验条件下尽快得到
-2–3 次可信的同手抛出、自由飞行、接住并短时稳握。系统必须有真实参与控制的 learning
-和 release 后闭环更新，但应保持小、稳、可解释，不引入 Panda 系统中的 GelSight、F/T、
-复杂 Active Probe、完整 target-pose coordination 或大规模端到端 RL。
-
-## 已知硬件与数据边界
-
-- 机器人：xArm6，UFACTORY G1，控制周期 `20 ms`。
-- 物体：边长略小于 `4 cm`、低填充率、较轻的 3D 打印 cube；在获得精确称重前，
-  仿真使用围绕该描述的窄而合理的质量范围，不把真实质量作为 policy observation。
-- 真机测得的 arm tracking delay 约 `90 ms`。
-- G1 当前抓持位置约 `370`，用于 release/catch 的 partial-open 位置约 `520`；partial
-  motion 约 `100 ms`，首次可观察运动约 `13–23 ms`。
-- detach delay 的现有估计约 `25–44 ms`，应作为随机化中心而不是固定真值。
-- 全局相机是 Intel RealSense D435，`640 x 480 @ 60 Hz`，实测约 `59.7 Hz`；已有
-  intrinsics、`T_base_camera` 和 yellow-cube detection 代码。
-- 无 GelSight，无腕部六维 F/T。可用信号为 `q/dq`、joint effort、motor current、
-  gripper position 和两台 D435。首个 demo 允许固定 cube 摆放和 hard-coded 抓取 pose；
-  wrist D435 只作可选的抓取/T_HO 检查，不得阻塞抛接主流程。release 后的飞行闭环必须
-  使用 global D435 与编码器，不要求腕部相机在摆臂中持续看见 cube。
-
-权威输入位于：
+从原始真机 setup 重新建立一条 xArm6 + G1 最小但科学有效的闭环：
 
 ```text
-xarm_6/toss_project_sim_handoff_20260816.tar.gz
-xarm_6/toss_project_sim_handoff/toss_project/xarm_6/sim/
-xarm_6/toss_project_sim_handoff/toss_project/real_cube_demo/
-xarm_6/toss_project_sim_handoff/toss_project/RobotCamCalib/
+固定抓取小 cube
+→ 轻量 Active Probe
+→ 估计 detach / flight belief
+→ 释放后 third-view RGB-D 更新弹道
+→ 用 J 评分并选择可达 catch candidate
+→ bounded learned residual 修正 catch target
+→ 同一夹爪重新接住并稳定保持
 ```
 
-完整 tar 已通过 `gzip -t`，包含 204 个归档条目。当前 staging 只作为合并来源；先将
-需要的 sim、xArm core、测试、相机标定和真机接口整理到清晰的 `xarm_6/` 结构，验证后
-再决定是否删除 archive/staging，不能提前丢失唯一反馈副本。
+真机只要求边长约 38 mm 的轻量 3D 打印 cube 成功 2–3 次，不要求 GelSight、腕部
+FT、复杂抓取学习、目标姿态 transport 或多物体泛化。抓取 pose 可以 hard-code，但
+probe、camera observation、J 和 learned correction 必须真实进入控制，不能只记录不使用。
 
-## 方法约束
+## 可用观测
 
-### 1. 物理主流程
+真机和 policy 只能使用：
 
-使用 Isaac Sim 6 / Isaac Lab 6 的 native PhysX contact：
+- xArm 实际 q、dq、joint effort/current 和 controller timestamp；
+- G1 commanded/actual position；
+- wrist D435：抓取前定位、抓取后 probe 期间的 hand-object observation；
+- third-view D435：release 后 cube RGB-D center 和 timestamp；
+- 已提供的相机内参、外参和 xArm/G1 URDF。
 
-```text
-稳定抓持 cube
-→ 低能量向上/略向前加速
-→ G1 partial-open，cube 真实 detach
-→ 短自由飞行
-→ arm 执行 nominal intercept/absorption trajectory
-→ global-camera observation 更新 catch timing/小幅 catch target
-→ G1 提前 close
-→ 双侧捕获并稳定保持至少 0.5 s
-```
+不得使用 cube 真值 pose、真值 velocity、质量、摩擦、接触标签或 simulator-only state
+作为 policy 输入。Isaac 中 cube pose/velocity 只允许 episode 初始化写一次。
 
-cube 只允许在 episode 初始化时放入夹爪。抓持、release、自由飞行、recontact 和 hold
-期间不得写 cube pose/velocity，不得用约束、隐藏支撑或 evaluation-only state 制造成功。
+## 最小方法
 
-### 2. 两台相机的职责
+1. 固定抓取：先用已知 cube pose 和示教/硬编码抓取点，不把抓取学习作为阻塞项。
+2. Probe：执行一个短、小幅、可回到中心的安全 excitation；由 q/dq/effort/current、
+   gripper position 和 wrist RGB-D 得到低维 posterior。posterior 至少影响 detach
+   uncertainty、release timing 或 J，不能是装饰模块。
+3. Detach prior：用实际 q/dq、FK/Jacobian、固定 T_hand_object 和实测 G1 delay 得到
+   release position/velocity belief。
+4. Flight tracking：third-view 60 Hz RGB-D 在 base frame 下做 gravity-constrained fit，
+   覆盖 encoder prior 的 tracking、gripper delay 和滑移误差。
+5. Catch candidates/J：在多个时间/位置候选中，用 catch probability、相对速度、
+   uncertainty、IK/reachability 和 collision margin 计算 J，选择真实可执行的 candidate。
+6. Learning：训练一个小型 residual，只修正 detach/intercept 或 J；输入必须是上述
+   deployable observation，输出必须 bounded。不要做端到端 RGB/RL。
+7. Catch：corrected candidate 进入 IK/Jacobian 和真实 joint target；G1 在 deadline
+   nonblocking close；随后保持至少 0.5 s。
 
-两台 D435 的标定和接口都保留，但首个成功 demo 只强制使用 global camera：
+## 不可妥协的几何与视觉门槛
 
-- wrist camera（可选）：机械臂静止或低速时采集局部 aligned RGB-D，可估计 cube center、
-  可见表面、尺寸和姿态；若使用视觉抓取，则对近 4 cm cube 生成面中心附近、两指平行且
-  开度可达的 antipodal grasp。第一版允许直接使用已验证的固定抓取 pose。
-  抓住后可在 2–3 个静止观察 pose 复核 `T_HO` 和 grasp offset。腕部外参是
-  `T_link_eef_camera`，每帧必须使用当前 FK 计算
-  `T_base_camera = T_base_link_eef · T_link_eef_camera`，不能当固定世界外参。
-- global camera：使用固定 `T_base_camera` 覆盖抓取、release 和 flight 区域；抓取前可交叉
-  检查 cube world pose，但这不是必须的共同视野；release 后以约 60 Hz 追踪 cube 3-D
-  center、拟合 ballistic state，驱动 learned timing/catch residual，同时保存评价视频。
+在任何“成功”或 handoff 之前必须同时满足：
 
-不要求 wrist 与 global camera 同时看到 cube。跨相机状态交接统一通过 base frame：
+- start、release、catch 的 TCP 都在 base 外侧工作区，水平半径至少 0.35 m；
+- release 时 EE/tool 朝向明确对外：
+  `dot(tool_axis_xy, tcp_position_xy) > 0`，并保存数值；
+- 轨迹视频中机械臂不是向 base 内折，release 后不会向自身底座抛；
+- physical detach 到首次重新接触至少 0.10 s；
+- cube 与 gripper 的最大分离至少一个 cube 边长（约 38 mm）；
+- spectator video 中至少连续 6 个 60 Hz frame 清楚看到自由飞行；
+- third-view 在 detach 后至少提供 3 个有效 observation，并真实改变 catch command；
+- wrist camera 至少清楚看到抓取或 probe 阶段的 cube；
+- spectator camera 能在同一画面完整看到机器人、cube、release、flight、catch 和 hold；
+- spectator camera 绝不进入 policy observation，只用于人工验收和论文视频；
+- catch 必须 bilateral contact，并稳定保持至少 0.5 s；
+- 我必须逐帧查看视频，不能只根据 JSON success flag 交付。
 
-1. 固定抓取配置直接提供 nominal `T_hand_object`；若启用 wrist observation，则用它更新；
-2. 抓住后由当前 FK 计算 `T_base_hand`，并保存/复核 `T_hand_object`；
-3. 持物摆臂期间用编码器 FK 和固定 `T_hand_object` 传播 object nominal pose；
-4. release 附近允许存在短暂 blind gap，使用 nominal Detach/ballistic state 传播；
-5. global camera 首次重新检测到 cube 后更新 flight state，并接管 learned catch correction。
+## 仿真验收
 
-如果 wrist 未启用，流程直接从固定 `T_hand_object` 和第 3 步开始，这仍是有效的第一版。
-若能找到双相机都可见的静止 observation pose，可用它检查坐标和时间同步，但不能把这种
-重叠当作运行前提。release/catch skill 搜索必须同时检查 global image bounds、depth range、
-机器人/夹爪遮挡和首次可观测时刻，不能只检查 IK 与物理可达性。
+先通过单 trial，再固定方法跑至少 3 个扰动 trial：
 
-第一版不训练端到端 RGB grasp network。cube 几何简单且已有 yellow-cube detector，优先用
-颜色分割、aligned depth、已标定 intrinsics/extrinsics 和 cube 平面/边长约束得到稳定 grasp；
-只有真实失败证据表明需要时才增加学习式 grasp correction。
+- cube mass 覆盖约 20–50 g；
+- 至少一个抓取 offset / camera noise / detach delay 扰动；
+- 3 次均 physical detach、可见 free flight、camera-updated command、bilateral catch、
+  stable hold；
+- 报告并保存失败，不允许只挑成功视频；
+- 输出同步的 spectator、third-view、wrist 视频或 frame montage；
+- 保存 q/dq、effort、G1、probe posterior、detach belief、camera observations、J 候选、
+  learned residual、selected catch 和实际 controller target。
 
-Isaac 中按真实外参放置两台 camera，并用真实 intrinsics/distortion 对 rendered observation
-做少量端到端检查。批量训练可使用等价的 state-level observation/noise model 提速，但必须
-保留可选 wrist observation 与必需 global flight observation 的坐标、时序和可见性接口。
+最小对照：
 
-### 3. 固定 backbone
+- M0：固定 open-loop catch；
+- M1：camera ballistic catch，不用 learned residual；
+- M2：Probe + camera + J + learned residual。
 
-先建立一个本身接近成功的固定、低能量 xArm6 joint-space backbone。优先考虑近竖直
-微抛和原路径下落，避免大幅横向追赶。使用 G1 `370 → 520 → 370` partial-open/close，
-除非 PhysX 与真机证据说明需要更大开度；不要默认沿用 smoke config 的全开 `850`。
+对照服务于确认模块是否真实产生作用，不扩展成大规模 benchmark。
 
-backbone 输出配对的 `q/dq/qdd`、20 ms 时间戳、release/close command time、预测
-physical detach/catch time 和 follow-through/absorption 段。先验证关节限制、TCP 速度、
-碰撞和 G1 mimic/drive/contact，再搜索少量有物理含义的参数。
+## 真机交接
 
-### 4. 最小 learned residual
+只有仿真验收全部通过后才生成：
 
-learning 不直接生成整条 6DoF 轨迹。采用 physics-guided ballistic estimator 加小型 residual
-model；默认先用 supervised teacher/BC，只有证据表明不足时才做短 PPO fine-tune。
+- 一个明确的 nominal timeline 和少量 timing bracket；
+- 空载 0.25× / 0.5× / 1.0× preview；
+- 不连接机器人的 observation/controller dry-run；
+- third-view/wrist calibration 和 ROI 可见性检查；
+- probe、detach、J、residual、IK/servo_j 的最小集成代码；
+- 2–3 次真机 trial 的记录格式和停止条件；
+- 一条正常全局 spectator 视角的完整成功视频，不能只给 1 秒且看不清的 policy-camera
+  画面。
 
-部署侧 observation 只允许包含：
+真机失败后优先带 q/dq、G1 delay、camera timestamps、detections 和视频回到 sim，
+不在昂贵真机上做大范围动作搜索。
 
-- release 前后实际 `q/dq` 与 nominal tracking error；
-- time since release、gripper command/position；
-- 全局 D435 最近若干帧得到的 cube 3-D position、velocity/fit quality；
-- nominal intercept、nominal close time 和有限历史窗口。
+## 当前状态
 
-不得向 actor 暴露 simulator mass、friction、true cube pose/twist 或未来状态。训练 teacher、
-critic、标签生成和离线评价可以使用 privileged truth，但最终 actor/inference 必须只读上面
-的 deployable observation。
-
-residual action 以容易转真的量为主：
-
-- `delta_close_time_s`，初始限制在约 `±60 ms`；
-- 可选的小幅 `delta_catch_z/xyz` 或等价 joint correction，初始空间幅度约 `20 mm`；
-- 必要时一个小的 absorption/velocity-match scale。
-
-这些界限可以依据真实可达性和仿真证据小幅调整，但不得扩展成无边界 full-trajectory actor。
-在约 `0.18 s` 的短飞行里，timing correction 是第一优先；arm correction 只有在 observation
-到 actuator deadline 仍有足够时间时才启用。
-
-### 5. 最小闭环的严格含义
-
-一次 learned rollout 必须在 physical release 后、close command deadline 前至少消费一次
-deployable-style flight observation，并由该 observation 实际改变 close time 或 catch target。
-仅离线录像、仅用网络预测但不改变命令、或只在 episode 开始选固定动作，都不算完成
-closed loop。
-
-训练时可用 state-level D435 observation model 提速，至少包含 60 Hz sampling、坐标外参、
-测量噪声、host/camera latency 和偶发无效深度。最终必须再用真实 intrinsics/extrinsics 放置
-Isaac camera，做少量 rendered native rollout，确认 cube 可见性、坐标方向和 online tracker
-接口，而不是只在解析状态上成功。
-
-## 实施顺序
-
-1. 整理完整 handoff 到 `xarm_6/`，保留无关现有工作；补齐新 `flight.py`、
-   `control_reference.py`、sim tests、self-contained xArm6+G1 asset、real configs 与相机标定。
-2. 生成并检查 USD；建立小而独立的 xArm6 runner，不把 2 万行 Panda/GelSight runner
-   整体复制过来。
-3. 验证 articulation joint order、G1 mimic/drive gains、finger geometry、stable grasp、
-   partial release、真实 detach 和双侧 catch contact。
-4. 从 `natural_j5_candidate.json`、`upward_throw_smoke.json` 和真机 observed-catch 搜索结果
-   生成 nominal backbone；必要时用 CEM/小范围搜索优化 release、retreat、intercept 和 close lead。
-5. 先用 simulator truth 完成 nominal catch，再加入 real-centered delay、grasp offset、轻质 cube
-   mass/inertia/friction 和 camera observation randomization。
-6. 实现 online cube track/ballistic fit 与 learned residual dataset；训练小模型，冻结 checkpoint、
-   normalization 和 action bounds。
-7. 在完全相同 trials 上比较 fixed backbone 与 learned closed loop，保存成功和失败。
-8. 生成真机 handoff：可执行数据、模型、推理接口、dry-run/preview、最短真机验证顺序和视频。
-
-## 完成标准
-
-只有同时满足下面结果，goal 才能标记完成：
-
-- xArm6+G1 native PhysX runner 能从稳定抓持开始，完成真实 detach、自由飞行、双侧 catch
-  和至少 `0.5 s` stable hold；过程中没有 object-state rewrite。
-- frozen learned residual 在 nominal native 设置连续完成至少 `3/3`，并在围绕实测 delay、
-  初始抓取和轻质 cube 物理量的小范围 native 扰动中达到至少 `8/10` catch-and-hold。
-- 同条件 fixed-backbone baseline 被实际评估；结果能证明 learned observation/action 确实进入
-  闭环，并报告它相对 fixed backbone 对 timing/position error 或 catch success 的影响。
-- 至少三段代表性成功视频可直接观看；失败 trial 也保留并有简短 stage/reason。
-- 最终 actor 不读取 hidden simulator physics/truth，rendered camera rollout 证明真实相机坐标与
-  tracker 接口可工作。
-- 真机 handoff 至少包含：
-  - self-contained USD/URDF 与 Isaac/Python 版本；
-  - nominal 和两个小 timing bracket 候选的 `q/dq/qdd`、20 ms timeline、G1 events；
-  - residual checkpoint、normalization、observation/action schema；
-  - online inference/dry-run 入口，默认不移动真机；
-  - release/catch predicted state、训练随机化范围、评估摘要和视频；
-  - 从空载 preview、空夹爪 partial-open、低速带 cube 到正式 2–3 次 demo 的简短步骤。
-
-## 明确不做
-
-本 goal 不要求：
-
-- 迁移 Panda 7DoF trajectory/checkpoint；
-- GelSight、F/T、完整 Active Probe/Detach ensemble；
-- 多物体 seen/unseen、M0–M3 正式实验或最终 target-pose coordination；
-- 大规模 PPO、端到端 RGB network 或论文级 camera domain randomization；
-- 接后 transport、姿态精确控制或长时间稳握；
-- 新的 hash、seal、sidecar、source capsule 或发布审计流程。
-
-如果简单 residual 已达到可靠成功，不得为了“更像 Panda”继续扩大方法范围。
-
-## 执行与报告要求
-
-- 所有 Isaac、Python、CUDA、训练和测试都在 devserver 上运行；不得从 `R:\` 编辑。
-- 不安装或升级依赖，除非用户明确批准；先使用
-  `/home/ubuntu/IsaacLab-3.0.0-beta2/env_isaaclab` 和现有项目环境。
-- 长 GPU run 开始前展示精确命令、输出、日志路径和主要风险，然后立即在 remote `tmux`
-  中启动并监控。
-- 保留当前仓库的无关未提交修改；不 reset，不删除历史 artifacts/videos/checkpoints。
-- 每次方法修改后检查 `git diff`、`git diff --check`，运行最小 CPU/static test，再做 native rollout。
-- 进展报告优先给出真实物理结果、成功/失败 stage、视频和剩余方法缺口，不扩展审计框架。
-- 当前长期 sim goal 始终保持 paused；本 goal 是 `xarm_6/` 内的独立任务。
+旧的内折 EE / micro-toss handoff 已撤销并删除。旧 commit 只保留为 Git 历史，不得用于
+真机。当前工作从原始 real setup、calibration 和 Panda 成功 pipeline 的方法结构重新开始。
