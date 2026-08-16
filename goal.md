@@ -18,12 +18,20 @@
 FT、复杂抓取学习、目标姿态 transport 或多物体泛化。抓取 pose 可以 hard-code，但
 probe、camera observation、J 和 learned correction 必须真实进入控制，不能只记录不使用。
 
+## 执行边界
+
+这是一个先在 Isaac Sim/Lab 跑通、再把同一套 deployable observation/controller 交给真机的
+最小 sim-to-real goal。顺序固定为 sim 单次成功 → 3 次扰动验收 → handoff/dry-run → 真机
+2–3 次成功。固定抓取、规则小 cube、短 Probe 和最小 camera/J/residual 闭环已经足够；任何
+不能直接提高这条交付链真机成功率的复杂模块都不进入当前 scope。
+
 ## 可用观测
 
 真机和 policy 只能使用：
 
 - xArm 实际 q、dq、joint effort/current 和 controller timestamp；
-- G1 commanded/actual position；
+- G1 commanded/actual position，以及由实测 G1 position→jaw aperture mapping 得到的
+  closing-axis contact width；
 - wrist D435：抓取/probe observation，以及 release 后随 EE 运动获得的 cube RGB-D
   center、depth、confidence 和 timestamp，尤其是 catch 前的 terminal observation；
 - third-view D435：cube 落在其实际 FOV 内时的 RGB-D center、depth、confidence 和
@@ -33,8 +41,9 @@ probe、camera observation、J 和 learned correction 必须真实进入控制�
 两台 policy camera 按时间戳异步接力；无需同时看到 cube，也不指定 third-view 永远是
 主相机。estimator 必须消费当前真正可见且通过 gating 的 observation。
 
-不得使用 cube 真值 pose、真值 velocity、质量、摩擦、接触标签或 simulator-only state
-作为 policy 输入。Isaac 中 cube pose/velocity 只允许 episode 初始化写一次。
+不得使用 cube 真值 pose、真值 velocity、simulator true mass、摩擦、接触标签或其他
+simulator-only state 作为 policy 输入；由 deployable Probe 信号估计的 effective payload
+是允许且必须使用的 observation。Isaac 中 cube pose/velocity 只允许 episode 初始化写一次。
 
 ## 真机反馈是仿真硬约束
 
@@ -58,7 +67,8 @@ probe、camera observation、J 和 learned correction 必须真实进入控制�
 - G1 held/partial-open/close/full-open 分别为 370/520/370/850，speed 5000，命令是
   nonblocking；detach delay 必须在实测 0.025–0.044 s 内采样，而不是瞬时释放；
 - cube 边长约 38 mm、轻量低填充 3D print；得到实测质量前，仿真质量覆盖 20–50 g，
-  质量不得作为 policy observation；
+  simulator true mass 不得作为 policy observation；Probe 从真实可用信号估计的
+  effective payload posterior 允许且必须进入 downstream belief；
 - third-view D435 serial `317222073552`，wrist D435 serial `233622079809`，分辨率
   640×480；两者使用 raw intrinsic K：fx 597.4084346880913、fy 595.7611918577373、
   cx 316.83407708591676、cy 242.68429790012132；
@@ -108,9 +118,12 @@ catch 门槛，必须提交定量 infeasibility evidence，等待真机操作者
 2. Probe：执行一个短、小幅、可回到中心的安全 excitation；由 q/dq/effort/current、
    gripper position 和 wrist RGB-D 得到低维 posterior。posterior 至少影响 detach
    uncertainty、release timing 或 J，不能是装饰模块。
-   对规则 cube，不要求 Probe 稳定辨识质量、惯量或摩擦；它只需确认 held/slip 状态并收紧
-   detach timing / grasp offset uncertainty。Probe 不能比一次短小 wrist excitation 更复杂，
-   也不能成为先完成 camera ballistic catch 的阻塞项。
+   对规则 cube，不要求把质量精确到克，但 Probe 必须用 time-aligned empty/held motor-current
+   和 effort residual 输出 effective payload、CoM-offset、held/slip posterior；信号弱时输出宽
+   uncertainty，而不是删除 mass branch。posterior 必须收紧 detach/release belief 或改变 J。
+   G1 actual position 必须经实测 mapping 转成 jaw aperture/projected width，并与 wrist RGB-D
+   联合估计 side length、grasp offset 和 orientation confidence。它不等于三个轴的完整尺寸，
+   但对基本对齐的规则 cube 足够。Probe 仍应短小，不能阻塞 ballistic catch。
 3. Detach prior：用实际 q/dq、FK/Jacobian、固定 T_hand_object 和实测 G1 delay 得到
    release position/velocity belief。
 4. Flight tracking：对 third-view 和 time-aligned wrist RGB-D 做 visibility-gated、
@@ -155,6 +168,8 @@ catch 门槛，必须提交定量 infeasibility evidence，等待真机操作者
 先通过单 trial，再固定方法跑至少 3 个扰动 trial：
 
 - cube mass 覆盖约 20–50 g；
+- simulator true mass 只用于评估 Probe posterior 的 calibration/error，不能进入 policy；
+  同时报告 G1/wrist 估计的 projected width、side length 和 grasp offset；
 - 至少一个抓取 offset / camera noise / detach delay 扰动；
 - 3 次均 physical detach、可见 free flight、camera-updated command、bilateral catch、
   stable hold；
