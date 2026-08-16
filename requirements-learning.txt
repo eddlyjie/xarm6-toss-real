@@ -1,0 +1,3 @@
+# Optional: only needed when training or loading the learning skeletons.
+numpy>=1.24
+torch>=2.1

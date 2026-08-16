@@ -1,0 +1,33 @@
+{
+  "schema": "xarm6_global_d435_calibration_v1",
+  "role": "global",
+  "model": "Intel RealSense D435",
+  "resolution": [640, 480],
+  "rate_hz": 60,
+  "intrinsics": {
+    "fx": 597.4084346880913,
+    "fy": 595.7611918577373,
+    "cx": 316.83407708591676,
+    "cy": 242.68429790012132,
+    "distortion": [
+      0.08426391581120722,
+      0.0762457854279391,
+      -0.0032456889288341277,
+      0.0033115139379533854,
+      -0.8941137037789709
+    ]
+  },
+  "T_base_camera": [
+    [-0.015068907261326196, -0.5894024786088536, -0.80769898244562, 1.0069862113156662],
+    [-0.9997740237223455, -0.0032319837357197762, 0.021010848892030292, 0.0003598099606937796],
+    [-0.014994316389260399, 0.8078330721695374, -0.5892205851675132, 0.6473656984370832],
+    [0.0, 0.0, 0.0, 1.0]
+  ],
+  "runtime": {
+    "depth_aligned_to_color": true,
+    "cube_detector": "yellow HSV plus depth median",
+    "tracking_frame": "robot base",
+    "camera_timestamp_required": true
+  },
+  "source": "RobotCamCalib/RobotCamCalib/outputs/{intrinsics_new,extrinsics_thirdview}.yaml"
+}

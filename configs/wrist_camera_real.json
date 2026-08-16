@@ -1,0 +1,31 @@
+{
+  "schema": "xarm6_wrist_d435_calibration_v1",
+  "role": "wrist",
+  "model": "Intel RealSense D435",
+  "resolution": [640, 480],
+  "intrinsics_shared_with_global_calibration": "global_camera_real.json#intrinsics",
+  "T_link_eef_camera": [
+    [0.014606839362857805, 0.9994237319056054, -0.030640567026413445, 0.06950393156436285],
+    [-0.9998694351790994, 0.01438784883134326, -0.007355433409032735, 0.038587116465745204],
+    [-0.006910342860956108, 0.030744006080517312, 0.999503403321702, 0.024871928874033],
+    [0.0, 0.0, 0.0, 1.0]
+  ],
+  "runtime": {
+    "fixed_world_extrinsic": false,
+    "T_base_camera_per_frame": "T_base_link_eef(q) @ T_link_eef_camera",
+    "required_for_first_demo": false,
+    "use": [
+      "fixed grasp pre-check",
+      "optional static T_hand_object refinement"
+    ],
+    "not_assumed": [
+      "visibility during throw",
+      "simultaneous visibility with global camera"
+    ]
+  },
+  "source": "RobotCamCalib/RobotCamCalib/outputs/extrinsics_wrist_new.yaml",
+  "note": [
+    "The global camera owns release/flight tracking.",
+    "All wrist observations must be transformed to robot base using current FK."
+  ]
+}

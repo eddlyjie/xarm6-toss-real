@@ -1,0 +1,3 @@
+# Hardware-independent simulation utilities. Isaac provides its own runtime.
+numpy>=1.24
+yourdfpy>=0.0.56

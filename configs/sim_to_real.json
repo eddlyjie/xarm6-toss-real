@@ -1,0 +1,38 @@
+{
+  "schema": "xarm6_minimal_toss_sim_v1",
+  "source_project": "toss_project_sim_handoff/toss_project",
+  "hardware_config": "real_cube_demo/configs/hardware.json",
+  "robot_urdf": "real_cube_demo/urdf/xarm6_with_gripper_g1.urdf",
+  "handoff_pose_config": "real_cube_demo/configs/handoff_place.json",
+  "arm_tracking_delay_s": 0.09,
+  "gripper": {
+    "held_position": 370.0,
+    "partial_open_position": 520.0,
+    "close_position": 370.0,
+    "full_open_position": 850.0,
+    "detach_delay_range_s": [0.025, 0.044],
+    "cube_width_anchor_m": 0.038
+  },
+  "cube": {
+    "side_m": 0.038,
+    "mass_range_kg": [0.02, 0.05],
+    "nominal_mass_kg": 0.035
+  },
+  "camera": {
+    "width": 640,
+    "height": 480,
+    "requested_fps": 60,
+    "measurement_noise_std_m": 0.003,
+    "initial_receive_latency_s": 0.02,
+    "initial_dropout_probability": 0.05
+  },
+  "acceptance": {
+    "minimum_tcp_radius_m": 0.35,
+    "minimum_free_flight_s": 0.10,
+    "minimum_separation_m": 0.038,
+    "minimum_visible_flight_frames": 6,
+    "minimum_post_detach_policy_observations": 3,
+    "minimum_terminal_wrist_observations": 2,
+    "minimum_hold_s": 0.5
+  }
+}
