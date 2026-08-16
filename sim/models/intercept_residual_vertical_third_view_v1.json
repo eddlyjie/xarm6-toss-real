@@ -1,0 +1,105 @@
+{
+  "schema": "xarm6_intercept_residual_v1",
+  "feature_names": [
+    "time_since_release_s",
+    "camera_sample_count",
+    "fit_rms_m",
+    "position_innovation_x_m",
+    "position_innovation_y_m",
+    "position_innovation_z_m",
+    "velocity_innovation_x_m_s",
+    "velocity_innovation_y_m_s",
+    "velocity_innovation_z_m_s"
+  ],
+  "feature_mean": [
+    0.11000000000000082,
+    1.0,
+    0.0,
+    -0.036278418519280174,
+    0.00747339054942131,
+    0.003239222548224709,
+    0.0,
+    0.0,
+    5.21540641784668e-08
+  ],
+  "feature_scale": [
+    0.06324555320336764,
+    1.0,
+    1.0,
+    1.2099750169210532e-05,
+    0.0003163013607263565,
+    6.407563465639675e-06,
+    1.0,
+    1.0,
+    7.749385310825206e-08
+  ],
+  "weight": [
+    [
+      0.00043758894002144126,
+      0.0,
+      0.0,
+      1.7220081218864912e-06,
+      1.8497666795872738e-06,
+      -3.6874401799220472e-06,
+      0.0,
+      0.0,
+      0.0007409504638635918
+    ],
+    [
+      0.0050960622446999315,
+      0.0,
+      0.0,
+      -3.815068801696124e-05,
+      -3.3154250929440754e-05,
+      -3.685493389610235e-05,
+      0.0,
+      0.0,
+      0.003355972846794179
+    ],
+    [
+      0.004454378122250018,
+      0.0,
+      0.0,
+      1.2090912165586306e-05,
+      1.655436433948036e-05,
+      4.926492290985262e-06,
+      0.0,
+      0.0,
+      0.004821329238001368
+    ]
+  ],
+  "bias": [
+    0.06188601526347074,
+    0.015832674266262486,
+    0.02046033469113436
+  ],
+  "action_norm_limit_m": 0.008,
+  "native_training": {
+    "minimum_camera_samples": 1,
+    "ridge": 20.0,
+    "training_rollouts": [
+      "outputs/final_third_view_seed_20260831",
+      "outputs/final_third_view_seed_20260832"
+    ],
+    "validation_rollout": "outputs/final_third_view_seed_20260833",
+    "sim_truth_used_only_for_training_label": true
+  },
+  "train_metrics": {
+    "sample_count": 22,
+    "mean_error_before_m": 0.06915408690840653,
+    "mean_error_after_m": 0.0612291403188455,
+    "p95_error_before_m": 0.09960721761984007,
+    "p95_error_after_m": 0.09171242071211434,
+    "fraction_improved": 1.0,
+    "mean_action_norm_m": 0.008000000000000002
+  },
+  "validation_metrics": {
+    "sample_count": 11,
+    "mean_error_before_m": 0.06912630528589216,
+    "mean_error_after_m": 0.06119926891287015,
+    "p95_error_before_m": 0.09259896282756391,
+    "p95_error_after_m": 0.08469561675666747,
+    "fraction_improved": 1.0,
+    "mean_action_norm_m": 0.008
+  }
+}

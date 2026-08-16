@@ -145,3 +145,201 @@ def nominal_object_twist(
         tuple(float(value) for value in object_linear),
         tuple(float(value) for value in angular),
     )
+
+
+
+def continuous_free_flight_evidence(
+    records,
+    baseline_position_hand_m,
+    *,
+    release_height_m: float | None = None,
+    contact_force_threshold_n: float = 0.05,
+    spectator_rate_hz: float = 60.0,
+) -> dict[str, object]:
+    """Measure the longest uninterrupted post-release contact-free arc.
+
+    A short force flicker cannot be reported as a long toss: the selected arc
+    ends at the first subsequent finger contact. Catch stability remains a
+    separate requirement evaluated by the native runner.
+    """
+
+    baseline = _vector3(baseline_position_hand_m, "baseline_position_hand_m")
+    if release_height_m is not None:
+        release_height_m = float(release_height_m)
+        if not math.isfinite(release_height_m):
+            raise ValueError("release_height_m must be finite")
+    postrelease = [
+        record
+        for record in records
+        if record.get("phase") in ("flight", "catch")
+    ]
+    if not postrelease:
+        return {
+            "continuous_free_flight_detected": False,
+            "continuous_free_flight_duration_s": 0.0,
+            "obvious_free_flight": False,
+        }
+
+    def force(record, key):
+        value = float(record[key])
+        if not math.isfinite(value):
+            raise ValueError(f"{key} must be finite")
+        return value
+
+    def contact_free(record):
+        return (
+            force(record, "left_finger_cube_contact_force_n")
+            <= contact_force_threshold_n
+            and force(record, "right_finger_cube_contact_force_n")
+            <= contact_force_threshold_n
+        )
+
+    runs = []
+    start = None
+    for index, record in enumerate(postrelease):
+        if contact_free(record):
+            if start is None:
+                start = index
+        elif start is not None:
+            runs.append((start, index - 1, index))
+            start = None
+    if start is not None:
+        runs.append((start, len(postrelease) - 1, None))
+    if not runs:
+        return {
+            "continuous_free_flight_detected": False,
+            "continuous_free_flight_duration_s": 0.0,
+            "obvious_free_flight": False,
+        }
+
+    def run_duration(run):
+        first, last, contact = run
+        end_time = float(
+            postrelease[contact if contact is not None else last]["time_s"]
+        )
+        return end_time - float(postrelease[first]["time_s"])
+
+    sustained_runs = [run for run in runs if run_duration(run) >= 0.05]
+    if sustained_runs:
+        start_index, last_free_index, contact_index = min(
+            sustained_runs, key=lambda run: run[0]
+        )
+    else:
+        start_index, last_free_index, contact_index = max(
+            runs, key=lambda run: (run_duration(run), -run[0])
+        )
+    free_records = postrelease[start_index : last_free_index + 1]
+    start_time = float(free_records[0]["time_s"])
+    end_time = float(
+        postrelease[contact_index]["time_s"]
+        if contact_index is not None
+        else free_records[-1]["time_s"]
+    )
+    apex_local_index = max(
+        range(len(free_records)),
+        key=lambda index: float(free_records[index]["cube_position_w_m"][2]),
+    )
+    apex_record = free_records[apex_local_index]
+    apex_time = float(apex_record["time_s"])
+    first_record = free_records[0]
+    last_record = free_records[-1]
+    first_contact_record = (
+        None if contact_index is None else postrelease[contact_index]
+    )
+
+    separations = [
+        float(
+            np.linalg.norm(
+                _vector3(record["cube_position_hand_m"], "cube_position_hand_m")
+                - baseline
+            )
+        )
+        for record in free_records
+    ]
+    q_start = np.asarray(first_record["cube_quaternion_wxyz"], dtype=float)
+    q_end = np.asarray(last_record["cube_quaternion_wxyz"], dtype=float)
+    q_start /= np.linalg.norm(q_start)
+    q_end /= np.linalg.norm(q_end)
+    rotation_rad = 2.0 * math.acos(
+        float(np.clip(abs(np.dot(q_start, q_end)), 0.0, 1.0))
+    )
+    spin_path_rad = 0.0
+    for before, after in zip(free_records, free_records[1:]):
+        dt = float(after["time_s"]) - float(before["time_s"])
+        omega_before = np.linalg.norm(
+            _vector3(
+                before["cube_angular_velocity_w_rad_s"],
+                "cube_angular_velocity_w_rad_s",
+            )
+        )
+        omega_after = np.linalg.norm(
+            _vector3(
+                after["cube_angular_velocity_w_rad_s"],
+                "cube_angular_velocity_w_rad_s",
+            )
+        )
+        spin_path_rad += 0.5 * float(omega_before + omega_after) * dt
+
+    bilateral_time = None
+    for record in postrelease[last_free_index + 1 :]:
+        if (
+            force(record, "left_finger_cube_contact_force_n")
+            > contact_force_threshold_n
+            and force(record, "right_finger_cube_contact_force_n")
+            > contact_force_threshold_n
+        ):
+            bilateral_time = float(record["time_s"])
+            break
+
+    duration_s = end_time - start_time
+    apex_to_contact_s = None if first_contact_record is None else end_time - apex_time
+    approach_velocity_z = (
+        None
+        if first_contact_record is None
+        else float(last_record["cube_linear_velocity_w_m_s"][2])
+    )
+    apex_is_internal = 0 < apex_local_index < len(free_records) - 1
+    rise_after_detach_m = float(
+        apex_record["cube_position_w_m"][2]
+        - first_record["cube_position_w_m"][2]
+    )
+    rise_from_release_m = float(apex_record["cube_position_w_m"][2]) - (
+        float(first_record["cube_position_w_m"][2]) if release_height_m is None else release_height_m
+    )
+    has_descending_contact = (
+        approach_velocity_z is not None and approach_velocity_z < 0.0
+    )
+    post_apex_frames = (
+        0
+        if apex_to_contact_s is None
+        else max(0, int(math.floor(apex_to_contact_s * spectator_rate_hz + 1e-9)))
+    )
+    obvious = (
+        duration_s >= 0.12
+        and rise_from_release_m >= 0.04
+        and apex_is_internal
+        and has_descending_contact
+        and post_apex_frames >= 2
+    )
+    return {
+        "continuous_free_flight_detected": True,
+        "continuous_free_flight_start_time_s": start_time,
+        "continuous_free_flight_end_time_s": end_time,
+        "continuous_free_flight_duration_s": duration_s,
+        "continuous_free_flight_sample_count": len(free_records),
+        "continuous_free_flight_max_separation_m": max(separations),
+        "free_flight_apex_time_s": apex_time,
+        "free_flight_apex_height_m": float(apex_record["cube_position_w_m"][2]),
+        "free_flight_rise_after_detach_m": rise_after_detach_m,
+        "free_flight_rise_from_kinematic_release_m": rise_from_release_m,
+        "free_flight_apex_is_internal": apex_is_internal,
+        "first_renewed_contact_time_s": (
+            None if first_contact_record is None else end_time
+        ),
+        "first_renewed_bilateral_contact_time_s": bilateral_time,
+        "precontact_vertical_velocity_m_s": approach_velocity_z,
+        "post_apex_spectator_frame_count": post_apex_frames,
+        "free_flight_rotation_rad": rotation_rad,
+        "free_flight_spin_path_rad": spin_path_rad,
+        "obvious_free_flight": obvious,
+    }

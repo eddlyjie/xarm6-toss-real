@@ -1,0 +1,78 @@
+{
+  "schema": "xarm6_g1_cube_sim_v1",
+  "name": "outward_vertical_real_detach_v7",
+  "physics_dt_s": 0.005,
+  "control_period_s": 0.02,
+  "arm_tracking_delay_s": 0.09,
+  "execution_envelope": "obvious_toss_sim_requires_real_operator_approval",
+  "limits": {
+    "joint_speed_rad_s": 3.1,
+    "joint_acceleration_rad_s2": 20.0
+  },
+  "cube_physics": {
+    "side_length_m_range": [0.035, 0.040],
+    "mass_kg_range": [0.020, 0.050]
+  },
+  "gripper_sim": {
+    "effort_limit_n": 8.0,
+    "stiffness_n_m": 60.0,
+    "damping_n_s_m": 5.0,
+    "max_depenetration_velocity_m_s": 0.5
+  },
+  "release_geometry": {
+    "gripper_base_position_m": [0.383, 0.0, 0.508],
+    "gripper_base_linear_velocity_m_s": [-0.229, 0.0, 0.923],
+    "joint6_roll_rad": 0.177245
+  },
+  "reference_segments": [
+    {
+      "phase": "throw",
+      "duration_s": 0.60,
+      "start_joint_rad": [-0.000004218, 0.170536973, -0.209786194, -0.000008695, -1.508655890, 0.177245000],
+      "start_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "end_joint_rad": [-0.000004218, -0.150000000, -0.734756365, -0.000008695, -1.100000000, 0.177245000],
+      "end_joint_velocity_rad_s": [0.0, -0.800000000, -1.500000000, 0.0, -1.000000000, 0.0]
+    },
+    {
+      "phase": "brake",
+      "duration_s": 0.12,
+      "start_joint_rad": [-0.000004218, -0.150000000, -0.734756365, -0.000008695, -1.100000000, 0.177245000],
+      "start_joint_velocity_rad_s": [0.0, -0.800000000, -1.500000000, 0.0, -1.000000000, 0.0],
+      "end_joint_rad": [-0.000004218, -0.198000000, -0.824756365, -0.000008695, -1.160000000, 0.177245000],
+      "end_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "start_joint_acceleration_rad_s2": [0.0, 6.666666667, 12.500000000, 0.0, 8.333333333, 0.0],
+      "end_joint_acceleration_rad_s2": [0.0, 6.666666667, 12.500000000, 0.0, 8.333333333, 0.0]
+    }
+  ],
+  "gripper_events": [
+    {
+      "time_s": 0.655,
+      "name": "release_partial_open",
+      "real_position": 100.0
+    },
+    {
+      "time_s": 0.86,
+      "name": "catch_close",
+      "real_position": 560.0
+    }
+  ],
+  "initial_pose_evidence": {
+    "joint6_roll_is_baked_into_reference": true,
+    "joint6_roll_offset_rad": 0.0,
+    "real_handoff_joint_rad": [0.061075, -1.214750, -0.300198, 0.022688, 1.439898, 0.331612],
+    "real_preplace_joint_rad": [-0.089162, 0.346276, -1.769666, 0.034285, 1.352634, 0.177245]
+  },
+  "validation": {
+    "reference_max_joint_speed_rad_s": 1.745000,
+    "reference_max_joint_acceleration_rad_s2": 13.057000
+  },
+  "notes": [
+    "The reversed-wrist geometry is intentional because it increases toss workspace and keeps the full flight visible to third_view.",
+    "The baked joint6 roll rotates the G1 opening plane away from the ballistic path without changing the outward tool axis.",
+    "The terminal joint velocity is Jacobian-shaped for a mostly vertical release at the measured lagged release pose.",
+    "The G1 command-to-detach prior is 25-44 ms; simulation replays a 25 ms start delay and 35 ms aperture transition.",
+    "third_view is the flight-phase policy camera; wrist is only for grasp/probe and opportunistic observations.",
+    "This is a simulator search envelope, not a directly executable real-arm trajectory.",
+    "Do not execute on the real arm until the operator approves the reported qdot/qdd envelope."
+  ]
+}
