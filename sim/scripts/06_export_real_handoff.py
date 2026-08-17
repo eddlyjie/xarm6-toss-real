@@ -23,7 +23,7 @@ from xarm6_toss_sim import URDFKinematics, load_real_setup  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "sim" / "configs" / "outward_vertical_real_detach_v7.json"
-DEFAULT_RESULT = ROOT / "outputs" / "final_probe_j_seed_20260861_v3"
+DEFAULT_RESULT = ROOT / "outputs" / "clear_probe_j_camera_seed_20260871_v2"
 DEFAULT_PROBE_J_CONFIG = ROOT / "sim" / "configs" / "probe_j_fixed_cube_v1.json"
 DEFAULT_MODEL = ROOT / "sim" / "models" / "intercept_residual_vertical_third_view_v1.json"
 DEFAULT_OUTPUT = ROOT / "real_handoff"
@@ -347,10 +347,10 @@ def main() -> int:
         "constraints_report": "real_constraints_report.json",
         "probe_j_evidence": "sim_probe_j_evidence.json",
         "videos": {
-            "spectator": "../outputs/final_probe_j_seed_20260861_v3/spectator.mp4",
-            "spectator_slow": "../outputs/final_probe_j_seed_20260861_v3/spectator_slow_0p25x.mp4",
-            "third_view": "../outputs/final_probe_j_seed_20260861_v3/spectator_third_view.mp4",
-            "wrist": "../outputs/final_probe_j_seed_20260861_v3/spectator_wrist.mp4",
+            "spectator": "../outputs/clear_probe_j_camera_seed_20260871_v2/spectator.mp4",
+            "spectator_slow": "../outputs/clear_probe_j_camera_seed_20260871_v2/spectator_slow_0p25x.mp4",
+            "third_view": "../outputs/clear_probe_j_camera_seed_20260871_v2/spectator_third_view.mp4",
+            "wrist": "../outputs/clear_probe_j_camera_seed_20260871_v2/spectator_wrist.mp4",
             "clear_flight_camera_diagnostic": "../outputs/final_clear_camera_seed_20260841/spectator.mp4",
             "clear_flight_camera_diagnostic_zoom_slow": "../outputs/final_clear_camera_seed_20260841/spectator_zoom_slow_0p4x.mp4",
         },

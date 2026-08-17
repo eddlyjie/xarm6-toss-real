@@ -45,10 +45,10 @@
         "catch_probability": 0.80
       },
       "controller": {
-        "catch_servo_start_time_s": 0.790,
-        "catch_close_time_s": 0.790,
-        "vision_control_end_time_s": 0.990,
-        "catch_intercept_time_s": 0.930,
+        "catch_servo_start_time_s": 0.810,
+        "catch_close_time_s": 0.810,
+        "vision_control_end_time_s": 1.010,
+        "catch_intercept_time_s": 0.950,
         "catch_lateral_only": true,
         "catch_hold_throw_joints": false,
         "catch_position_bias_m": [0.0, 0.015, 0.0],

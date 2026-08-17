@@ -27,10 +27,10 @@
   "timing_s": {
     "release_command": 0.745,
     "detach_prior": 0.03,
-    "catch_servo_start": 0.79,
-    "vision_control_end": 0.99,
-    "catch_close_command": 0.79,
-    "ballistic_intercept": 0.93,
+    "catch_servo_start": 0.81,
+    "vision_control_end": 1.01,
+    "catch_close_command": 0.81,
+    "ballistic_intercept": 0.95,
     "arm_tracking_delay_compensation": 0.09
   },
   "catch_servo": {

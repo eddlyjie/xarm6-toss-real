@@ -173,6 +173,12 @@ parser.add_argument(
     help="Use physics, the legacy third-view camera, or third-view+wrist policy cameras.",
 )
 parser.add_argument("--arm-tracking-delay-s", type=float, default=0.09)
+parser.add_argument(
+    "--arm-drive-interpolation",
+    choices=("hold", "linear"),
+    default="hold",
+    help="Low-level interpolation between 20 ms servo_j targets.",
+)
 parser.add_argument("--arm-sim-effort-scale", type=float, default=1.0)
 parser.add_argument("--arm-sim-stiffness-scale", type=float, default=1.0)
 parser.add_argument(
@@ -1357,6 +1363,9 @@ def main() -> int:
         dtype=torch.float32,
         device=sim.device,
     )
+    drive_start_position = commanded_arm_position.clone()
+    drive_goal_position = commanded_arm_position.clone()
+    drive_tick_start_s = 0.0
     commanded_arm_velocity = torch.zeros(6, device=sim.device)
     commanded_speed_max_rad_s = 0.0
     commanded_acceleration_max_rad_s2 = 0.0
@@ -1443,11 +1452,16 @@ def main() -> int:
             vision_control_end_time_s is None
             or time_s <= vision_control_end_time_s + 1.0e-9
         )
+        tracking_active = catch_active or (
+            global_camera is not None
+            and time_s >= args_cli.gripper_open_command_time_s
+        )
         if (
-            catch_active and vision_servo_active
+            tracking_active and vision_servo_active
             and new_control_tick
         ):
-            catch_control_update_count += 1
+            if catch_active:
+                catch_control_update_count += 1
             hand_position, hand_quaternion, _ = hand_state(
                 robot,
                 gripper_body_id,
@@ -1719,7 +1733,7 @@ def main() -> int:
                 or estimate.camera_sample_count
                 >= args_cli.catch_min_camera_samples
             )
-            if not camera_servo_ready:
+            if catch_active and not camera_servo_ready:
                 camera_servo_suppressed_update_count += 1
             if global_camera is not None:
                 camera_metadata["camera_servo_ready"] = camera_servo_ready
@@ -1747,7 +1761,7 @@ def main() -> int:
                 -args_cli.catch_max_joint_step_rad,
                 args_cli.catch_max_joint_step_rad,
             )
-            if catch_control_update_count == 1:
+            if catch_active and catch_control_update_count == 1:
                 catch_first_jacobian = [
                     [float(value) for value in row]
                     for row in jacobian.detach().cpu().tolist()
@@ -1757,18 +1771,22 @@ def main() -> int:
             delta_joint = torch.zeros(6, device=sim.device)
             delta_joint[:controlled_joint_count] = controlled_delta
             if args_cli.catch_lateral_only:
-                catch_arm_target = arm_target.clone()
-                catch_arm_target[0, 0] = (
+                proposed_catch_arm_target = arm_target.clone()
+                proposed_catch_arm_target[0, 0] = (
                     commanded_arm_position[0] + delta_joint[0]
                 )
                 if args_cli.catch_hold_throw_joints:
-                    catch_arm_target[0, 1:] = catch_wrist_position
+                    proposed_catch_arm_target[0, 1:] = catch_wrist_position
             else:
-                catch_arm_target = (
+                proposed_catch_arm_target = (
                     commanded_arm_position + delta_joint
                 ).unsqueeze(0)
             if controlled_joint_count < 6 and not args_cli.catch_lateral_only:
-                catch_arm_target[0, controlled_joint_count:] = catch_wrist_position
+                proposed_catch_arm_target[
+                    0, controlled_joint_count:
+                ] = catch_wrist_position
+            if catch_active:
+                catch_arm_target = proposed_catch_arm_target
         if catch_active and catch_arm_target is not None:
             arm_target = catch_arm_target
         if new_control_tick:
@@ -1814,10 +1832,26 @@ def main() -> int:
                 commanded_acceleration_max_rad_s2,
                 float(torch.max(torch.abs(acceleration)).item()),
             )
+            drive_start_position = drive_goal_position
+            drive_goal_position = commanded_arm_position.clone()
+            drive_tick_start_s = time_s
             last_control_tick_index = control_tick_index
-        arm_target = commanded_arm_position.unsqueeze(0)
+        if args_cli.arm_drive_interpolation == "linear":
+            drive_progress = float(
+                np.clip(
+                    (time_s - drive_tick_start_s + dt) / control_period,
+                    0.0,
+                    1.0,
+                )
+            )
+            drive_position = (
+                drive_start_position
+                + drive_progress * (drive_goal_position - drive_start_position)
+            )
+        else:
+            drive_position = commanded_arm_position
         robot.set_joint_position_target_index(
-            target=arm_target,
+            target=drive_position.unsqueeze(0),
             joint_ids=arm_ids,
         )
         phase = "throw" if time_s < args_cli.release_time_s else "flight"
@@ -1983,6 +2017,7 @@ def main() -> int:
         ],
         spectator_used_for_control=False,
         arm_tracking_delay_s=args_cli.arm_tracking_delay_s,
+        arm_drive_interpolation=args_cli.arm_drive_interpolation,
         arm_sim_effort_scale=args_cli.arm_sim_effort_scale,
         arm_sim_stiffness_scale=args_cli.arm_sim_stiffness_scale,
         commanded_max_joint_speed_rad_s=commanded_speed_max_rad_s,
