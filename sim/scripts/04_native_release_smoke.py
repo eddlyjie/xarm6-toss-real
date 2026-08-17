@@ -239,7 +239,7 @@ import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import Articulation, ArticulationCfg, RigidObject, RigidObjectCfg
 from isaaclab.sensors import Camera, CameraCfg, ContactSensor, ContactSensorCfg
-from isaaclab.utils.math import quat_apply, quat_apply_inverse, quat_mul
+from isaaclab.utils.math import convert_quat, quat_apply, quat_apply_inverse, quat_mul
 
 
 sys.path.insert(0, str(XARM_ROOT / "src"))
@@ -672,7 +672,7 @@ def hand_state(
 
 def wrist_camera_world_pose(
     hand_position: torch.Tensor,
-    hand_quaternion_wxyz: torch.Tensor,
+    hand_quaternion_xyzw: torch.Tensor,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     offset_position = torch.tensor(
         WRIST_CAMERA_POSITION_EEF_M,
@@ -680,29 +680,28 @@ def wrist_camera_world_pose(
         device=hand_position.device,
     )
     camera_position = hand_position + quat_apply(
-        hand_quaternion_wxyz.unsqueeze(0), offset_position.unsqueeze(0)
+        hand_quaternion_xyzw.unsqueeze(0), offset_position.unsqueeze(0)
     )[0]
-    offset_xyzw = WRIST_CAMERA_QUAT_XYZW
-    offset_wxyz = torch.tensor(
-        [offset_xyzw[3], offset_xyzw[0], offset_xyzw[1], offset_xyzw[2]],
+    offset_xyzw = torch.tensor(
+        WRIST_CAMERA_QUAT_XYZW,
         dtype=torch.float32,
         device=hand_position.device,
     )
-    camera_wxyz = quat_mul(hand_quaternion_wxyz, offset_wxyz)
-    return camera_position, camera_wxyz
+    camera_xyzw = quat_mul(hand_quaternion_xyzw, offset_xyzw)
+    return camera_position, camera_xyzw
 
 
 def wrist_camera_cube_clearance_m(
     hand_position: torch.Tensor,
-    hand_quaternion_wxyz: torch.Tensor,
+    hand_quaternion_xyzw: torch.Tensor,
     cube_position: torch.Tensor,
     cube_size_m: float,
 ) -> float:
-    camera_position, camera_wxyz = wrist_camera_world_pose(
-        hand_position, hand_quaternion_wxyz
+    camera_position, camera_xyzw = wrist_camera_world_pose(
+        hand_position, hand_quaternion_xyzw
     )
     cube_camera = quat_apply_inverse(
-        camera_wxyz.unsqueeze(0),
+        camera_xyzw.unsqueeze(0),
         (cube_position - camera_position).unsqueeze(0),
     )[0]
     half_extents = WRIST_CAMERA_PROXY_HALF_EXTENTS_M.to(cube_position.device)
@@ -721,11 +720,10 @@ def update_wrist_camera_pose(
         return
     gripper_pose = robot.data.body_pose_w.torch[0, gripper_body_id]
     hand_position = gripper_pose[:3]
-    hand_quaternion_wxyz = gripper_pose[3:7]
-    camera_position, camera_wxyz = wrist_camera_world_pose(
-        hand_position, hand_quaternion_wxyz
+    hand_quaternion_xyzw = gripper_pose[3:7]
+    camera_position, camera_xyzw = wrist_camera_world_pose(
+        hand_position, hand_quaternion_xyzw
     )
-    camera_xyzw = camera_wxyz[[1, 2, 3, 0]]
     wrist_camera.set_world_poses(
         camera_position.unsqueeze(0),
         camera_xyzw.unsqueeze(0),
@@ -780,6 +778,12 @@ def record_state(
         finger_body_ids,
     )
     cube_pose = cube.data.root_link_pose_w.torch[0]
+    cube_quaternion_wxyz = convert_quat(
+        cube_pose[3:7], to="wxyz"
+    )
+    hand_quaternion_wxyz = convert_quat(
+        hand_quaternion, to="wxyz"
+    )
     cube_linear = cube.data.root_com_lin_vel_w.torch[0]
     cube_angular = cube.data.root_com_ang_vel_w.torch[0]
     hand_linear = robot.data.body_link_lin_vel_w.torch[0, gripper_body_id]
@@ -806,7 +810,7 @@ def record_state(
             float(value) for value in cube_pose[:3].tolist()
         ],
         "cube_quaternion_wxyz": [
-            float(value) for value in cube_pose[3:7].tolist()
+            float(value) for value in cube_quaternion_wxyz.tolist()
         ],
         "cube_linear_velocity_w_m_s": [
             float(value) for value in cube_linear.tolist()
@@ -818,7 +822,7 @@ def record_state(
             float(value) for value in hand_position.tolist()
         ],
         "hand_quaternion_wxyz": [
-            float(value) for value in hand_quaternion.tolist()
+            float(value) for value in hand_quaternion_wxyz.tolist()
         ],
         "hand_linear_velocity_w_m_s": [
             float(value) for value in hand_linear.tolist()
@@ -1083,6 +1087,7 @@ def summarize(
     )
     return {
         "schema": "xarm6_native_release_smoke_v1",
+        "trajectory_quaternion_order": "wxyz",
         "cube_state_writes_after_initialization": 0,
         "placed_cube_pose_w": placed_pose,
         "prethrow_max_relative_error_m": max(prethrow_errors),

@@ -2,23 +2,27 @@
 
 ## 2026-08-18 实用 checkpoint（strict goal 继续保留）
 
-已恢复并重复验证一个可优先移交真机的“小旋转 + 稳定接取”分支：两次固定 reference
-均完成 0.097 s all-link robot-free、约 56.2 mm 上升、目标轴 alignment 0.960、
-detach→apex 2.50° 和稳定双指接取；一次 paired Probe/J 闭环实际选择并覆盖 controller
-timing 后也稳定接住，目标轴 alignment 0.986、旋转 2.11°。单命令入口是：
+已修正 IsaacLab `xyzw` quaternion contract 与 wrist-camera extrinsic，并重复验证一个可优先
+移交真机的“小旋转 + 稳定接取 + camera correction”分支。三次不同 camera seed 均完成
+0.078 s all-link robot-free、约 52.9 mm 上升、目标轴 alignment 0.987、detach→apex 2.13°、
+双侧接触率 1.0 和稳定接取。third-view 在每次控制窗口 7/7 检出，detach 后实际触发 5 次
+ballistic/controller update；Probe/J 也实际选择并覆盖了 nominal timing。推荐单命令入口是：
 
 ```bash
-bash sim/scripts/12_run_stable_recovered.sh
+bash sim/scripts/13_run_stable_camera_closed_loop.sh
 ```
 
 该 checkpoint 是为了尽快做 2–3 次真机验证，不改变下方 strict goal，也不得被写成 strict
 完成。它仍未满足 strict 的 0.12 s、25 mm 全离手分离、内部 apex 和 5° detach→apex
-门槛。另一个 throw-only 分支达到 0.924 s free-flight、65.3 mm 上升和 12.63° signed
-target-axis rotation，但尚未 recatch，只可作为下一阶段动作证据。
+门槛。修正后的长飞行 `outputs/quaternion_contract_v2/v3_throwonly` 达到 1.124 s free-flight、
+65.3 mm 上升、0.893 alignment、3.07° detach→apex 和 11.50° signed target-axis rotation，
+但尚未 recatch，也未同时达到 strict rotation 门槛，只可作为下一阶段动作证据。旧输出曾报告的
+12.63° 是错误 quaternion 顺序的派生结果，禁止继续引用。
 
 真机绝对时刻不能直接照抄 sim：先复测 G1 25–44 ms detach delay 和约 80 ms arm lag，
 再以实测 detach 为时间原点安排 catch。完整边界和执行顺序见
 `docs/STABLE_RECOVERED_HANDOFF_20260818.md`。
+无视觉更新的 fallback 仍为 `bash sim/scripts/12_run_stable_recovered.sh`。
 
 ## 最终目标
 
