@@ -1,0 +1,90 @@
+{
+  "schema": "xarm6_g1_cube_sim_v2",
+  "name": "outward_visible_spin_v2",
+  "physics_dt_s": 0.005,
+  "control_period_s": 0.02,
+  "measured_real_arm_tracking_delay_s": 0.08,
+  "execution_envelope": "same_joint_peaks_as_real_verified_1x_new_j6_motion_requires_empty_run",
+  "operator_approval_required_for_real_execution": true,
+  "limits": {
+    "joint_speed_rad_s": 3.1,
+    "joint_acceleration_rad_s2": 20.0
+  },
+  "verified_reference_envelope": {
+    "max_joint_speed_rad_s": 1.74483445,
+    "max_joint_acceleration_rad_s2": 13.0573925,
+    "max_joint6_speed_rad_s": 1.2
+  },
+  "cube_physics": {
+    "side_length_m_range": [0.035, 0.040],
+    "mass_kg_range": [0.020, 0.050]
+  },
+  "gripper_sim": {
+    "effort_limit_n": 8.0,
+    "stiffness_n_m": 60.0,
+    "damping_n_s_m": 5.0,
+    "max_depenetration_velocity_m_s": 0.5
+  },
+  "reference_segments": [
+    {
+      "phase": "throw",
+      "duration_s": 0.44,
+      "start_joint_rad": [-0.000004218, 0.170536973, -0.209786194, -0.000008695, -1.508655890, 0.177245000],
+      "start_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "end_joint_rad": [-0.000004218, -0.020073661064280657, -0.500410963182685, -0.000008695, -1.0362236716828424, 0.177245000],
+      "end_joint_velocity_rad_s": [0.0, -0.8136687207190123, -1.3802392603022229, 0.0, 0.5304274597925911, 0.0],
+      "end_joint_acceleration_rad_s2": [0.0, -0.3394870279506019, -1.7930462879999851, 0.0, -12.734124154074152, 0.0]
+    },
+    {
+      "phase": "spin_injection",
+      "duration_s": 0.16,
+      "start_joint_rad": [-0.000004218, -0.020073661064280657, -0.500410963182685, -0.000008695, -1.0362236716828424, 0.177245000],
+      "start_joint_velocity_rad_s": [0.0, -0.8136687207190123, -1.3802392603022229, 0.0, 0.5304274597925911, 0.0],
+      "end_joint_rad": [-0.000004218, -0.150000000, -0.734756365, -0.000008695, -1.100000000, 0.273245000],
+      "end_joint_velocity_rad_s": [0.0, -0.800000000, -1.500000000, 0.0, -1.000000000, 1.200000000],
+      "start_joint_acceleration_rad_s2": [0.0, -0.3394870279506019, -1.7930462879999851, 0.0, -12.734124154074152, 0.0]
+    },
+    {
+      "phase": "brake",
+      "duration_s": 0.16,
+      "start_joint_rad": [-0.000004218, -0.150000000, -0.734756365, -0.000008695, -1.100000000, 0.273245000],
+      "start_joint_velocity_rad_s": [0.0, -0.800000000, -1.500000000, 0.0, -1.000000000, 1.200000000],
+      "end_joint_rad": [-0.000004218, -0.214000000, -0.854756365, -0.000008695, -1.180000000, 0.369245000],
+      "end_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "start_joint_acceleration_rad_s2": [0.0, 5.0, 9.375, 0.0, 6.25, -7.5],
+      "end_joint_acceleration_rad_s2": [0.0, 5.0, 9.375, 0.0, 6.25, -7.5]
+    }
+  ],
+  "sim_gripper_events": [
+    {"time_s": 0.636, "name": "release_partial_open", "drive_rad": 0.30},
+    {"time_s": 0.800, "name": "catch_close", "drive_rad": 0.60}
+  ],
+  "real_g1_events": [
+    {"time_s": 0.636, "name": "release_partial_open", "position": 520.0},
+    {"time_s": 0.800, "name": "catch_close", "position": 370.0}
+  ],
+  "state_estimator": {
+    "mode": "actual_q_dq_release_prior_plus_ballistic_propagation",
+    "camera_required_for_control": false,
+    "detach_delay_range_s": [0.025, 0.044]
+  },
+  "validation_targets": {
+    "minimum_continuous_free_flight_s": 0.12,
+    "minimum_relative_separation_m": 0.025,
+    "minimum_net_rotation_deg": 8.0,
+    "preferred_net_rotation_deg": [15.0, 45.0],
+    "minimum_stable_hold_s": 0.5
+  },
+  "lineage": {
+    "frozen_real_baseline": "REAL_ROBOT_TEST_20260817.md",
+    "sim_motion_parent": "sim/configs/outward_vertical_real_detach_v7.json",
+    "fallback_reason": "Positive-J5 seeds point the tool inward and collapse TCP radius; the verified negative-J5 outward family is retained."
+  },
+  "notes": [
+    "J6 spin is injected only in the final 160 ms before release and braked after detach.",
+    "The commanded qdot/qdd peaks do not exceed the real-verified 1x baseline.",
+    "The new J6 motion is not real-verified; run static inspection and 0.25/0.5/1x empty previews first.",
+    "Third-view and wrist cameras are recorded for evidence but are not hard dependencies of the controller.",
+    "This explicit-J6 candidate did not pass the visible-spin catch gate; it is preserved as negative evidence and is not used by 11_run_visible_spin.sh."
+  ]
+}

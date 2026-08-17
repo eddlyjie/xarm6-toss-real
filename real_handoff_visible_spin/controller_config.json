@@ -1,0 +1,59 @@
+{
+  "schema": "xarm6_visible_spin_handoff_v1",
+  "status": "sim_validated_real_unverified",
+  "cube": {
+    "side_length_m": 0.038,
+    "sim_development_mass_kg": 0.035,
+    "mark_asymmetrically_for_video": true
+  },
+  "motion": {
+    "reference_config": "../sim/configs/outward_vertical_real_detach_v7.json",
+    "control_period_s": 0.02,
+    "interpolation": "hold",
+    "reference_max_joint_speed_rad_s": 1.74483445,
+    "reference_max_joint_acceleration_rad_s2": 13.0573925,
+    "linear_spd_limit_factor": 1.6
+  },
+  "sim_controller": {
+    "release_command_time_s": 0.655,
+    "detach_time_s": 0.690,
+    "catch_servo_start_time_s": 0.700,
+    "catch_close_time_s": 0.800,
+    "catch_intercept_time_s": 0.840,
+    "detach_delay_prior_s": 0.030,
+    "catch_position_bias_m": [0.0, 0.0135, 0.0],
+    "catch_lateral_only": true,
+    "catch_hold_throw_joints": true
+  },
+  "real_seed": {
+    "frozen_baseline_release_command_time_s": 0.636,
+    "frozen_baseline_close_command_time_s": 0.720,
+    "visible_spin_close_candidates_s": [0.780, 0.800],
+    "arm_tracking_delay_s": 0.080,
+    "g1_detach_delay_range_s": [0.025, 0.044],
+    "g1_held_position": 370,
+    "g1_partial_open_position": 520,
+    "g1_speed": 5000,
+    "requires_empty_preview": true,
+    "preview_speed_scales": [0.25, 0.5, 1.0]
+  },
+  "estimator": {
+    "mode": "actual_q_dq_release_prior_plus_ballistic_propagation",
+    "camera_required": false,
+    "simulator_truth_allowed": false,
+    "sim_lateral_residual_is_seed_only": true
+  },
+  "camera_roles": {
+    "third_view": "recording_and_optional_bounded_update",
+    "wrist": "grasp_precheck_and_recording_only",
+    "missing_frames_block_control": false
+  },
+  "sim_evidence": {
+    "result": "../outputs/visible_spin_natural_proprio_v1_marked",
+    "continuous_free_flight_s": 0.245,
+    "maximum_separation_m": 0.0494,
+    "net_rotation_deg": 19.45,
+    "catch_stable": true,
+    "visible_spin_toss_success": true
+  }
+}

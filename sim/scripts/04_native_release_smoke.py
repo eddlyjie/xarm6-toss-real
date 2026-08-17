@@ -168,9 +168,17 @@ parser.add_argument(
 )
 parser.add_argument(
     "--observation-mode",
-    choices=("physics", "global_camera", "policy_cameras"),
+    choices=("physics", "proprioceptive", "global_camera", "policy_cameras"),
     default="physics",
-    help="Use physics, the legacy third-view camera, or third-view+wrist policy cameras.",
+    help=(
+        "Use simulator truth, deployable q/dq release-state propagation, "
+        "the third-view camera, or third-view+wrist policy cameras."
+    ),
+)
+parser.add_argument(
+    "--record-policy-cameras",
+    action="store_true",
+    help="Record third-view and wrist video without using either for control.",
 )
 parser.add_argument("--arm-tracking-delay-s", type=float, default=0.09)
 parser.add_argument(
@@ -381,6 +389,22 @@ def cube_cfg(size_m: float, mass_kg: float) -> RigidObjectCfg:
             ),
         ),
         init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 2.0)),
+    )
+
+
+def spawn_cube_rotation_marker(size_m: float) -> None:
+    """Add a visual-only asymmetric corner marker for spectator evidence."""
+    marker = sim_utils.CuboidCfg(
+        size=(0.0015, 0.010, 0.010),
+        visual_material=sim_utils.PreviewSurfaceCfg(
+            diffuse_color=(0.85, 0.03, 0.03),
+            roughness=0.5,
+        ),
+    )
+    marker.func(
+        "/World/Cube/RotationMarker",
+        marker,
+        translation=(0.5 * size_m + 0.00075, 0.009, 0.009),
     )
 
 
@@ -939,6 +963,10 @@ def summarize(
             free_flight_evidence.get("obvious_free_flight", False)
             and catch_stable
         ),
+        "visible_spin_toss_success": bool(
+            free_flight_evidence.get("obvious_free_flight", False)
+            and free_flight_evidence.get("visible_spin", False) and catch_stable
+        ),
         "catch_evidence_window_s": args_cli.catch_evidence_window_s,
         "bilateral_contact_fraction": bilateral_contact_fraction,
         "final_cube_position_w_m": final_record["cube_position_w_m"],
@@ -1044,10 +1072,14 @@ def main() -> int:
     )
     robot = Articulation(robot_cfg(args_cli.usd, args_cli.held_drive_rad))
     cube = RigidObject(cube_cfg(args_cli.cube_size_m, args_cli.cube_mass_kg))
+    spawn_cube_rotation_marker(args_cli.cube_size_m)
     global_camera = None
     wrist_camera = None
     spectator_camera = None
-    if args_cli.observation_mode in ("global_camera", "policy_cameras"):
+    camera_control_enabled = args_cli.observation_mode in (
+        "global_camera", "policy_cameras"
+    )
+    if camera_control_enabled or args_cli.record_policy_cameras:
         global_camera = Camera(
             CameraCfg(
                 prim_path="/World/GlobalCamera",
@@ -1068,7 +1100,7 @@ def main() -> int:
                 ),
             )
         )
-    if args_cli.observation_mode == "policy_cameras":
+    if args_cli.observation_mode == "policy_cameras" or args_cli.record_policy_cameras:
         wrist_camera = Camera(
             CameraCfg(
                 prim_path="/World/WristCamera",
@@ -1379,14 +1411,14 @@ def main() -> int:
     catch_first_joint_delta = None
     camera_measurements: list[dict[str, object]] = []
     camera_position_errors_m: list[float] = []
-    ballistic_tracker = BallisticTracker() if global_camera is not None else None
+    ballistic_tracker = BallisticTracker() if camera_control_enabled else None
     policy_cameras = tuple(
         item
         for item in (
             ("third_view", global_camera, 0.0),
             ("wrist", wrist_camera, 1.0 / 120.0),
         )
-        if item[1] is not None
+        if camera_control_enabled and item[1] is not None
     )
     camera_rng = np.random.default_rng(args_cli.camera_seed)
     last_camera_capture_index = {
@@ -1452,9 +1484,16 @@ def main() -> int:
             vision_control_end_time_s is None
             or time_s <= vision_control_end_time_s + 1.0e-9
         )
-        tracking_active = catch_active or (
-            global_camera is not None
-            and time_s >= args_cli.gripper_open_command_time_s
+        tracking_active = (
+            catch_active
+            or (
+                args_cli.observation_mode == "proprioceptive"
+                and time_s >= args_cli.gripper_open_command_time_s
+            )
+            or (
+                camera_control_enabled
+                and time_s >= args_cli.gripper_open_command_time_s
+            )
         )
         if (
             tracking_active and vision_servo_active
@@ -1511,9 +1550,12 @@ def main() -> int:
             )
             prior_cube_velocity = encoder_prior_velocity + gravity * prior_age_s
             cube_position_truth = cube.data.root_link_pose_w.torch[0, :3]
-            if global_camera is None:
+            if args_cli.observation_mode == "physics":
                 cube_position = cube_position_truth
                 cube_velocity = cube.data.root_com_lin_vel_w.torch[0]
+            elif args_cli.observation_mode == "proprioceptive":
+                cube_position = prior_cube_position
+                cube_velocity = prior_cube_velocity
             else:
                 new_camera_metadata = []
                 delivered_sources = []
@@ -1656,7 +1698,7 @@ def main() -> int:
             residual_action = np.zeros(3, dtype=float)
             residual_feature = None
             if (
-                global_camera is not None
+                camera_control_enabled
                 and estimate.camera_sample_count > 0
             ):
                 residual_feature = residual_features(
@@ -1685,7 +1727,7 @@ def main() -> int:
                     dtype=torch.float32,
                     device=sim.device,
                 )
-            if global_camera is not None:
+            if camera_control_enabled:
                 true_velocity = cube.data.root_com_lin_vel_w.torch[0]
                 true_intercept = (
                     cube_position_truth
@@ -1729,13 +1771,13 @@ def main() -> int:
             )
             cube_position = cube_position + catch_position_bias
             camera_servo_ready = (
-                global_camera is None
+                not camera_control_enabled
                 or estimate.camera_sample_count
                 >= args_cli.catch_min_camera_samples
             )
             if catch_active and not camera_servo_ready:
                 camera_servo_suppressed_update_count += 1
-            if global_camera is not None:
+            if camera_control_enabled:
                 camera_metadata["camera_servo_ready"] = camera_servo_ready
             desired_hand_position = (
                 cube_position - grasp_offset_world
@@ -1775,13 +1817,20 @@ def main() -> int:
                 proposed_catch_arm_target[0, 0] = (
                     commanded_arm_position[0] + delta_joint[0]
                 )
-                if args_cli.catch_hold_throw_joints:
+                if (
+                    args_cli.catch_hold_throw_joints
+                    and catch_wrist_position is not None
+                ):
                     proposed_catch_arm_target[0, 1:] = catch_wrist_position
             else:
                 proposed_catch_arm_target = (
                     commanded_arm_position + delta_joint
                 ).unsqueeze(0)
-            if controlled_joint_count < 6 and not args_cli.catch_lateral_only:
+            if (
+                controlled_joint_count < 6
+                and not args_cli.catch_lateral_only
+                and catch_wrist_position is not None
+            ):
                 proposed_catch_arm_target[
                     0, controlled_joint_count:
                 ] = catch_wrist_position
@@ -2015,6 +2064,8 @@ def main() -> int:
         policy_observation_sources=[
             source_camera for source_camera, _, _ in policy_cameras
         ],
+        policy_cameras_recorded=bool(args_cli.record_policy_cameras),
+        camera_control_enabled=bool(camera_control_enabled),
         spectator_used_for_control=False,
         arm_tracking_delay_s=args_cli.arm_tracking_delay_s,
         arm_drive_interpolation=args_cli.arm_drive_interpolation,

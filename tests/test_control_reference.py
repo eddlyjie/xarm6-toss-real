@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -106,6 +107,28 @@ class ControlReferenceTests(unittest.TestCase):
             np.tile(acceleration, (len(samples), 1)),
             atol=1.0e-10,
         )
+
+    def test_visible_spin_reference_stays_in_verified_joint_envelope(self) -> None:
+        config = json.loads(
+            (ROOT / "sim/configs/outward_visible_spin_v2.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        segments = tuple(
+            QuinticJointSegment(**segment)
+            for segment in config["reference_segments"]
+        )
+        samples = generate_joint_reference(segments, config["control_period_s"])
+        velocity = np.abs(
+            np.asarray([sample.joint_velocity_rad_s for sample in samples])
+        )
+        acceleration = np.abs(
+            np.asarray([sample.joint_acceleration_rad_s2 for sample in samples])
+        )
+        self.assertLessEqual(float(np.max(velocity)), 1.7449)
+        self.assertLessEqual(float(np.max(acceleration)), 13.0575)
+        self.assertAlmostEqual(segments[1].end_joint_velocity_rad_s[5], 1.2)
+        self.assertEqual(segments[-1].phase, "brake")
 
 
 if __name__ == "__main__":

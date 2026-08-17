@@ -95,6 +95,8 @@ class FlightPhysicsTests(unittest.TestCase):
         self.assertTrue(evidence["free_flight_apex_is_internal"])
         self.assertLess(evidence["precontact_vertical_velocity_m_s"], 0.0)
         self.assertGreater(evidence["free_flight_rotation_rad"], 0.3)
+        self.assertGreater(evidence["free_flight_rotation_deg"], 8.0)
+        self.assertTrue(evidence["visible_spin"])
 
     def test_micro_release_is_not_obvious_toss(self):
         records = []
@@ -115,6 +117,7 @@ class FlightPhysicsTests(unittest.TestCase):
         evidence = continuous_free_flight_evidence(records, [0.0, 0.0, 0.0])
         self.assertFalse(evidence["obvious_free_flight"])
         self.assertFalse(evidence["free_flight_apex_is_internal"])
+        self.assertFalse(evidence["visible_spin"])
 
 
 if __name__ == "__main__":

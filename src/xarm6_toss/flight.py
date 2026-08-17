@@ -16,6 +16,8 @@ from scipy.spatial.transform import Rotation
 
 
 GRAVITY_M_S2 = 9.81
+VISIBLE_SPIN_MIN_ROTATION_RAD = math.radians(8.0)
+VISIBLE_SPIN_MIN_FLIGHT_S = 0.12
 
 
 def _vector3(value, name: str) -> np.ndarray:
@@ -178,6 +180,9 @@ def continuous_free_flight_evidence(
             "continuous_free_flight_detected": False,
             "continuous_free_flight_duration_s": 0.0,
             "obvious_free_flight": False,
+            "free_flight_rotation_rad": 0.0,
+            "free_flight_rotation_deg": 0.0,
+            "visible_spin": False,
         }
 
     def force(record, key):
@@ -210,6 +215,9 @@ def continuous_free_flight_evidence(
             "continuous_free_flight_detected": False,
             "continuous_free_flight_duration_s": 0.0,
             "obvious_free_flight": False,
+            "free_flight_rotation_rad": 0.0,
+            "free_flight_rotation_deg": 0.0,
+            "visible_spin": False,
         }
 
     def run_duration(run):
@@ -321,6 +329,10 @@ def continuous_free_flight_evidence(
         and has_descending_contact
         and post_apex_frames >= 2
     )
+    visible_spin = (
+        duration_s >= VISIBLE_SPIN_MIN_FLIGHT_S
+        and rotation_rad >= VISIBLE_SPIN_MIN_ROTATION_RAD
+    )
     return {
         "continuous_free_flight_detected": True,
         "continuous_free_flight_start_time_s": start_time,
@@ -340,6 +352,8 @@ def continuous_free_flight_evidence(
         "precontact_vertical_velocity_m_s": approach_velocity_z,
         "post_apex_spectator_frame_count": post_apex_frames,
         "free_flight_rotation_rad": rotation_rad,
+        "free_flight_rotation_deg": math.degrees(rotation_rad),
         "free_flight_spin_path_rad": spin_path_rad,
+        "visible_spin": visible_spin,
         "obvious_free_flight": obvious,
     }

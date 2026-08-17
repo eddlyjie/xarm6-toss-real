@@ -1,5 +1,29 @@
 # xArm6 fixed-cube toss/catch
 
+## 2026-08-17 visible-spin update
+
+The nominal Isaac native result now shows clear free flight, cube rotation,
+and a stable bilateral recatch: 0.245 s continuous flight, 49.4 mm
+hand-relative separation, 19.45 deg net rotation, and descending recatch.
+Control uses actual q/dq at release, ballistic propagation, and a bounded
+13.5 mm lateral residual. Third-view, wrist, and spectator cameras are
+record-only; `camera_control_enabled=false`.
+
+Start with the slow-motion evidence:
+
+```text
+outputs/visible_spin_natural_proprio_v1_marked/spectator_slow_0p25x.mp4
+```
+
+Reproduce with `bash sim/scripts/11_run_visible_spin.sh`. Full metrics,
+all three videos, negative J5/J6 evidence, and the real-robot execution order
+are documented in `docs/VISIBLE_SPIN_HANDOFF_20260817.md`. The camera/Probe
+section below is the preserved previous candidate and is superseded by this update.
+
+Scope: this is a nominal fixed 38 mm, 35 g sim cube success. It is not yet
+real-robot validated and does not establish full 20--50 g or 25--44 ms
+detach-delay robustness.
+
 当前可移交候选是反腕、朝外工作区的 xArm6 + G1 固定 cube 抛接。反腕是有意选择：换取更大的
 抛接空间；third_view 负责 release/flight 的可见段，wrist 只做 grasp/probe 和机会观测。Isaac native learned
 controller 在固定约 38 mm、35 g cube 上完成 3/3 stable bilateral catch；三次都实际运行了
