@@ -1,0 +1,88 @@
+{
+  "schema": "xarm6_probe_j_stable_recovered_v1",
+  "projected_width_m": 0.035,
+  "minimum_held_probability": 0.90,
+  "maximum_slip_probability": 0.50,
+  "probe": {
+    "joint_index": 4,
+    "duration_s": 0.30,
+    "amplitude_rad": 0.030,
+    "frequency_hz": 1.5
+  },
+  "calibration": {
+    "payload_joint_indices": [1, 2, 4],
+    "payload_mass_range_kg": [0.020, 0.050],
+    "payload_signal_range_nm": [0.8571761, 1.1289567],
+    "payload_std_floor_kg": 0.006,
+    "com_offset_matrix_m_per_nm": [
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    ],
+    "com_offset_std_m": 0.008,
+    "gripper_contact_signal_center_nm": 0.020,
+    "gripper_contact_signal_scale_nm": 0.010,
+    "slip_gripper_drift_center": 0.040,
+    "slip_gripper_drift_scale": 0.100,
+    "slip_effort_rms_center_nm": 1.0,
+    "slip_effort_rms_scale_nm": 10.0,
+    "detach_time_std_floor_s": 0.006,
+    "detach_mass_std_gain_s_per_kg": 0.5,
+    "detach_slip_gain_s": 0.015
+  },
+  "catch_candidates": [
+    {
+      "name": "stable_recovered_probe_conditioned",
+      "payload_std_gain": 10.0,
+      "detach_std_gain": 10.0,
+      "objective_terms": {
+        "task_grasp_error": 0.0,
+        "relative_contact_velocity": 0.08,
+        "impact_energy": 0.04,
+        "slip_risk": 0.03,
+        "arm_motion_cost": 0.06,
+        "base_cvar_failure": 0.05,
+        "catch_probability": 0.90
+      },
+      "controller": {
+        "catch_servo_start_time_s": 0.680,
+        "catch_close_time_s": 0.720,
+        "vision_control_end_time_s": 0.720,
+        "catch_intercept_time_s": 0.720,
+        "catch_lateral_only": false,
+        "catch_hold_throw_joints": false,
+        "catch_position_bias_m": [0.0, 0.0, 0.0],
+        "catch_drive_rad": 0.56
+      }
+    },
+    {
+      "name": "long_flight_catch_unverified",
+      "payload_std_gain": 20.0,
+      "detach_std_gain": 20.0,
+      "objective_terms": {
+        "task_grasp_error": 0.05,
+        "relative_contact_velocity": 0.20,
+        "impact_energy": 0.12,
+        "slip_risk": 0.10,
+        "arm_motion_cost": 0.15,
+        "base_cvar_failure": 0.50,
+        "catch_probability": 0.20
+      },
+      "controller": {
+        "catch_servo_start_time_s": 0.700,
+        "catch_close_time_s": 0.820,
+        "vision_control_end_time_s": 0.820,
+        "catch_intercept_time_s": 0.840,
+        "catch_lateral_only": false,
+        "catch_hold_throw_joints": false,
+        "catch_position_bias_m": [0.0, 0.0, 0.0],
+        "catch_drive_rad": 0.56
+      }
+    }
+  ],
+  "notes": [
+    "Probe uses paired empty/held q, dq and actuator effort; simulator mass is never a policy input.",
+    "J selects the verified small-rotation controller over the unverified long-flight catch when uncertainty is nontrivial.",
+    "The selected controller overwrites nominal CLI catch timing before throw execution."
+  ]
+}

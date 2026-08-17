@@ -1,164 +1,300 @@
-# xArm6 可见旋转抛接 v2：正 J5 腕姿、角速度注入与 brake/retract
+# xArm6 camera-under-forearm 定轴翻滚抛接 v3
+
+## 2026-08-18 实用 checkpoint（strict goal 继续保留）
+
+已恢复并重复验证一个可优先移交真机的“小旋转 + 稳定接取”分支：两次固定 reference
+均完成 0.097 s all-link robot-free、约 56.2 mm 上升、目标轴 alignment 0.960、
+detach→apex 2.50° 和稳定双指接取；一次 paired Probe/J 闭环实际选择并覆盖 controller
+timing 后也稳定接住，目标轴 alignment 0.986、旋转 2.11°。单命令入口是：
+
+```bash
+bash sim/scripts/12_run_stable_recovered.sh
+```
+
+该 checkpoint 是为了尽快做 2–3 次真机验证，不改变下方 strict goal，也不得被写成 strict
+完成。它仍未满足 strict 的 0.12 s、25 mm 全离手分离、内部 apex 和 5° detach→apex
+门槛。另一个 throw-only 分支达到 0.924 s free-flight、65.3 mm 上升和 12.63° signed
+target-axis rotation，但尚未 recatch，只可作为下一阶段动作证据。
+
+真机绝对时刻不能直接照抄 sim：先复测 G1 25–44 ms detach delay 和约 80 ms arm lag，
+再以实测 detach 为时间原点安排 catch。完整边界和执行顺序见
+`docs/STABLE_RECOVERED_HANDOFF_20260818.md`。
 
 ## 最终目标
 
-在已经成功的真机 micro-toss / rapid release–recatch baseline 上，新建而不是覆盖一条
-可见旋转抛接分支：
+在保留现有真机 micro-toss baseline 和当前明显腾空 recatch baseline 的前提下，开发一条新的
+xArm6 + G1 固定 cube 抛接分支：
 
 ```text
-固定抓取约 38–40 mm 的轻量 3D 打印 cube
-→ 正 J5（EE 前腕反转）外侧上抛姿态
-→ 上抛末段给 cube 注入小而可控的角速度
+约 38–40 mm 轻量 3D 打印 cube 固定抓取
+→ 静态旋转 wrist roll，使 wrist D435 位于 forearm 下侧
+→ 保留朝外且有足够上抛/上翘空间的姿态
+→ 由受约束 angular Jacobian 选择的 J2/J3/J5 协调 flick 产生指定水平翻滚轴角速度
 → G1 physical detach
-→ 机械臂立即 brake / retract，不再跟随 cube 一起上升
-→ cube 独立上升并产生可见的小角度旋转
-→ release prior + ballistic belief 预测下降段 intercept
-→ third-view 可见时做一次或数次 bounded correction
-→ 同一 G1 重新接住并稳定保持
+→ cube 在完全无机器人接触时沿指定轴可见翻滚并经过 apex
+→ actual q/dq release prior + ballistic propagation 预测下降段
+→ brake/retract 后同一 G1 重新接住并稳定保持
 ```
 
-本轮不追求大幅翻转、目标姿态 transport、多物体泛化、GelSight、腕部 F/T 或端到端 RL。
-cube 只要在空中产生肉眼和数值都能确认的姿态变化即可：硬门槛为净旋转至少 8°，优先目标
-15–45°。接住优先于旋转角度，不为追求 90° 翻转牺牲真机成功率。
+本轮只针对同一只规则小 cube，真机最终做 2–3 次成功即可。不追求 90° 大翻转、目标姿态
+transport、多物体泛化、端到端 RGB/RL、GelSight 或腕部 F/T。成功率优先，但必须是真正的
+空中定轴翻滚，不能再用接取碰撞产生的姿态变化充当飞行旋转。
 
-## 已有真机事实：必须作为新仿真的权威输入
+## 必须纠正的两个误解
 
-权威报告是仓库根目录的 `REAL_ROBOT_TEST_20260817.md`。本轮开始时先读该文件，不再沿用
-旧 goal 中已经被真机推翻的假设。
+### 1. “翻腕”指 J6 静态换边，不是搜索正 J5
 
-已经验证并必须冻结保留的 baseline：
+用户要求的是绕 gripper/tool roll axis 静态旋转 EE 最前端，使 wrist camera 从 forearm 上侧换到
+下侧，从而避免继续上翘时 camera/housing 先靠近机械臂。它主要是 J6 branch 选择；J4/J5 只负责
+配合保持 TCP、夹爪方向和 clearance。不得再把“翻腕”解释成以正 J5 为目标。
 
-- xArm6 + G1 使用 20 ms `servo_j` 和 1× timeline 完整执行；
-- 真机 reference peak 约 1.7448 rad/s、13.0574 rad/s²；
-- arm tracking lag 重复测得约 80 ms，而不是旧仿真使用的 90 ms；
-- G1 使用 370 / 520 / 370、speed 5000；
-- 最终真机 release / close command 为 0.636 / 0.720 s；
-- physical detach 预计发生在 0.661–0.680 s；
-- 1× 在 `linear_spd_limit_factor=1.6` 后可完整执行，20 ms 超期周期为 0；
-- 13:38、13:39、13:42 三次 controller-complete，操作者确认能够 recatch；
-- 该结果是有效 open-loop micro-toss baseline，但不是明显飞行、旋转或 learned closed loop。
+“camera 在下方”必须在 `link5` / forearm 局部几何中判断，并使用 D435 housing 和 cable keepout；
+不能用 camera optical center 的 world-Z 高低替代。`configs/wrist_camera_real.json` 的 optical
+extrinsic 是权威输入，但它本身不是完整碰撞外形。
 
-旧 `0.45 rad/s / 1.5 rad/s²` 是早期保守 transfer cap，不再用来否决已经在真机完整运行的
-1× reference。新候选不得默认比已验证的 1× 更激烈；若 qdot、qdd、TCP linear speed 或
-Cartesian factor 超过真机已验证 envelope，必须单独报告并由操作者批准。
+当前成功 trajectory 在 detach 时 J6≈0.175 rad，仍是未换边姿态。约 180° 的直接等价解
+`J6≈-2.966 rad` 离下限只剩约 0.175 rad，因此只作搜索参照，不能默认直接采用。优先搜索能把
+camera housing 放到 forearm 下侧、同时保留 joint margin 的约 120–160° roll branch。
 
-当前视觉效果不明显的根因也已由真实 q/dq + FK 确认：detach 附近 TCP 向上约
-1.33–1.36 m/s，cube 理论上能上升约 90–94 mm，但 release 后 TCP 继续上升了近似距离，
-夹爪一直追随 cube，object–gripper 相对分离很小。继续只调 G1 几毫秒不是本轮方法。
+### 2. 目标是水平 tumble，不是绕 Z yaw 或绕 tool roll
 
-## 数据同步边界
-
-`REAL_ROBOT_TEST_20260817.md` 已经到达 devserver，但报告中列出的部分真机文件当前仍未出现：
+在 detach 时定义：
 
 ```text
-scripts/22_run_empty_handoff.py
-src/xarm6_toss/real_timeline.py
-tests/test_real_timeline.py
-outputs/real_empty_handoff/20260817_*/
+d_finger = 两根夹爪手指的延伸方向，由实际 FK 得到并归一化
+z_world  = [0, 0, 1]
+a_tumble = normalize(d_finger × z_world)
 ```
-`configs/global_camera_real.json` and `configs/wrist_camera_real.json` are already synced; in the paragraph below, the missing handoff items are only the real runner, timeline module, tests, and raw logs.
 
-运动设计可以先依据报告中的实测数值和已有 URDF/FK 开始；但最终 handoff 前必须把上述真机
-脚本、相机 JSON 和至少三条最终 baseline 的 q/dq/current/G1 logs 同步回来。文件缺失时如实
-记录，不得伪造 raw evidence，也不得退回依赖已经失效的旧相机 YAML 路径。
+`a_tumble` 是同时垂直于手指延伸方向和 world Z 的水平轴。cube 应像向前翻跟头一样围绕该轴
+翻滚。若 `||d_finger × z_world||` 太小，说明姿态无法稳定定义目标轴，该 pose 直接拒绝。
 
-## 姿态选择：正 J5 是主分支，旧反腕是 fallback
+当前已交付结果不满足这个定义：release angular velocity 约
+`[0.058, -0.039, -0.268] rad/s`，主要绕 `-world Z`，与目标轴约差 83°；detach→apex 只转约
+1.66°，到 0.85 s 只转约 2.52°。0.86 s 后角速度突然升高，而现有 evaluator 只检查左右 finger
+sensor，没有覆盖 gripper base/palm。此前报告的 19.45° 很可能主要包含漏检的近接取碰撞，不能
+作为本 goal 的旋转成功证据。该结果保留为“明显腾空并接住”baseline，不删除、不冒充 tumble。
 
-当前 sim trajectory 使用 J5≈-1.51 rad，离 J5 下限只剩约 0.18 rad，且更激烈 follow-through
-可能接近自身结构。这个姿态及其真机成功 baseline 原样保留，只作 fallback。
+## 权威真机事实
 
-新主分支使用用户提出的“EE 前面 joint 反转”思路，即搜索正 J5 的自然腕姿，而不是简单给
-旧轨迹某个 joint 加 π。已有真机 `natural_j5_candidate.json` 提供起点：
+开始执行前必须读取仓库根目录的 `REAL_ROBOT_TEST_20260817.md`。冻结保留：
+
+- xArm6 + G1，20 ms `servo_j`；
+- 已真机完整执行的 reference peak：1.74483445 rad/s、13.0573925 rad/s²；
+- arm tracking lag 约 80 ms；
+- G1 370 → 520 → 370，speed 5000；
+- baseline release / close command：0.636 / 0.720 s；
+- physical detach delay：25–44 ms；
+- `linear_spd_limit_factor=1.6` 后 1× baseline 无 C60、无 20 ms 超期；
+- global D435 serial `317222073552`，wrist D435 serial `233622079809`；
+- 相机配置以 `configs/global_camera_real.json` 和 `configs/wrist_camera_real.json` 为准。
+
+旧 baseline 和现有输出只允许读取、复现和对照；新分支不得覆盖它们。
+
+## 机械臂限制：所有阶段的硬门槛
+
+任何 pose、search sample、reference waypoint、插值点、brake/retract、catch correction 和最终
+servo command 都必须满足本节。不能先生成超限动作再依赖 controller clipping；超限候选直接失败。
+
+### Joint position hard bounds
+
+来自收到的 xArm6 URDF：
+
+| Joint | Hard range (rad) |
+|---|---:|
+| J1 | [-3.14000, 3.14000] |
+| J2 | [-1.92000, 2.09440] |
+| J3 | [-3.92700, 0.19198] |
+| J4 | [-3.14000, 3.14000] |
+| J5 | [-1.69297, 3.14159] |
+| J6 | [-3.14159, 3.14159] |
+
+所有连续轨迹点必须在 hard bounds 内。handoff candidate 的全轨迹 minimum joint margin 必须
+≥0.15 rad，目标 ≥0.25 rad；低于 0.15 rad 的 wrist-under branch 不得移交真机。
+
+### Joint velocity / acceleration / servo step
+
+URDF joint velocity hard limit 为 3.14 rad/s，但本轮真机 transfer 使用更严格的已验证 1× envelope：
 
 ```text
-start seed   [0.0611, -0.1038, -1.1218, 0.0227, 2.3599, 0.3316]
-release seed [0.0611,  0.3180, -1.4167, 0.0227, 2.9312, 0.3316]
+max_i,t |qdot_cmd[i,t]|  <= 1.74483445 rad/s
+max_i,t |qddot_cmd[i,t]| <= 13.0573925 rad/s²
+control period           = 0.020 s
+max joint step           <= 0.0348967 rad per command
+max qdot change          <= 0.261148 rad/s per command
 ```
 
-这些只作 IK/search seed，不是可直接执行的真机轨迹。必须用 xArm6 URDF 在连续轨迹上检查：
+不得再使用 3.10 rad/s / 20 rad/s² 的旧 sim search cap 生成 handoff candidate。若 SDK/firmware 后续
+提供更低的实时限制，取更低值。URDF 没有给出可信 acceleration hard limit，因此在获得 controller
+query 前，13.0573925 rad/s² 是不可突破的上限。
 
-- 所有关节 bounds 和至少 0.15 rad 的动态 margin；
-- start、detach、brake、retract、intercept 和 hold 的连续 swept self-collision；
-- G1、wrist camera 与 forearm/link 的碰撞及线缆空间；
-- TCP 始终位于 base 外侧，水平半径优先 ≥0.35 m；
-- 抛出方向不朝向 base，软垫区域覆盖 throw-only 落点；
-- 真机 third-view 和 wrist 的实际 FOV，不要求两台同时看到 cube。
+### Effort、Cartesian speed 和 controller limits
 
-若正 J5 family 无法同时满足 collision、外侧工作区和 descending catch，可回到已验证负 J5
-baseline 加 brake/retract；不能为了坚持“反转”而提交自碰或贴 joint limit 的结果。
+URDF arm effort limits 为 `[50, 50, 32, 32, 32, 20]`。仿真必须报告每个 joint 的 peak applied
+effort；任何超过对应值的 candidate 失败。
 
-## 如何让 cube 真正旋转
+真机执行前必须读取 controller 当前 linear speed limit/factor。每个 trajectory sample 用 FK/Jacobian
+计算 TCP linear/angular speed，要求 requested Cartesian speed 不超过 controller 实际报告值，并保留
+至少 10% margin。出现或预测 C60 的 candidate 失败，不能通过临时提高 controller limit 掩盖。
 
-旋转必须来自 detach 前的真实接触运动，不能在 detach 后写 simulator cube quaternion 或
-angular velocity。Isaac 中 cube pose/velocity 仍只允许 episode 初始化写一次。
+### Collision、clearance 和工作区
 
-首选实现：
+必须对 5 ms physics trajectory 和 20 ms command trajectory 同时检查：
 
-1. 保留已经验证的 whole-arm upstroke 和竖直 release velocity；
-2. 在 detach 前约 80–140 ms 加入平滑 J6 roll，必要时配合 J4/J5，使 tool angular velocity
-   在 detach 时约为 0.8–2.5 rad/s；
-3. 先搜索低档 0.8 / 1.2 / 1.6 rad/s，不直接追求最大 spin；
-4. G1 从 370 向 520 运动时，cube 通过真实双指接触继承角速度并自然 detach；
-5. detach 后不再继续 roll 追随 cube，机械臂进入 brake/retract。
+- 全机器人连续 swept self-collision；
+- G1 fingers/base、link4/link5/link6、wrist D435 housing 之间的 collision；
+- wrist camera cable keepout 与 forearm 的 clearance；
+- cube 在计划 free-flight 区间与所有 robot/gripper links 的 collision；
+- TCP 位于 base 外侧，抛出方向不朝 base；
+- throw-only 预测落点位于软垫区域。
 
-若纯 J6 roll 因 cube 夹持对称、摩擦不足或相机视角导致姿态变化不明显，可测试小的 J4/J6
-协调角速度或 2–4 mm 可重复偏心抓取。偏心只作为第二选择，必须保持固定抓取可复现，不能把
-随机滑动包装成 controlled rotation。
+camera-under-forearm 不是视觉偏好，而是 motion-clearance 条件。必须保存 wrist-under pose 的
+link-frame 数值、最小 clearance 和 spectator 截图；只看关节角或 wrist image 不算验证。
 
-cube 本身几何近似对称。真机实验前在不同面贴颜色/非对称角标，或使用已有 3D 打印纹理，
-否则 spectator video 无法可靠区分 2° 和 20°。标记不得明显改变质量、摩擦或夹持宽度。
+## 动作设计
 
-## 如何让 cube 与夹爪分开
+### Phase A：寻找 camera-under-forearm wrist branch
 
-保留真实 baseline 的 pre-release upstroke，但在预计 detach 后立即改变手部运动：
+1. 从已经真机执行的 start/release pose 出发，保持 TCP 在外侧工作区。
+2. 扫描 J6 的换边候选，优先约 ±120°、±140°、±155°，由 link5-frame housing/cable clearance
+   选择正确符号；不得默认 `+π` 或 `-π`。
+3. 用 J4/J5/必要时 J2/J3 做受约束 IK，使 gripper finger direction 和上抛空间合理。
+4. 对 start、flick start、detach、brake、retract、intercept、hold 以及全部插值点运行本 goal 的
+   position/velocity/acceleration/effort/collision gate。
+5. 若没有满足限制的 underside branch，停止并报告几何不可行，不得退回旧腕姿后仍称完成本 goal。
 
-- 以 real release q/dq 和 25–44 ms G1 detach delay 形成 release belief；
-- detach 后约 60–100 ms 内平滑制动主要上抛 joints；
-- 同时让 TCP 停止上升，或向下/外侧撤离约 30–60 mm；
-- 不允许 brake/retract 轨迹在 cube 尚未 detach 时夹击或扫到 cube；
-- 下降段 intercept 初始搜索以报告中的约 0.20–0.26 s after detach 为中心；
-- 报告给出的 `q_stop` 和约 0.863 s host intercept 只作 seed，必须在 Isaac contact dynamics
-  和实际控制 lag 下重新优化。
+### Phase B：产生指定轴角速度
 
-目标不是让夹爪在原地无限等待，而是形成可解释的三段运动：upstroke/release、brake/retract、
-descending catch。catch 可以主要依赖规则 cube 的弹道 prior，只需小幅 pose correction。
+J6 的主要任务是静态把 camera 移到 forearm 下侧；动态 tumble 不能再靠纯 J6 roll。detach 前
+80–160 ms 使用 angular Jacobian 设计协调 flick：
 
-## 最小闭环和 J
+```text
+Jv(q) qdot ≈ desired upward/outward TCP velocity
+Jw(q) qdot ≈ omega_tumble * a_tumble
+```
 
-camera 不作为本轮真机控制的硬依赖。单次抛接的主链固定为：
+现有 release-pose Jacobian 的实算结果表明 J2/J3/J5 是目标轴和向上速度的主要自由度，J4 仅在
+clearance/IK 需要时参与；不得继续凭关节编号猜测 flick 轴。在全部机械约束下搜索
+`omega_tumble`，先尝试 0.8、1.2、1.6 rad/s。目标轴
+alignment 比角速度大小优先。允许 2–4 mm 固定偏心抓取帮助传递 torque，但必须可复现并保持
+prethrow stable；不得利用随机滑动制造旋转。
+
+旋转只能由 detach 前真实 gripper–cube contact motion 产生。初始化后禁止直接写 cube pose、
+quaternion、linear velocity 或 angular velocity。
+
+### Phase C：detach、brake/retract 和 catch
+
+- 使用 actual q/dq、FK/Jacobian、固定 `T_hand_object` 和 25–44 ms detach prior 建立 release state；
+- G1 开始打开后等待真实 contact loss，不把 command time 当 detach time；
+- detach 后立即在 qdot/qddot 限制内 brake，并向下/外侧 retract，避免 wrist/forearm 追随 cube；
+- cube 经过 apex 后用 ballistic prior 预测下降段 intercept；
+- catch correction 必须经过同一机械限制和 collision gate；
+- G1 close 后双侧接触并稳定保持至少 0.5 s。
+
+## Contact 与旋转证据必须重做
+
+现有左右 finger force 不足以定义 free flight。新的 evaluator 必须覆盖 cube 与以下所有对象：
+
+```text
+left/right fingers
+gripper base / palm
+link_eef / link6
+wrist camera collision proxy
+其他可能进入 catch workspace 的 robot links
+```
+
+free flight 从所有 robot–cube contact 消失后开始，到任意 robot/gripper link 首次重新接触前结束。
+旋转只在这个严格区间内计算，并输出逐帧 quaternion、angular velocity、contact pair 和 rotation axis。
+
+单条 tumble success 必须同时满足：
+
+- physical detach 和严格 contact-free flight ≥0.12 s；
+- hand-relative separation ≥25 mm；
+- apex 位于严格 free-flight 内，且在下降段才重新接触；
+- detach angular velocity 与 `a_tumble` 的轴对齐
+  `abs(dot(normalize(omega_detach), a_tumble)) >= 0.85`；
+- detach→apex 围绕 `a_tumble` 的累计旋转 ≥5°；
+- 整段严格 free-flight 的 signed tumble rotation ≥12°，优先 15–35°；
+- 非目标 yaw/roll 分量不能大于目标 tumble 分量；
+- 任何接取碰撞之后的旋转都不计入；
+- `catch_stable=true`，双侧接触并保持 ≥0.5 s。
+
+cube 必须使用轻量非对称颜色/角标，让 spectator 视频能分辨轴和转角；角标不得明显改变质量、
+摩擦或夹持宽度。
+
+## 最小闭环、Probe/J 和 camera
+
+主控制链保持真机可部署：
 
 ```text
 actual q/dq + FK/Jacobian
-→ nominal physical-detach time 的 6-D release state
+→ physical-detach release state
 → gravity / torque-free ballistic propagation
-→ bounded intercept residual
-→ J 选择可达的 catch timing / lateral correction
-→ servo_j + G1 close
+→ constrained intercept candidate set
+→ J 选择可达 timing / bounded correction
+→ constrained servo_j + G1 close
 ```
 
-控制器必须使用实际 q/dq，而不是只重放 commanded trajectory。质量不进入理想重力弹道；Probe
-只需输出 effective payload / held / slip posterior，并让 J 选择已经在 sim 标定的 timing 或 residual
-候选。固定 35 g 开发 cube 允许使用 sim 学得的 13.5 mm lateral residual；它必须单独记录，不能
-伪装成 camera update，也不能外推成 20–50 g 全范围泛化。
+固定抓取点可以 hard-code。Probe 使用 paired empty/held q/dq/effort/current/G1 position 输出
+effective payload、held/slip 和 detach uncertainty；posterior 至少要在 conservative flick 与 nominal
+tumble candidate 之间改变 J，不能只记录。learning 只允许小型 bounded residual 或 candidate
+selection，不做端到端视觉策略。若本轮没有训练 residual，必须称为 sim-tuned bias，不能写成 learned。
 
-third-view 和 wrist 可以录像、做离线轨迹/旋转测量，或在真实可见时提供 bounded correction；
-两者没有有效 observation 时仍必须完成 nominal catch。spectator/global camera 只用于人工验收。
+camera 角色：
 
-## Isaac 实施和验收
+- global/spectator：完整拍到 wrist-under pose、release、apex、定轴翻滚、catch、hold，只用于验收；
+- third-view：录像和可选 bounded correction，不保证全程可见；
+- wrist：换到 forearm 下侧后用于抓取 pre-check 和机会观测，不要求飞行全程可见；
+- 两台 policy camera 同时丢失时，ballistic nominal catch 仍须执行；
+- simulator truth 和 spectator 永不进入 policy。
 
-先冻结旧真机 micro-toss baseline，再建立独立 visible-spin 分支。主候选如果正 J5 搜索不能同时
-满足外侧工作区和 EE 朝外，应按前述 fallback 使用已验证的负 J5 outward family，不能为了形式上
-“翻腕”缩到 base 附近。
+## 开发顺序
 
-单条成功必须同时满足：
+1. 归档当前 v2 goal，冻结所有已有成功输出。
+2. 修复 all-link contact/free-flight evaluator，加入 rotation-axis decomposition 测试。
+3. 加入 D435 housing/cable proxy，并搜索 camera-under-forearm J6 branch。
+4. 用 constrained angular Jacobian 生成 J4/J5 flick；先做纯运动学 limit/collision report。
+5. 通过后再运行 Isaac contact dynamics，先 throw-only，再 catch。
+6. 固定 nominal cube 至少得到 2 次完整 tumble + catch success；失败 trial 原样保留。
+7. 输出 normal/slow spectator、third-view、wrist 视频和 trajectory/summary。
+8. 生成真机 config；真机仍按 0.25× → 0.5× → 1.0× empty preview → throw-only → 最多 2–3 次
+   catch trial 的顺序执行。
 
-- `cube_state_writes_after_initialization == 0`；
-- `prethrow_stable == true`；
-- 连续离手至少 0.12 s，相对 hand 分离至少 25 mm；
-- 飞行净旋转至少 8°，优先 15–45°；
-- apex 位于自由飞行内部，并在下降段重新接触；
-- `catch_stable == true`、双侧接触并稳定保持至少 0.5 s；
-- `visible_spin_toss_success == true`；
-- policy 使用 proprioceptive / deployable observation，simulator truth 和 spectator 不进入控制；
-- reference qdot/qdd 不超过已经真机执行的约 1.7448 rad/s / 13.0574 rad/s²，新增 motion 仍需
-  0.25 / 0.5 / 1.0× 空载检查。
+## 每次 trial 必须输出
+
+- 全时序 q/qdot/qddot/effort 和每个 joint 的 hard-limit margin；
+- 20 ms max joint step、max qdot change、TCP linear/angular speed；
+- controller linear-speed limit/factor 与 margin；
+- self-collision、camera/forearm/cable minimum clearance；
+- wrist D435 在 link5 frame 的位置、housing corners 和 underside 判定；
+- `d_finger`、`a_tumble`、detach omega、axis alignment；
+- all-link contact pairs、严格 free-flight 起止、detach→apex 和全程 signed tumble rotation；
+- ballistic prior、J ranking、selected intercept、bounded residual；
+- catch contact、hold duration 和三路视频路径。
+
+summary 中必须有一个总门槛：
+
+```text
+mechanical_limits_pass
+and camera_under_forearm
+and strict_contact_free_flight
+and target_axis_tumble
+and descending_bilateral_catch
+and stable_hold
+```
+
+只有上述全部为 true 才能标记 `tumble_toss_success=true`。
+
+## 完成定义
+
+本 goal 完成必须同时具备：
+
+1. wrist camera 确实位于 forearm 下侧，并有数值 clearance 和正常全局视角证明；
+2. 所有 planned/commanded motion 严格不超过 joint、velocity、acceleration、effort、Cartesian 和
+   collision limits；
+3. cube 在严格无任何 robot contact 的区间围绕 `a_tumble` 可见翻滚，而不是 yaw 或接取撞转；
+4. 至少 2 条固定 nominal 完整成功：detach、apex、≥12° target-axis tumble、descending catch、
+   bilateral stable hold；
+5. actual q/dq ballistic catch、Probe-conditioned J 和 bounded correction 使用真机可用 observation；
+6. 输出可复现 runner/config/tests、完整视频、summary/trajectory 和诚实的 real handoff；
+7. 状态在真机成功前保持 `sim_validated_real_unverified`，不得把 Isaac success 写成真机成功。

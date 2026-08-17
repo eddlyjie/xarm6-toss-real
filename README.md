@@ -1,5 +1,36 @@
 # xArm6 fixed-cube toss/catch
 
+## 2026-08-18 stable-recovered handoff
+
+当前建议真机先接手的是 `stable_recovered` 小旋转稳定接取版，而不是下方旧的
+`visible-spin` 声明。两次相同 reference 重复都完成了 0.097 s 全机器人链路无接触、
+56.2 mm 上升、目标翻滚轴 alignment 0.960、detach→apex 2.50° 旋转和双指稳定接取；
+第三次由 paired Probe posterior + J 实际把 nominal catch timing 改为
+`0.68 / 0.72 / 0.72 s` 后也稳定接住。
+
+一条命令复现：
+
+```bash
+bash sim/scripts/12_run_stable_recovered.sh
+```
+
+先看已有视频：
+
+```text
+outputs/stable_recovered_probe_j_handoff_20260818/spectator.mp4
+outputs/stable_recovered_probe_j_handoff_20260818/spectator_third_view.mp4
+outputs/stable_recovered_probe_j_handoff_20260818/spectator_wrist.mp4
+```
+
+完整指标、Probe/J 调用关系、sim→real timing 换算和真机执行顺序见
+[`docs/STABLE_RECOVERED_HANDOFF_20260818.md`](docs/STABLE_RECOVERED_HANDOFF_20260818.md)。
+这是一版实用 checkpoint，不是 strict goal 完成：稳定版连续 free-flight 最大分离只有
+14.4 mm、apex 不是严格内部点、detach→apex 旋转只有 2.1–2.5°；另有 12.63°
+长飞行 throw-only，但尚未接回。真机状态仍是 `sim_validated_real_unverified`。
+
+下面 2026-08-17 的 19.45° 结果已经由更完整的 all-link contact 检查判定为可能混入
+接取碰撞，只保留作历史记录，不能作为定轴飞行旋转结论。
+
 ## 2026-08-17 visible-spin update
 
 The nominal Isaac native result now shows clear free flight, cube rotation,

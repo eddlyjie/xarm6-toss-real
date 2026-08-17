@@ -1,0 +1,98 @@
+{
+  "schema": "xarm6_g1_cube_tumble_stable_recovered",
+  "name": "camera_under_tumble_stable_recovered",
+  "physics_dt_s": 0.001,
+  "control_period_s": 0.02,
+  "measured_real_arm_tracking_delay_s": 0.08,
+  "execution_envelope": "verified_1x_joint_command_envelope_empty_run_required",
+  "operator_approval_required_for_real_execution": true,
+  "limits": {
+    "joint_speed_rad_s": 1.74483445,
+    "joint_acceleration_rad_s2": 13.0573925,
+    "max_joint_step_rad": 0.0348967,
+    "max_qdot_change_rad_s": 0.261148,
+    "minimum_joint_margin_rad": 0.15
+  },
+  "cube_physics": {
+    "side_length_m_range": [0.035, 0.040],
+    "mass_kg_range": [0.020, 0.050],
+    "contact_offset_m": 0.0002,
+    "static_friction": 1.2,
+    "dynamic_friction": 0.9
+  },
+  "gripper_sim": {
+    "effort_limit_n": 4.0,
+    "stiffness_n_m": 60.0,
+    "damping_n_s_m": 5.0,
+    "max_depenetration_velocity_m_s": 0.5,
+    "contact_offset_m": 0.0002
+  },
+  "wrist_under_geometry": {
+    "joint6_static_offset_deg": 155.0,
+    "joint6_rad": 2.88250534,
+    "joint6_minimum_margin_rad": 0.25908731,
+    "selection_status": "kinematic_candidate_pending_housing_and_cable_clearance_gate"
+  },
+  "reference_segments": [
+    {
+      "phase": "throw",
+      "duration_s": 0.46,
+      "start_joint_rad": [-0.000004218, 0.170536973, -0.209786194, -0.000008695, -1.508655890, 2.882505340],
+      "start_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "start_joint_acceleration_rad_s2": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "end_joint_rad": [-0.000004218, -0.041023201, -0.537458806, -0.000008695, -1.300000000, 2.882505340],
+      "end_joint_velocity_rad_s": [0.0, -0.946862620, -1.656959488, 0.0, -0.800000000, 0.0],
+      "end_joint_acceleration_rad_s2": [0.0, -0.393224753, -1.894507889, 0.0, -7.000000000, 0.0]
+    },
+    {
+      "phase": "clearance_brake",
+      "duration_s": 0.06,
+      "start_joint_rad": [-0.000004218, -0.041023201, -0.537458806, -0.000008695, -1.300000000, 2.882505340],
+      "start_joint_velocity_rad_s": [0.0, -0.946862620, -1.656959488, 0.0, -0.800000000, 0.0],
+      "start_joint_acceleration_rad_s2": [0.0, 13.000000000, 13.000000000, 0.0, -13.000000000, 0.0],
+      "end_joint_rad": [-0.000004218, -0.074434958, -0.613476375, -0.000008695, -1.371400000, 2.882505340],
+      "end_joint_velocity_rad_s": [0.0, -0.166862620, -0.876959488, 0.0, -1.580000000, 0.0],
+      "end_joint_acceleration_rad_s2": [0.0, 13.000000000, 13.000000000, 0.0, -13.000000000, 0.0]
+    },
+    {
+      "phase": "late_catch_preplace",
+      "duration_s": 0.20,
+      "start_joint_rad": [-0.000004218, -0.074434958, -0.613476375, -0.000008695, -1.371400000, 2.882505340],
+      "start_joint_velocity_rad_s": [0.0, -0.166862620, -0.876959488, 0.0, -1.580000000, 0.0],
+      "start_joint_acceleration_rad_s2": [0.0, 12.800000000, 13.000000000, 0.0, 12.800000000, 0.0],
+      "end_joint_rad": [-0.090000000, -0.012000000, -0.638000000, -0.000008695, -1.481000000, 2.882505340],
+      "end_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "end_joint_acceleration_rad_s2": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    }
+  ],
+  "sim_gripper_events": [
+    {"time_s": 0.600, "name": "release_partial_open", "drive_rad": 0.39},
+    {"time_s": 0.720, "name": "catch_close", "drive_rad": 0.56}
+  ],
+  "real_g1_events": [
+    {"time_s": 0.600, "name": "release_partial_open", "position": 520.0},
+    {"time_s": 0.720, "name": "catch_close", "position": 370.0}
+  ],
+  "state_estimator": {
+    "mode": "actual_q_dq_release_prior_plus_ballistic_propagation",
+    "camera_required_for_control": false,
+    "detach_delay_range_s": [0.025, 0.044]
+  },
+  "validation_targets": {
+    "minimum_continuous_free_flight_s": 0.08,
+    "minimum_relative_separation_m": 0.025,
+    "minimum_axis_alignment": 0.85,
+    "minimum_detach_to_apex_tumble_deg": 2.0,
+    "minimum_stable_hold_s": 0.5
+  },
+  "lineage": {
+    "frozen_real_baseline": "REAL_ROBOT_TEST_20260817.md",
+    "recovered_from": "patches/xarm_goalv3_joint_catch_preplace.patch + xarm_goalv3_latecatch_waypoint.patch",
+    "stable_evidence": "outputs/goalv3_latewaypoint_proprio068_close072"
+  },
+  "notes": [
+    "This is the exact recovered small-rotation stable-catch reference, not the long-flight v3 candidate.",
+    "J6 remains static at the camera-under pose and J4-J6 are locked during catch servo.",
+    "Real status remains simulation-validated and real-unverified."
+  ]
+}

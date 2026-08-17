@@ -1,0 +1,103 @@
+{
+  "schema": "xarm6_g1_cube_tumble_v3",
+  "name": "camera_under_tumble_v3",
+  "physics_dt_s": 0.001,
+  "control_period_s": 0.02,
+  "measured_real_arm_tracking_delay_s": 0.08,
+  "execution_envelope": "verified_1x_joint_command_envelope_empty_run_required",
+  "operator_approval_required_for_real_execution": true,
+  "limits": {
+    "joint_speed_rad_s": 1.74483445,
+    "joint_acceleration_rad_s2": 13.0573925,
+    "max_joint_step_rad": 0.0348967,
+    "max_qdot_change_rad_s": 0.261148,
+    "minimum_joint_margin_rad": 0.15
+  },
+  "cube_physics": {
+    "side_length_m_range": [0.035, 0.040],
+    "mass_kg_range": [0.020, 0.050],
+    "contact_offset_m": 0.0002,
+    "static_friction": 1.2,
+    "dynamic_friction": 0.9
+  },
+  "gripper_sim": {
+    "effort_limit_n": 4.0,
+    "stiffness_n_m": 60.0,
+    "damping_n_s_m": 5.0,
+    "max_depenetration_velocity_m_s": 0.5,
+    "contact_offset_m": 0.0002
+  },
+  "wrist_under_geometry": {
+    "joint6_static_offset_deg": 155.0,
+    "joint6_rad": 2.88250534,
+    "joint6_minimum_margin_rad": 0.25908731,
+    "selection_status": "kinematic_candidate_pending_housing_and_cable_clearance_gate"
+  },
+  "reference_segments": [
+    {
+      "phase": "throw",
+      "duration_s": 0.46,
+      "start_joint_rad": [-0.000004218, 0.170536973, -0.209786194, -0.000008695, -1.508655890, 2.882505340],
+      "start_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "start_joint_acceleration_rad_s2": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "end_joint_rad": [-0.000004218, -0.041023201, -0.537458806, -0.000008695, -1.300000000, 2.882505340],
+      "end_joint_velocity_rad_s": [0.0, -0.946862620, -1.656959488, 0.0, -0.800000000, 0.0],
+      "end_joint_acceleration_rad_s2": [0.0, -0.393224753, -1.894507889, 0.0, -7.000000000, 0.0]
+    },
+    {
+      "phase": "lag_compensated_flick",
+      "duration_s": 0.08,
+      "start_joint_rad": [-0.000004218, -0.041023201, -0.537458806, -0.000008695, -1.300000000, 2.882505340],
+      "start_joint_velocity_rad_s": [0.0, -0.946862620, -1.656959488, 0.0, -0.800000000, 0.0],
+      "start_joint_acceleration_rad_s2": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "end_joint_rad": [-0.000004218, -0.116772210600, -0.670015565040, -0.000008695, -1.364000000000, 2.882505340],
+      "end_joint_velocity_rad_s": [0.0, -0.946862620, -1.656959488, 0.0, -0.800000000, 0.0],
+      "end_joint_acceleration_rad_s2": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    },
+    {
+      "phase": "post_detach_brake",
+      "duration_s": 0.14,
+      "start_joint_rad": [-0.000004218, -0.116772210600, -0.670015565040, -0.000008695, -1.364000000000, 2.882505340],
+      "start_joint_velocity_rad_s": [0.0, -0.946862620, -1.656959488, 0.0, -0.800000000, 0.0],
+      "start_joint_acceleration_rad_s2": [0.0, 6.763304428571, 11.835424914286, 0.0, 5.714285714286, 0.0],
+      "end_joint_rad": [-0.000004218, -0.183052594000, -0.786002729200, -0.000008695, -1.420000000000, 2.882505340],
+      "end_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "end_joint_acceleration_rad_s2": [0.0, 6.763304428571, 11.835424914286, 0.0, 5.714285714286, 0.0]
+    }
+  ],
+  "sim_gripper_events": [
+    {"time_s": 0.600, "name": "release_partial_open", "drive_rad": 0.40},
+    {"time_s": 0.690, "name": "catch_close", "drive_rad": 0.56}
+  ],
+  "real_g1_events": [
+    {"time_s": 0.600, "name": "release_partial_open", "position": 520.0},
+    {"time_s": 0.690, "name": "catch_close", "position": 370.0}
+  ],
+  "state_estimator": {
+    "mode": "actual_q_dq_release_prior_plus_ballistic_propagation",
+    "camera_required_for_control": false,
+    "detach_delay_range_s": [0.025, 0.044]
+  },
+  "validation_targets": {
+    "minimum_continuous_free_flight_s": 0.12,
+    "minimum_relative_separation_m": 0.025,
+    "minimum_axis_alignment": 0.85,
+    "minimum_detach_to_apex_tumble_deg": 5.0,
+    "minimum_strict_free_flight_tumble_deg": 12.0,
+    "minimum_stable_hold_s": 0.5
+  },
+  "lineage": {
+    "frozen_real_baseline": "REAL_ROBOT_TEST_20260817.md",
+    "sim_motion_parent": "sim/configs/outward_vertical_real_detach_v7.json",
+    "probe_evidence": "outputs/goalv3_under155_early_detach_probe"
+  },
+  "notes": [
+    "J6 is a static +155 degree camera-under candidate; dynamic tumble comes from J2/J3/J5.",
+    "The throw ends J5 at zero speed before all of J2/J3/J5 contribute to tumble during clearance.",
+    "A 0.06 s clearance segment is followed by a bounded 0.20 s late-catch joint-space preplace.",
+    "The complete 1 ms reference stays inside the frozen real transfer envelope.",
+    "With 80 ms arm lag replay, G1 close commands from 0.68 through 0.70 s produced stable bilateral catches.",
+    "This candidate is simulation-only until D435 housing/cable clearance and empty-arm preview pass.",
+    "G1 opening must preserve target-axis angular velocity without a large release impulse."
+  ]
+}

@@ -43,7 +43,10 @@ parser.add_argument(
     metavar=("X", "Y", "Z"),
 )
 parser.add_argument("--held-drive-rad", type=float, default=0.37)
+parser.add_argument("--held-gripper-effort-limit-n", type=float, default=None)
 parser.add_argument("--partial-open-drive-rad", type=float, default=0.52)
+parser.add_argument("--release-gripper-effort-limit-n", type=float, default=None)
+parser.add_argument("--release-gripper-stiffness", type=float, default=None)
 parser.add_argument("--catch-drive-rad", type=float, default=None)
 parser.add_argument("--catch-gripper-effort-limit-n", type=float, default=None)
 parser.add_argument("--catch-gripper-stiffness", type=float, default=None)
@@ -62,6 +65,11 @@ parser.add_argument(
     type=float,
     default=None,
     help="Replay a measured G1 held-to-partial-open drive transition.",
+)
+parser.add_argument(
+    "--release-dynamics-after-transition",
+    action="store_true",
+    help="Keep held G1 gains during the drive transition, then apply release gains.",
 )
 parser.add_argument(
     "--release-drive-start-delay-s",
@@ -104,6 +112,12 @@ parser.add_argument(
     help="At catch-servo activation hold joints 2-6 at their measured pose.",
 )
 parser.add_argument(
+    "--catch-joint1-start-time-s",
+    type=float,
+    default=None,
+    help="Freeze J1 during early catch preposition, then enable lateral centering.",
+)
+parser.add_argument(
     "--catch-max-joint-step-rad",
     type=float,
     default=0.035,
@@ -130,6 +144,20 @@ parser.add_argument(
     nargs=3,
     default=(0.0, 0.0, 0.0),
     metavar=("X", "Y", "Z"),
+)
+parser.add_argument(
+    "--catch-preposition-bias-m",
+    type=float,
+    nargs=3,
+    default=None,
+    metavar=("X", "Y", "Z"),
+    help="Temporary intercept bias for a collision-free pre-catch waypoint.",
+)
+parser.add_argument(
+    "--catch-preposition-end-time-s",
+    type=float,
+    default=None,
+    help="Episode time at which the temporary pre-catch bias is removed.",
 )
 parser.add_argument(
     "--catch-intercept-time-s",
@@ -230,6 +258,10 @@ from xarm6_toss.probe_j import (  # noqa: E402
     select_catch_candidate,
 )
 from xarm6_toss.flight import continuous_free_flight_evidence  # noqa: E402
+from xarm6_toss.motion_limits import (  # noqa: E402
+    evaluate_joint_trajectory,
+    evaluate_reference_samples,
+)
 
 
 GRIPPER_PASSIVE_JOINTS = (
@@ -251,6 +283,28 @@ LEFT_FINGER_PRIM = (
 RIGHT_FINGER_PRIM = (
     GRIPPER_PRIM + "/right_outer_knuckle/right_finger"
 )
+
+LINK6_PRIM = LINK_EEF_PRIM.rsplit("/link_eef", 1)[0]
+LINK5_PRIM = LINK6_PRIM.rsplit("/link6", 1)[0]
+LINK4_PRIM = LINK5_PRIM.rsplit("/link5", 1)[0]
+ROBOT_CONTACT_PRIMS = {
+    "left_finger": LEFT_FINGER_PRIM,
+    "right_finger": RIGHT_FINGER_PRIM,
+    "left_outer_knuckle": GRIPPER_PRIM + "/left_outer_knuckle",
+    "left_inner_knuckle": GRIPPER_PRIM + "/left_inner_knuckle",
+    "right_outer_knuckle": GRIPPER_PRIM + "/right_outer_knuckle",
+    "right_inner_knuckle": GRIPPER_PRIM + "/right_inner_knuckle",
+    "gripper_base": GRIPPER_PRIM,
+    "link6": LINK6_PRIM,
+    "link5": LINK5_PRIM,
+    "link4": LINK4_PRIM,
+}
+# D435 outer envelope in its optical frame. This is deliberately larger than
+# the imager origin; it is a robot-cube collision proxy, not a visual marker.
+WRIST_CAMERA_PROXY_HALF_EXTENTS_M = torch.tensor(
+    [0.0475, 0.0175, 0.0175], dtype=torch.float32
+)
+ROBOT_CONTACT_FORCE_THRESHOLD_N = 0.05
 
 GLOBAL_CAMERA_K = np.asarray(
     [
@@ -274,7 +328,7 @@ GLOBAL_CAMERA_POSITION_BASE_M = np.asarray(
 GLOBAL_CAMERA_QUAT_XYZW = (0.6272, -0.6327, -0.3275, 0.3132)
 WRIST_CAMERA_POSITION_EEF_M = (0.06950393, 0.03858712, 0.02487193)
 WRIST_CAMERA_QUAT_XYZW = (0.01337523, -0.00833076, -0.70187405, 0.71212676)
-SPECTATOR_CAMERA_POSITION_M = (1.20, -1.20, 0.95)
+SPECTATOR_CAMERA_POSITION_M = (0.905, -0.680, 0.694)
 SPECTATOR_CAMERA_QUAT_XYZW = (0.80707536, 0.21277731, -0.14040912, -0.53257906)
 SPECTATOR_CAMERA_K = np.asarray(
     [[700.0, 0.0, 480.0], [0.0, 700.0, 270.0], [0.0, 0.0, 1.0]],
@@ -306,7 +360,7 @@ def robot_cfg(usd_path: Path, held_drive_rad: float) -> ArticulationCfg:
                 solver_velocity_iteration_count=4,
             ),
             collision_props=sim_utils.CollisionPropertiesCfg(
-                contact_offset=0.001,
+                contact_offset=float(gripper_sim.get("contact_offset_m", 0.001)),
                 rest_offset=0.0,
             ),
         ),
@@ -339,6 +393,8 @@ def robot_cfg(usd_path: Path, held_drive_rad: float) -> ArticulationCfg:
                 joint_names_expr=["drive_joint"],
                 effort_limit_sim=float(
                     gripper_sim.get("effort_limit_n", 50.0)
+                    if args_cli.held_gripper_effort_limit_n is None
+                    else args_cli.held_gripper_effort_limit_n
                 ),
                 velocity_limit_sim=5.0,
                 stiffness=float(
@@ -359,7 +415,9 @@ def robot_cfg(usd_path: Path, held_drive_rad: float) -> ArticulationCfg:
     )
 
 
-def cube_cfg(size_m: float, mass_kg: float) -> RigidObjectCfg:
+def cube_cfg(
+    size_m: float, mass_kg: float, cube_physics: dict[str, object]
+) -> RigidObjectCfg:
     return RigidObjectCfg(
         prim_path="/World/Cube",
         spawn=sim_utils.CuboidCfg(
@@ -373,12 +431,18 @@ def cube_cfg(size_m: float, mass_kg: float) -> RigidObjectCfg:
             ),
             mass_props=sim_utils.MassPropertiesCfg(mass=mass_kg),
             collision_props=sim_utils.CollisionPropertiesCfg(
-                contact_offset=0.001,
+                contact_offset=float(
+                    cube_physics.get("contact_offset_m", 0.001)
+                ),
                 rest_offset=0.0,
             ),
             physics_material=sim_utils.RigidBodyMaterialCfg(
-                static_friction=1.2,
-                dynamic_friction=0.9,
+                static_friction=float(
+                    cube_physics.get("static_friction", 1.2)
+                ),
+                dynamic_friction=float(
+                    cube_physics.get("dynamic_friction", 0.9)
+                ),
                 restitution=0.02,
                 friction_combine_mode="max",
                 restitution_combine_mode="min",
@@ -421,14 +485,20 @@ def load_reference(config_path: Path):
         segments,
         float(config["control_period_s"]),
     )
-    return config, samples
+    limit_evidence = evaluate_reference_samples(samples)
+    if not limit_evidence["joint_mechanical_limits_pass"]:
+        raise ValueError(
+            "reference exceeds the verified xArm6 transfer envelope: "
+            f"{limit_evidence}"
+        )
+    return config, samples, limit_evidence
 
 
 def step_assets(
     sim: sim_utils.SimulationContext,
     robot: Articulation,
     cube: RigidObject,
-    contact_sensors: tuple[ContactSensor, ContactSensor],
+    contact_sensors: dict[str, ContactSensor],
     cameras: tuple[Camera, ...],
 ) -> None:
     robot.write_data_to_sim()
@@ -437,7 +507,7 @@ def step_assets(
     dt = sim.get_physics_dt()
     robot.update(dt)
     cube.update(dt)
-    for sensor in contact_sensors:
+    for sensor in contact_sensors.values():
         sensor.update(dt, force_recompute=True)
     for camera in cameras:
         camera.update(dt, force_recompute=True)
@@ -459,11 +529,11 @@ def camera_rgb_frame(camera: Camera) -> np.ndarray:
 
 
 def cube_contact_force_n(sensor: ContactSensor) -> float:
-    net_forces = sensor.data.net_forces_w
-    if net_forces is None:
+    filtered_forces = sensor.data.force_matrix_w
+    if filtered_forces is None:
         return 0.0
     return float(
-        torch.linalg.vector_norm(net_forces.torch).item()
+        torch.linalg.vector_norm(filtered_forces.torch).item()
     )
 
 
@@ -600,6 +670,48 @@ def hand_state(
     return gripper_pose[:3], gripper_pose[3:7], finger_midpoint
 
 
+def wrist_camera_world_pose(
+    hand_position: torch.Tensor,
+    hand_quaternion_wxyz: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    offset_position = torch.tensor(
+        WRIST_CAMERA_POSITION_EEF_M,
+        dtype=torch.float32,
+        device=hand_position.device,
+    )
+    camera_position = hand_position + quat_apply(
+        hand_quaternion_wxyz.unsqueeze(0), offset_position.unsqueeze(0)
+    )[0]
+    offset_xyzw = WRIST_CAMERA_QUAT_XYZW
+    offset_wxyz = torch.tensor(
+        [offset_xyzw[3], offset_xyzw[0], offset_xyzw[1], offset_xyzw[2]],
+        dtype=torch.float32,
+        device=hand_position.device,
+    )
+    camera_wxyz = quat_mul(hand_quaternion_wxyz, offset_wxyz)
+    return camera_position, camera_wxyz
+
+
+def wrist_camera_cube_clearance_m(
+    hand_position: torch.Tensor,
+    hand_quaternion_wxyz: torch.Tensor,
+    cube_position: torch.Tensor,
+    cube_size_m: float,
+) -> float:
+    camera_position, camera_wxyz = wrist_camera_world_pose(
+        hand_position, hand_quaternion_wxyz
+    )
+    cube_camera = quat_apply_inverse(
+        camera_wxyz.unsqueeze(0),
+        (cube_position - camera_position).unsqueeze(0),
+    )[0]
+    half_extents = WRIST_CAMERA_PROXY_HALF_EXTENTS_M.to(cube_position.device)
+    outside = torch.clamp(torch.abs(cube_camera) - half_extents, min=0.0)
+    center_to_box = torch.linalg.vector_norm(outside)
+    cube_bounding_radius = 0.5 * float(cube_size_m) * np.sqrt(3.0)
+    return float(center_to_box.item() - cube_bounding_radius)
+
+
 def update_wrist_camera_pose(
     robot: Articulation,
     gripper_body_id: int,
@@ -610,21 +722,9 @@ def update_wrist_camera_pose(
     gripper_pose = robot.data.body_pose_w.torch[0, gripper_body_id]
     hand_position = gripper_pose[:3]
     hand_quaternion_wxyz = gripper_pose[3:7]
-    offset_position = torch.tensor(
-        [WRIST_CAMERA_POSITION_EEF_M],
-        dtype=torch.float32,
-        device=robot.device,
+    camera_position, camera_wxyz = wrist_camera_world_pose(
+        hand_position, hand_quaternion_wxyz
     )
-    camera_position = hand_position + quat_apply(
-        hand_quaternion_wxyz.unsqueeze(0), offset_position
-    )[0]
-    offset_xyzw = WRIST_CAMERA_QUAT_XYZW
-    offset_wxyz = torch.tensor(
-        [offset_xyzw[3], offset_xyzw[0], offset_xyzw[1], offset_xyzw[2]],
-        dtype=torch.float32,
-        device=robot.device,
-    )
-    camera_wxyz = quat_mul(hand_quaternion_wxyz, offset_wxyz)
     camera_xyzw = camera_wxyz[[1, 2, 3, 0]]
     wrist_camera.set_world_poses(
         camera_position.unsqueeze(0),
@@ -672,7 +772,7 @@ def record_state(
     drive_id: int,
     gripper_body_id: int,
     finger_body_ids: list[int],
-    contact_sensors: tuple[ContactSensor, ContactSensor],
+    contact_sensors: dict[str, ContactSensor],
 ) -> dict[str, object]:
     hand_position, hand_quaternion, finger_midpoint = hand_state(
         robot,
@@ -682,10 +782,23 @@ def record_state(
     cube_pose = cube.data.root_link_pose_w.torch[0]
     cube_linear = cube.data.root_com_lin_vel_w.torch[0]
     cube_angular = cube.data.root_com_ang_vel_w.torch[0]
+    hand_linear = robot.data.body_link_lin_vel_w.torch[0, gripper_body_id]
+    hand_angular = robot.data.body_link_ang_vel_w.torch[0, gripper_body_id]
+    hand_jacobian = robot.data.body_link_jacobian_w.torch[
+        0, gripper_body_id - 1, :, arm_ids
+    ]
     relative_hand = quat_apply_inverse(
         hand_quaternion.unsqueeze(0),
         (cube_pose[:3] - hand_position).unsqueeze(0),
     )[0]
+    contact_forces = {
+        name: cube_contact_force_n(sensor)
+        for name, sensor in contact_sensors.items()
+    }
+    wrist_clearance_m = wrist_camera_cube_clearance_m(
+        hand_position, hand_quaternion, cube_pose[:3], args_cli.cube_size_m
+    )
+    contact_forces["wrist_camera_proxy"] = 1.0 if wrist_clearance_m <= 0.0 else 0.0
     return {
         "time_s": time_s,
         "phase": phase,
@@ -706,6 +819,20 @@ def record_state(
         ],
         "hand_quaternion_wxyz": [
             float(value) for value in hand_quaternion.tolist()
+        ],
+        "hand_linear_velocity_w_m_s": [
+            float(value) for value in hand_linear.tolist()
+        ],
+        "hand_angular_velocity_w_rad_s": [
+            float(value) for value in hand_angular.tolist()
+        ],
+        "hand_linear_jacobian_w": [
+            [float(value) for value in row]
+            for row in hand_jacobian[:3].tolist()
+        ],
+        "hand_angular_jacobian_w": [
+            [float(value) for value in row]
+            for row in hand_jacobian[3:].tolist()
         ],
         "finger_midpoint_w_m": [
             float(value) for value in finger_midpoint.tolist()
@@ -731,12 +858,10 @@ def record_state(
         "gripper_drive_rad": float(
             robot.data.joint_pos.torch[0, drive_id].item()
         ),
-        "left_finger_cube_contact_force_n": cube_contact_force_n(
-            contact_sensors[0]
-        ),
-        "right_finger_cube_contact_force_n": cube_contact_force_n(
-            contact_sensors[1]
-        ),
+        "robot_cube_contact_forces_n": contact_forces,
+        "wrist_camera_proxy_clearance_m": wrist_clearance_m,
+        "left_finger_cube_contact_force_n": contact_forces["left_finger"],
+        "right_finger_cube_contact_force_n": contact_forces["right_finger"],
     }
 
 
@@ -761,9 +886,23 @@ def probe_signal_record(
     }
 
 
+def all_robot_contact_free(record: dict[str, object]) -> bool:
+    contact_forces = record.get("robot_cube_contact_forces_n")
+    if isinstance(contact_forces, dict):
+        return all(
+            float(force) <= ROBOT_CONTACT_FORCE_THRESHOLD_N
+            for force in contact_forces.values()
+        )
+    return bool(
+        float(record["left_finger_cube_contact_force_n"]) <= ROBOT_CONTACT_FORCE_THRESHOLD_N
+        and float(record["right_finger_cube_contact_force_n"]) <= ROBOT_CONTACT_FORCE_THRESHOLD_N
+    )
+
+
 def summarize(
     records: list[dict[str, object]],
     placed_pose: list[float],
+    reference_limit_evidence: dict[str, object],
 ) -> dict[str, object]:
     settle_records = [
         record for record in records
@@ -799,10 +938,7 @@ def summarize(
     detach_time_s = None
     contact_free_start_s = None
     for record in postrelease_records:
-        contact_free = (
-            record["left_finger_cube_contact_force_n"] <= 0.05
-            and record["right_finger_cube_contact_force_n"] <= 0.05
-        )
+        contact_free = all_robot_contact_free(record)
         if contact_free and contact_free_start_s is None:
             contact_free_start_s = float(record["time_s"])
         elif not contact_free:
@@ -896,25 +1032,46 @@ def summarize(
                 for record in evidence_records
             ) > args_cli.cube_size_m * 0.75
         )
-    motion_records = [
-        record for record in records if record["phase"] != "settle"
-    ]
+    motion_records: list[dict[str, object]] = []
+    for record in records:
+        if (
+            motion_records
+            and float(record["time_s"]) == float(motion_records[-1]["time_s"])
+        ):
+            motion_records[-1] = record
+        else:
+            motion_records.append(record)
+    actual_joint_positions = np.asarray(
+        [record["arm_joint_position_rad"] for record in motion_records], dtype=float
+    )
     actual_joint_velocities = np.asarray(
         [record["arm_joint_velocity_rad_s"] for record in motion_records],
         dtype=float,
     )
-    actual_max_joint_speed = float(np.max(np.abs(actual_joint_velocities)))
-    actual_max_joint_acceleration = 0.0
+    actual_joint_accelerations = np.zeros_like(actual_joint_velocities)
     if len(motion_records) >= 2:
         times = np.asarray(
             [record["time_s"] for record in motion_records], dtype=float
         )
-        accelerations = np.diff(actual_joint_velocities, axis=0) / np.diff(
+        actual_joint_accelerations[1:] = np.diff(actual_joint_velocities, axis=0) / np.diff(
             times
         )[:, None]
-        actual_max_joint_acceleration = float(
-            np.max(np.abs(accelerations))
-        )
+    actual_joint_efforts = np.asarray(
+        [record["arm_joint_effort_nm"] for record in motion_records], dtype=float
+    )
+    calibrated_joint_efforts = actual_joint_efforts / args_cli.arm_sim_effort_scale
+    actual_limit_evidence = evaluate_joint_trajectory(
+        actual_joint_positions,
+        actual_joint_velocities,
+        actual_joint_accelerations,
+        efforts_nm=calibrated_joint_efforts,
+    )
+    sim_actual_state_limits_pass = bool(
+        actual_limit_evidence["joint_hard_bounds_pass"]
+        and actual_limit_evidence["joint_speed_pass"]
+        and actual_limit_evidence["effort_pass"]
+    )
+    raw_sim_peak_effort_nm = np.max(np.abs(actual_joint_efforts), axis=0).tolist()
     legacy_detach_time_s = detach_time_s
     free_flight_evidence = continuous_free_flight_evidence(
         records,
@@ -942,6 +1099,9 @@ def summarize(
             else detach_time_s - args_cli.gripper_open_command_time_s
         ),
         "release_drive_transition_s": args_cli.release_drive_transition_s,
+        "release_dynamics_after_transition": bool(
+            args_cli.release_dynamics_after_transition
+        ),
         "release_drive_start_delay_s": args_cli.release_drive_start_delay_s,
         "release_height_m": release_height,
         "release_hand_position_m": release_hand_position.tolist(),
@@ -959,6 +1119,19 @@ def summarize(
         "catch_max_relative_error_m": catch_max_relative_error,
         "catch_max_relative_motion_m": catch_max_relative_motion,
         "catch_stable": catch_stable,
+        "reference_joint_limit_evidence": reference_limit_evidence,
+        "actual_joint_limit_evidence": actual_limit_evidence,
+        "sim_effort_calibration_scale": args_cli.arm_sim_effort_scale,
+        "raw_sim_per_joint_peak_effort_nm": raw_sim_peak_effort_nm,
+        "sim_actual_state_limits_pass": sim_actual_state_limits_pass,
+        "sim_actual_acceleration_matches_transfer_envelope": bool(
+            actual_limit_evidence["joint_acceleration_pass"]
+            and actual_limit_evidence["qdot_change_pass"]
+        ),
+        "joint_mechanical_limits_pass": bool(
+            reference_limit_evidence["joint_mechanical_limits_pass"]
+            and sim_actual_state_limits_pass
+        ),
         "obvious_toss_success": bool(
             free_flight_evidence.get("obvious_free_flight", False)
             and catch_stable
@@ -966,6 +1139,13 @@ def summarize(
         "visible_spin_toss_success": bool(
             free_flight_evidence.get("obvious_free_flight", False)
             and free_flight_evidence.get("visible_spin", False) and catch_stable
+        ),
+        "tumble_toss_success": bool(
+            free_flight_evidence.get("obvious_free_flight", False)
+            and free_flight_evidence.get("target_axis_tumble", False)
+            and catch_stable
+            and reference_limit_evidence["joint_mechanical_limits_pass"]
+            and sim_actual_state_limits_pass
         ),
         "catch_evidence_window_s": args_cli.catch_evidence_window_s,
         "bilateral_contact_fraction": bilateral_contact_fraction,
@@ -976,7 +1156,12 @@ def summarize(
         "cube_size_m": args_cli.cube_size_m,
         "cube_mass_kg": args_cli.cube_mass_kg,
         "held_drive_rad": args_cli.held_drive_rad,
+        "held_gripper_effort_limit_n": args_cli.held_gripper_effort_limit_n,
         "partial_open_drive_rad": args_cli.partial_open_drive_rad,
+        "release_gripper_effort_limit_n": (
+            args_cli.release_gripper_effort_limit_n
+        ),
+        "release_gripper_stiffness": args_cli.release_gripper_stiffness,
         "catch_drive_rad": (
             args_cli.held_drive_rad
             if args_cli.catch_drive_rad is None else args_cli.catch_drive_rad
@@ -990,8 +1175,9 @@ def summarize(
         "catch_hold_throw_joints": bool(
             args_cli.catch_hold_throw_joints
         ),
-        "actual_max_joint_speed_rad_s": actual_max_joint_speed,
-        "actual_max_joint_acceleration_rad_s2": actual_max_joint_acceleration,
+        "catch_joint1_start_time_s": args_cli.catch_joint1_start_time_s,
+        "actual_max_joint_speed_rad_s": actual_limit_evidence["max_joint_speed_rad_s"],
+        "actual_max_joint_acceleration_rad_s2": actual_limit_evidence["max_joint_acceleration_rad_s2"],
         "cube_offset_hand_m": list(args_cli.cube_offset_hand_m),
     }
 
@@ -1003,7 +1189,12 @@ def main() -> int:
         None if args_cli.probe_j_config is None
         else json.loads(args_cli.probe_j_config.read_text(encoding="utf-8"))
     )
-    config, reference = load_reference(args_cli.config)
+    config, reference, reference_limit_evidence = load_reference(args_cli.config)
+    if (
+        args_cli.release_gripper_effort_limit_n is not None
+        and args_cli.release_gripper_effort_limit_n > 50.0
+    ):
+        raise ValueError("release G1 effort exceeds the URDF 50 limit")
     control_period = float(config["control_period_s"])
     limits = config.get("limits", {})
     if args_cli.catch_max_joint_speed_rad_s is None:
@@ -1016,6 +1207,17 @@ def main() -> int:
         )
     if args_cli.gripper_open_command_time_s is None:
         args_cli.gripper_open_command_time_s = args_cli.release_time_s
+    preposition_pair_complete = (
+        args_cli.catch_preposition_bias_m is None
+    ) == (args_cli.catch_preposition_end_time_s is None)
+    if not preposition_pair_complete:
+        raise ValueError("catch preposition bias and end time must be paired")
+    if args_cli.catch_preposition_end_time_s is not None and (
+        args_cli.catch_servo_start_time_s is None
+        or args_cli.catch_preposition_end_time_s
+        <= args_cli.catch_servo_start_time_s
+    ):
+        raise ValueError("catch preposition must end after catch servo starts")
     duration = (
         float(reference[-1].time_s) + args_cli.arm_tracking_delay_s
         + args_cli.post_release_s
@@ -1041,7 +1243,7 @@ def main() -> int:
     args_cli.output.mkdir(parents=True, exist_ok=True)
     sim = sim_utils.SimulationContext(
         sim_utils.SimulationCfg(
-            dt=0.005,
+            dt=float(config.get("physics_dt_s", 0.005)),
             device=args_cli.device,
             render_interval=4,
         )
@@ -1071,7 +1273,13 @@ def main() -> int:
         ),
     )
     robot = Articulation(robot_cfg(args_cli.usd, args_cli.held_drive_rad))
-    cube = RigidObject(cube_cfg(args_cli.cube_size_m, args_cli.cube_mass_kg))
+    cube = RigidObject(
+        cube_cfg(
+            args_cli.cube_size_m,
+            args_cli.cube_mass_kg,
+            config.get("cube_physics", {}),
+        )
+    )
     spawn_cube_rotation_marker(args_cli.cube_size_m)
     global_camera = None
     wrist_camera = None
@@ -1148,24 +1356,19 @@ def main() -> int:
         for camera in (global_camera, wrist_camera, spectator_camera)
         if camera is not None
     )
-    sim_utils.activate_contact_sensors(LEFT_FINGER_PRIM)
-    sim_utils.activate_contact_sensors(RIGHT_FINGER_PRIM)
-    contact_sensors = (
-        ContactSensor(
+    for prim_path in ROBOT_CONTACT_PRIMS.values():
+        sim_utils.activate_contact_sensors(prim_path)
+    contact_sensors = {
+        name: ContactSensor(
             ContactSensorCfg(
-                prim_path=LEFT_FINGER_PRIM,
+                prim_path=prim_path,
                 update_period=0.0,
                 debug_vis=False,
+                filter_prim_paths_expr=["/World/Cube"],
             )
-        ),
-        ContactSensor(
-            ContactSensorCfg(
-                prim_path=RIGHT_FINGER_PRIM,
-                update_period=0.0,
-                debug_vis=False,
-            )
-        ),
-    )
+        )
+        for name, prim_path in ROBOT_CONTACT_PRIMS.items()
+    }
     sim.reset()
 
     arm_ids, _ = robot.find_joints("joint[1-6]")
@@ -1387,6 +1590,7 @@ def main() -> int:
         ]],
         device=sim.device,
     )
+    release_gripper_dynamics_applied = False
     catch_gripper_dynamics_applied = False
     dt = sim.get_physics_dt()
     last_control_tick_index = -1
@@ -1764,8 +1968,14 @@ def main() -> int:
                     intercept_error_before_residual_m=intercept_error_before_m,
                     intercept_error_after_residual_m=intercept_error_after_m,
                 )
+            active_catch_position_bias_m = args_cli.catch_position_bias_m
+            if (
+                args_cli.catch_preposition_end_time_s is not None
+                and time_s < args_cli.catch_preposition_end_time_s
+            ):
+                active_catch_position_bias_m = args_cli.catch_preposition_bias_m
             catch_position_bias = torch.tensor(
-                args_cli.catch_position_bias_m,
+                active_catch_position_bias_m,
                 dtype=torch.float32,
                 device=sim.device,
             )
@@ -1803,6 +2013,11 @@ def main() -> int:
                 -args_cli.catch_max_joint_step_rad,
                 args_cli.catch_max_joint_step_rad,
             )
+            if (
+                args_cli.catch_joint1_start_time_s is not None
+                and time_s < args_cli.catch_joint1_start_time_s
+            ):
+                controlled_delta[0] = 0.0
             if catch_active and catch_control_update_count == 1:
                 catch_first_jacobian = [
                     [float(value) for value in row]
@@ -1913,6 +2128,27 @@ def main() -> int:
                 args_cli.gripper_open_command_time_s
                 + args_cli.release_drive_start_delay_s
             )
+        release_dynamics_start_s = physical_open_start_s
+        if (
+            args_cli.release_dynamics_after_transition
+            and args_cli.release_drive_transition_s is not None
+        ):
+            release_dynamics_start_s += args_cli.release_drive_transition_s
+        if (
+            time_s >= release_dynamics_start_s
+            and not release_gripper_dynamics_applied
+        ):
+            if args_cli.release_gripper_effort_limit_n is not None:
+                robot.write_joint_effort_limit_to_sim_index(
+                    limits=args_cli.release_gripper_effort_limit_n,
+                    joint_ids=drive_ids,
+                )
+            if args_cli.release_gripper_stiffness is not None:
+                robot.write_joint_stiffness_to_sim_index(
+                    stiffness=args_cli.release_gripper_stiffness,
+                    joint_ids=drive_ids,
+                )
+            release_gripper_dynamics_applied = True
         gripper_target = (
             open_target
             if time_s >= physical_open_start_s
@@ -1929,13 +2165,7 @@ def main() -> int:
             )
             blend = progress**3 * (10.0 + progress * (-15.0 + 6.0 * progress))
             measured_drive = held_target + blend * (open_target - held_target)
-            measured_gripper = measured_drive.expand(
-                -1, len(gripper_joint_ids)
-            )
-            robot.write_joint_position_to_sim_index(
-                position=measured_gripper,
-                joint_ids=gripper_joint_ids,
-            )
+            gripper_target = measured_drive
         if (
             args_cli.catch_close_time_s is not None
             and time_s >= args_cli.catch_close_time_s
@@ -1989,7 +2219,11 @@ def main() -> int:
             last_video_frame_index = video_frame_index
         time_s += dt
 
-    summary = summarize(records, placed_pose)
+    summary = summarize(records, placed_pose, reference_limit_evidence)
+    summary.update(
+        cube_static_friction=config["cube_physics"].get("static_friction", 1.2),
+        cube_dynamic_friction=config["cube_physics"].get("dynamic_friction", 0.9),
+    )
     if probe_j_evidence is None:
         summary.update(
             probe_used_for_control=False,
@@ -2091,6 +2325,12 @@ def main() -> int:
         ),
         detach_delay_prior_s=args_cli.detach_delay_prior_s,
         catch_position_bias_m=list(args_cli.catch_position_bias_m),
+        catch_preposition_bias_m=(
+            None
+            if args_cli.catch_preposition_bias_m is None
+            else list(args_cli.catch_preposition_bias_m)
+        ),
+        catch_preposition_end_time_s=args_cli.catch_preposition_end_time_s,
         free_flight_before_close_s=(
             None
             if detach_time_s is None

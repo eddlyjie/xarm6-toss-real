@@ -8,6 +8,7 @@ Detach posteriors enter as uncertainty/residuals around this nominal model.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 import math
 
@@ -18,6 +19,21 @@ from scipy.spatial.transform import Rotation
 GRAVITY_M_S2 = 9.81
 VISIBLE_SPIN_MIN_ROTATION_RAD = math.radians(8.0)
 VISIBLE_SPIN_MIN_FLIGHT_S = 0.12
+
+TUMBLE_MIN_AXIS_ALIGNMENT = 0.85
+TUMBLE_MIN_APEX_ROTATION_RAD = math.radians(5.0)
+TUMBLE_MIN_FLIGHT_ROTATION_RAD = math.radians(12.0)
+STRICT_CONTACT_BODY_NAMES = (
+    "left_finger",
+    "right_finger",
+    "left_outer_knuckle",
+    "right_outer_knuckle",
+    "left_inner_knuckle",
+    "right_inner_knuckle",
+    "gripper_base",
+    "link6",
+    "wrist_camera_proxy",
+)
 
 
 def _vector3(value, name: str) -> np.ndarray:
@@ -32,6 +48,78 @@ def _rotation3(value) -> np.ndarray:
     if array.shape != (3, 3) or not np.isfinite(array).all():
         raise ValueError("rotation_world_object must be a finite 3x3 matrix")
     return array
+
+
+def _rotation_from_wxyz(value, name: str) -> np.ndarray:
+    quaternion = np.asarray(value, dtype=float)
+    if quaternion.shape != (4,) or not np.isfinite(quaternion).all():
+        raise ValueError(f"{name} must contain four finite values")
+    norm = float(np.linalg.norm(quaternion))
+    if norm == 0.0:
+        raise ValueError(f"{name} must be non-zero")
+    w, x, y, z = quaternion / norm
+    return np.asarray(
+        [
+            [1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - z * w), 2.0 * (x * z + y * w)],
+            [2.0 * (x * y + z * w), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - x * w)],
+            [2.0 * (x * z - y * w), 2.0 * (y * z + x * w), 1.0 - 2.0 * (x * x + y * y)],
+        ]
+    )
+
+
+def _robot_contact_forces(record) -> tuple[dict[str, float], bool]:
+    mapped = record.get("robot_cube_contact_forces_n")
+    if isinstance(mapped, Mapping):
+        forces = {str(name): float(value) for name, value in mapped.items()}
+        if not all(math.isfinite(value) for value in forces.values()):
+            raise ValueError("robot_cube_contact_forces_n must be finite")
+        complete = all(name in forces for name in STRICT_CONTACT_BODY_NAMES)
+        return forces, complete
+    forces = {
+        "left_finger": float(record["left_finger_cube_contact_force_n"]),
+        "right_finger": float(record["right_finger_cube_contact_force_n"]),
+    }
+    return forces, False
+
+
+def _empty_tumble_evidence() -> dict[str, object]:
+    return {
+        "strict_contact_source_complete": False,
+        "strict_contact_free_flight": False,
+        "finger_direction_world": None,
+        "tumble_axis_world": None,
+        "detach_angular_velocity_world_rad_s": None,
+        "tumble_axis_alignment": 0.0,
+        "detach_to_apex_tumble_rotation_rad": 0.0,
+        "detach_to_apex_tumble_rotation_deg": 0.0,
+        "free_flight_signed_tumble_rotation_rad": 0.0,
+        "free_flight_signed_tumble_rotation_deg": 0.0,
+        "free_flight_non_target_rotation_rad": 0.0,
+        "target_axis_tumble": False,
+    }
+
+
+def _integrated_axis_rotation(records, axis_world: np.ndarray) -> tuple[float, float]:
+    signed_rotation = 0.0
+    non_target_rotation = 0.0
+    for before, after in zip(records, records[1:]):
+        dt = float(after["time_s"]) - float(before["time_s"])
+        omega_before = _vector3(
+            before["cube_angular_velocity_w_rad_s"], "cube_angular_velocity_w_rad_s"
+        )
+        omega_after = _vector3(
+            after["cube_angular_velocity_w_rad_s"], "cube_angular_velocity_w_rad_s"
+        )
+        projected_before = float(np.dot(omega_before, axis_world))
+        projected_after = float(np.dot(omega_after, axis_world))
+        signed_rotation += 0.5 * (projected_before + projected_after) * dt
+        residual_before = omega_before - projected_before * axis_world
+        residual_after = omega_after - projected_after * axis_world
+        non_target_rotation += 0.5 * (
+            float(np.linalg.norm(residual_before))
+            + float(np.linalg.norm(residual_after))
+        ) * dt
+    return signed_rotation, non_target_rotation
 
 
 @dataclass(frozen=True)
@@ -161,7 +249,7 @@ def continuous_free_flight_evidence(
     """Measure the longest uninterrupted post-release contact-free arc.
 
     A short force flicker cannot be reported as a long toss: the selected arc
-    ends at the first subsequent finger contact. Catch stability remains a
+    ends at the first subsequent robot contact. Catch stability remains a
     separate requirement evaluated by the native runner.
     """
 
@@ -183,6 +271,7 @@ def continuous_free_flight_evidence(
             "free_flight_rotation_rad": 0.0,
             "free_flight_rotation_deg": 0.0,
             "visible_spin": False,
+            **_empty_tumble_evidence(),
         }
 
     def force(record, key):
@@ -192,12 +281,8 @@ def continuous_free_flight_evidence(
         return value
 
     def contact_free(record):
-        return (
-            force(record, "left_finger_cube_contact_force_n")
-            <= contact_force_threshold_n
-            and force(record, "right_finger_cube_contact_force_n")
-            <= contact_force_threshold_n
-        )
+        forces, _ = _robot_contact_forces(record)
+        return all(value <= contact_force_threshold_n for value in forces.values())
 
     runs = []
     start = None
@@ -218,6 +303,7 @@ def continuous_free_flight_evidence(
             "free_flight_rotation_rad": 0.0,
             "free_flight_rotation_deg": 0.0,
             "visible_spin": False,
+            **_empty_tumble_evidence(),
         }
 
     def run_duration(run):
@@ -254,6 +340,12 @@ def continuous_free_flight_evidence(
     first_contact_record = (
         None if contact_index is None else postrelease[contact_index]
     )
+    strict_contact_source_complete = all(
+        _robot_contact_forces(record)[1]
+        for record in postrelease[
+            start_index : (contact_index + 1 if contact_index is not None else last_free_index + 1)
+        ]
+    )
 
     separations = [
         float(
@@ -287,6 +379,56 @@ def continuous_free_flight_evidence(
             )
         )
         spin_path_rad += 0.5 * float(omega_before + omega_after) * dt
+
+    tumble = _empty_tumble_evidence()
+    if "hand_quaternion_wxyz" in first_record:
+        hand_rotation = _rotation_from_wxyz(
+            first_record["hand_quaternion_wxyz"], "hand_quaternion_wxyz"
+        )
+        finger_direction_world = hand_rotation @ np.asarray([0.0, 0.0, 1.0])
+        tumble_axis_world = np.cross(
+            finger_direction_world, np.asarray([0.0, 0.0, 1.0])
+        )
+        tumble_axis_norm = float(np.linalg.norm(tumble_axis_world))
+        if tumble_axis_norm > 1.0e-6:
+            tumble_axis_world /= tumble_axis_norm
+            detach_omega = _vector3(
+                first_record["cube_angular_velocity_w_rad_s"],
+                "cube_angular_velocity_w_rad_s",
+            )
+            detach_omega_norm = float(np.linalg.norm(detach_omega))
+            axis_alignment = (
+                0.0
+                if detach_omega_norm == 0.0
+                else abs(float(np.dot(detach_omega / detach_omega_norm, tumble_axis_world)))
+            )
+            signed_tumble, non_target = _integrated_axis_rotation(
+                free_records, tumble_axis_world
+            )
+            apex_tumble, _ = _integrated_axis_rotation(
+                free_records[: apex_local_index + 1], tumble_axis_world
+            )
+            target_axis_tumble = (
+                strict_contact_source_complete
+                and axis_alignment >= TUMBLE_MIN_AXIS_ALIGNMENT
+                and abs(apex_tumble) >= TUMBLE_MIN_APEX_ROTATION_RAD
+                and abs(signed_tumble) >= TUMBLE_MIN_FLIGHT_ROTATION_RAD
+                and non_target <= abs(signed_tumble)
+            )
+            tumble = {
+                "strict_contact_source_complete": strict_contact_source_complete,
+                "strict_contact_free_flight": strict_contact_source_complete,
+                "finger_direction_world": finger_direction_world.tolist(),
+                "tumble_axis_world": tumble_axis_world.tolist(),
+                "detach_angular_velocity_world_rad_s": detach_omega.tolist(),
+                "tumble_axis_alignment": axis_alignment,
+                "detach_to_apex_tumble_rotation_rad": apex_tumble,
+                "detach_to_apex_tumble_rotation_deg": math.degrees(apex_tumble),
+                "free_flight_signed_tumble_rotation_rad": signed_tumble,
+                "free_flight_signed_tumble_rotation_deg": math.degrees(signed_tumble),
+                "free_flight_non_target_rotation_rad": non_target,
+                "target_axis_tumble": target_axis_tumble,
+            }
 
     bilateral_time = None
     for record in postrelease[last_free_index + 1 :]:
@@ -356,4 +498,5 @@ def continuous_free_flight_evidence(
         "free_flight_spin_path_rad": spin_path_rad,
         "visible_spin": visible_spin,
         "obvious_free_flight": obvious,
+        **tumble,
     }

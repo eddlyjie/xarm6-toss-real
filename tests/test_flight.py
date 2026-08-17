@@ -20,6 +20,19 @@ from xarm6_toss.flight import (
 )
 
 
+STRICT_FREE = {
+    "left_finger": 0.0,
+    "right_finger": 0.0,
+    "left_outer_knuckle": 0.0,
+    "right_outer_knuckle": 0.0,
+    "left_inner_knuckle": 0.0,
+    "right_inner_knuckle": 0.0,
+    "gripper_base": 0.0,
+    "link6": 0.0,
+    "wrist_camera_proxy": 0.0,
+}
+
+
 class FlightPhysicsTests(unittest.TestCase):
     def test_cube_returns_to_release_height(self):
         upward = 0.8
@@ -118,6 +131,92 @@ class FlightPhysicsTests(unittest.TestCase):
         self.assertFalse(evidence["obvious_free_flight"])
         self.assertFalse(evidence["free_flight_apex_is_internal"])
         self.assertFalse(evidence["visible_spin"])
+
+    def test_target_axis_tumble_requires_complete_robot_contact_evidence(self):
+        records = []
+        hand_rotation = Rotation.from_euler("y", math.pi / 2.0)
+        hand_xyzw = hand_rotation.as_quat()
+        hand_wxyz = [hand_xyzw[3], *hand_xyzw[:3]]
+        for index in range(11):
+            time_s = 0.02 * index
+            angle = -1.5 * time_s
+            cube_xyzw = Rotation.from_rotvec([0.0, angle, 0.0]).as_quat()
+            contacts = dict(STRICT_FREE)
+            if index == 10:
+                contacts["left_finger"] = 1.0
+                contacts["right_finger"] = 1.0
+            records.append(
+                {
+                    "time_s": time_s,
+                    "phase": "catch" if index == 10 else "flight",
+                    "cube_position_w_m": [
+                        0.4,
+                        0.0,
+                        0.30 + 0.90 * time_s - 4.905 * time_s**2,
+                    ],
+                    "cube_linear_velocity_w_m_s": [
+                        0.0,
+                        0.0,
+                        0.90 - 9.81 * time_s,
+                    ],
+                    "cube_angular_velocity_w_rad_s": [0.0, -1.5, 0.0],
+                    "cube_quaternion_wxyz": [cube_xyzw[3], *cube_xyzw[:3]],
+                    "hand_quaternion_wxyz": hand_wxyz,
+                    "cube_position_hand_m": [0.03 * time_s, 0.0, 0.12],
+                    "left_finger_cube_contact_force_n": contacts["left_finger"],
+                    "right_finger_cube_contact_force_n": contacts["right_finger"],
+                    "robot_cube_contact_forces_n": contacts,
+                }
+            )
+        evidence = continuous_free_flight_evidence(
+            records, [0.0, 0.0, 0.12], release_height_m=0.25
+        )
+        self.assertTrue(evidence["strict_contact_source_complete"])
+        self.assertTrue(evidence["target_axis_tumble"])
+        self.assertGreaterEqual(evidence["tumble_axis_alignment"], 0.99)
+        self.assertGreaterEqual(
+            abs(evidence["detach_to_apex_tumble_rotation_deg"]), 5.0
+        )
+        self.assertGreaterEqual(
+            abs(evidence["free_flight_signed_tumble_rotation_deg"]), 12.0
+        )
+
+    def test_palm_contact_ends_strict_free_flight_before_spin_jump(self):
+        records = []
+        hand_xyzw = Rotation.from_euler("y", math.pi / 2.0).as_quat()
+        for index in range(10):
+            contacts = dict(STRICT_FREE)
+            if index >= 6:
+                contacts["gripper_base"] = 2.0
+            angular_speed = -1.0 if index < 6 else -10.0
+            time_s = 0.02 * index
+            angle = angular_speed * time_s
+            cube_xyzw = Rotation.from_rotvec([0.0, angle, 0.0]).as_quat()
+            records.append(
+                {
+                    "time_s": time_s,
+                    "phase": "flight" if index < 6 else "catch",
+                    "cube_position_w_m": [0.4, 0.0, 0.3],
+                    "cube_linear_velocity_w_m_s": [0.0, 0.0, -0.1],
+                    "cube_angular_velocity_w_rad_s": [0.0, angular_speed, 0.0],
+                    "cube_quaternion_wxyz": [cube_xyzw[3], *cube_xyzw[:3]],
+                    "hand_quaternion_wxyz": [hand_xyzw[3], *hand_xyzw[:3]],
+                    "cube_position_hand_m": [0.02 * index, 0.0, 0.12],
+                    "left_finger_cube_contact_force_n": 0.0,
+                    "right_finger_cube_contact_force_n": 0.0,
+                    "robot_cube_contact_forces_n": contacts,
+                }
+            )
+        evidence = continuous_free_flight_evidence(
+            records, [0.0, 0.0, 0.12]
+        )
+        self.assertAlmostEqual(
+            evidence["continuous_free_flight_end_time_s"], 0.12
+        )
+        self.assertLess(
+            abs(evidence["free_flight_signed_tumble_rotation_deg"]), 12.0
+        )
+        self.assertFalse(evidence["target_axis_tumble"])
 
 
 if __name__ == "__main__":
