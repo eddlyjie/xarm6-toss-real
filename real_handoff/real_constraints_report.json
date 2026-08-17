@@ -1,23 +1,23 @@
 {
-  "schema": "xarm6_real_constraints_report_v2",
-  "source_result": "outputs/final_learned_seed_20260834",
+  "schema": "xarm6_real_constraints_report_v3",
+  "source_result": "outputs/final_probe_j_seed_20260861_v3",
   "success": {
     "detach_detected": true,
     "catch_stable": true,
     "bilateral_contact_fraction": 1.0,
-    "continuous_free_flight_duration_s": 0.1100000000000001,
-    "free_flight_rise_from_kinematic_release_m": 0.06010401248931885,
+    "continuous_free_flight_duration_s": 0.09500000000000008,
+    "free_flight_rise_from_kinematic_release_m": 0.061370253562927246,
     "free_flight_apex_is_internal": false,
-    "precontact_vertical_velocity_m_s": 0.20752376317977905,
+    "precontact_vertical_velocity_m_s": 0.285293310880661,
     "obvious_free_flight": false,
     "obvious_toss_success": false,
-    "maximum_separation_m": 0.011800694858747072,
-    "free_vertical_displacement_m": 0.06699085235595703,
-    "detach_to_first_bilateral_contact_s": 0.17500000000000016
+    "maximum_separation_m": 0.020609868226940945,
+    "free_vertical_displacement_m": 0.06804323196411133,
+    "detach_to_first_bilateral_contact_s": 0.17000000000000015
   },
   "geometry": {
-    "release_hand_horizontal_radius_m": 0.39007751896852844,
-    "release_outward_dot_m": 0.36297046581814846,
+    "release_hand_horizontal_radius_m": 0.39141880131922946,
+    "release_outward_dot_m": 0.36768058893781513,
     "configured_gripper_base_position_m": [
       0.383,
       0.0,
@@ -26,9 +26,9 @@
     "baked_joint6_roll_rad": 0.177245
   },
   "limits": {
-    "actual_max_joint_speed_rad_s": 1.545880913734436,
-    "actual_max_joint_acceleration_rad_s2": 86.65337562561028,
-    "commanded_max_joint_speed_rad_s": 1.750000238418579,
+    "actual_max_joint_speed_rad_s": 1.5459537506103516,
+    "actual_max_joint_acceleration_rad_s2": 90.1885509490966,
+    "commanded_max_joint_speed_rad_s": 1.7448344230651855,
     "commanded_max_joint_acceleration_rad_s2": 20.0,
     "reference_max_joint_speed_rad_s": 1.7448344405333414,
     "reference_max_joint_acceleration_rad_s2": 13.057392423703774,
@@ -43,12 +43,12 @@
     "candidate_exceeds_transfer_cap": true,
     "operator_approval_required": true,
     "minimum_actual_joint_margin_rad": [
-      3.0051569336652757,
-      1.755282728075981,
-      0.3992188529777527,
-      3.121945227831602,
+      3.1014710807800294,
+      1.7553605419397353,
+      0.3988967941808701,
+      3.121938049197197,
       0.18409915992736825,
-      2.963966641540718
+      2.9639678336336135
     ]
   },
   "delays_s": {
@@ -56,7 +56,7 @@
     "sim_explicit_command_delay": 0.0,
     "sim_measured_tracking_lag": 0.09,
     "g1_prior": 0.03,
-    "g1_measured_sim_detach": 0.0350000000000007,
+    "g1_measured_sim_detach": 0.03500000000000081,
     "real_measured_detach_range": [
       0.025,
       0.044
@@ -68,21 +68,21 @@
     "wrist_terminal_required": false,
     "camera_counts": {
       "third_view": {
-        "frames_reported": 11,
+        "frames_reported": 10,
         "detections": 1,
         "post_detach_detections": 1
       },
       "wrist": {
-        "frames_reported": 11,
+        "frames_reported": 10,
         "detections": 0,
         "post_detach_detections": 0
       }
     },
     "camera_updates_after_detach": 1,
-    "learned_updates_after_detach": 11,
+    "learned_updates_after_detach": 10,
     "terminal_wrist_observation_count": 0,
-    "intercept_mean_error_before_m": 0.06971660459583456,
-    "intercept_mean_error_after_m": 0.06179892779751257,
+    "intercept_mean_error_before_m": 0.04883184544742107,
+    "intercept_mean_error_after_m": 0.04538907185196876,
     "intercept_residual_fraction_improved": 1.0,
     "spectator_used_for_control": false
   },
@@ -97,6 +97,77 @@
       "slip_probability",
       "detach_timing_uncertainty"
     ],
+    "sim_paired_probe_config": "../sim/configs/probe_j_fixed_cube_v1.json",
+    "sim_paired_probe_used_for_control": true,
+    "sim_j_used_for_control": true,
+    "sim_probe_gate_passed": true,
+    "sim_probe_posterior": {
+      "effective_payload_mean_kg": 0.03499999738986686,
+      "effective_payload_std_kg": 0.015000000000000001,
+      "com_offset_mean_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "com_offset_std_m": [
+        0.008,
+        0.008,
+        0.008
+      ],
+      "held_probability": 1.0,
+      "slip_probability": 0.0,
+      "projected_width_m": 0.038,
+      "detach_time_std_s": 0.013500000000000002,
+      "payload_signal_nm": 0.9930663763538816,
+      "gripper_contact_signal_nm": 0.4361780401493888,
+      "effort_residual_mean_nm": [
+        -1.8679043353800808,
+        -0.10374095272272825,
+        -0.981394468457438,
+        -15.531782920693512,
+        0.11083113215136109,
+        0.06428089807856532
+      ],
+      "effort_residual_dynamic_rms_nm": [
+        1.0253822536758692,
+        0.15151529893861876,
+        0.37354026152791936,
+        3.936333259878746,
+        1.6774866630205252,
+        0.21593301393729458
+      ],
+      "sample_count": 80
+    },
+    "sim_selected_catch_candidate": "stable_third_view_learned",
+    "sim_catch_candidate_ranking": [
+      {
+        "name": "stable_third_view_learned",
+        "J": 1.0007153269713145,
+        "terms": {
+          "task_grasp_error": 0.0,
+          "relative_contact_velocity": 0.12,
+          "impact_energy": 0.05,
+          "slip_risk": 0.03,
+          "arm_motion_cost": 0.1,
+          "cvar_failure": 0.36500000000000005,
+          "catch_probability": 0.8
+        }
+      },
+      {
+        "name": "clear_flight_upgrade",
+        "J": 3.0874415416798358,
+        "terms": {
+          "task_grasp_error": 0.0,
+          "relative_contact_velocity": 0.1,
+          "impact_energy": 0.08,
+          "slip_risk": 0.05,
+          "arm_motion_cost": 0.08,
+          "cvar_failure": 0.6900000000000001,
+          "catch_probability": 0.25
+        }
+      }
+    ],
+    "real_paired_probe_completed": false,
     "current_sim_evidence_consumes_real_probe_output": false
   }
 }

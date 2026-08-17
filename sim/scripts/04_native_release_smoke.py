@@ -175,6 +175,12 @@ parser.add_argument(
 parser.add_argument("--arm-tracking-delay-s", type=float, default=0.09)
 parser.add_argument("--arm-sim-effort-scale", type=float, default=1.0)
 parser.add_argument("--arm-sim-stiffness-scale", type=float, default=1.0)
+parser.add_argument(
+    "--probe-j-config",
+    type=Path,
+    default=None,
+    help="Paired-signal Probe calibration and executable catch candidates.",
+)
 parser.add_argument("--camera-receive-latency-s", type=float, default=0.02)
 parser.add_argument("--camera-dropout-probability", type=float, default=0.05)
 parser.add_argument("--camera-seed", type=int, default=20260816)
@@ -203,6 +209,11 @@ from xarm6_toss.control_reference import (  # noqa: E402
 from xarm6_toss.intercept_residual import (  # noqa: E402
     InterceptResidualPolicy,
     residual_features,
+)
+from xarm6_toss.probe_j import (  # noqa: E402
+    estimate_probe_posterior,
+    probe_joint_offset_rad,
+    select_catch_candidate,
 )
 from xarm6_toss.flight import continuous_free_flight_evidence  # noqa: E402
 
@@ -680,6 +691,13 @@ def record_state(
             float(value)
             for value in robot.data.joint_vel.torch[0, arm_ids].tolist()
         ],
+        "arm_joint_effort_nm": [
+            float(value)
+            for value in robot.data.applied_torque.torch[0, arm_ids].tolist()
+        ],
+        "gripper_effort_nm": float(
+            robot.data.applied_torque.torch[0, drive_id].item()
+        ),
         "gripper_drive_rad": float(
             robot.data.joint_pos.torch[0, drive_id].item()
         ),
@@ -692,6 +710,27 @@ def record_state(
     }
 
 
+def probe_signal_record(
+    robot: Articulation,
+    arm_ids: list[int],
+    drive_id: int,
+) -> dict[str, object]:
+    applied_torque = robot.data.applied_torque.torch[0]
+    return {
+        "arm_effort_nm": [
+            float(value) for value in applied_torque[arm_ids].tolist()
+        ],
+        "gripper_effort_nm": float(applied_torque[drive_id].item()),
+        "joint_velocity_rad_s": [
+            float(value)
+            for value in robot.data.joint_vel.torch[0, arm_ids].tolist()
+        ],
+        "gripper_position": float(
+            robot.data.joint_pos.torch[0, drive_id].item()
+        ),
+    }
+
+
 def summarize(
     records: list[dict[str, object]],
     placed_pose: list[float],
@@ -700,6 +739,8 @@ def summarize(
         record for record in records
         if record["phase"] == "settle"
     ]
+    if not settle_records:
+        raise RuntimeError("held Probe/settle records are required")
     throw_records = [
         record for record in records
         if record["phase"] == "throw"
@@ -924,6 +965,10 @@ def summarize(
 def main() -> int:
     if not args_cli.usd.is_file():
         raise FileNotFoundError(args_cli.usd)
+    probe_j_config = (
+        None if args_cli.probe_j_config is None
+        else json.loads(args_cli.probe_j_config.read_text(encoding="utf-8"))
+    )
     config, reference = load_reference(args_cli.config)
     control_period = float(config["control_period_s"])
     limits = config.get("limits", {})
@@ -941,7 +986,15 @@ def main() -> int:
         float(reference[-1].time_s) + args_cli.arm_tracking_delay_s
         + args_cli.post_release_s
     )
-    if args_cli.catch_servo_start_time_s is not None:
+    if probe_j_config is not None:
+        duration = max(
+            duration,
+            max(
+                float(item["controller"]["catch_close_time_s"])
+                for item in probe_j_config["catch_candidates"]
+            ) + args_cli.catch_evidence_window_s + 0.10,
+        )
+    elif args_cli.catch_servo_start_time_s is not None:
         if args_cli.catch_close_time_s is None:
             raise ValueError("catch servo requires --catch-close-time-s")
         if args_cli.catch_close_time_s < args_cli.catch_servo_start_time_s:
@@ -1103,6 +1156,37 @@ def main() -> int:
     robot.reset()
     update_wrist_camera_pose(robot, gripper_body_id, wrist_camera)
     step_assets(sim, robot, cube, contact_sensors, cameras)
+    empty_probe_records: list[dict[str, object]] = []
+    if probe_j_config is not None:
+        probe = probe_j_config["probe"]
+        probe_duration_s = float(probe["duration_s"])
+        if probe_duration_s > args_cli.settle_s:
+            raise ValueError("Probe duration must fit inside --settle-s")
+        empty_probe_time_s = 0.0
+        start_arm_target = q[0, arm_ids].clone()
+        while empty_probe_time_s < args_cli.settle_s:
+            probe_target = start_arm_target.clone()
+            probe_target[int(probe["joint_index"])] += probe_joint_offset_rad(
+                empty_probe_time_s,
+                duration_s=probe_duration_s,
+                amplitude_rad=float(probe["amplitude_rad"]),
+                frequency_hz=float(probe["frequency_hz"]),
+            )
+            robot.set_joint_position_target_index(
+                target=probe_target.unsqueeze(0), joint_ids=arm_ids
+            )
+            update_wrist_camera_pose(robot, gripper_body_id, wrist_camera)
+            step_assets(sim, robot, cube, contact_sensors, cameras)
+            empty_probe_records.append(
+                probe_signal_record(robot, arm_ids, drive_id)
+            )
+            empty_probe_time_s += sim.get_physics_dt()
+        robot.write_joint_position_to_sim_index(position=q)
+        robot.write_joint_velocity_to_sim_index(velocity=dq)
+        robot.set_joint_position_target_index(target=q)
+        robot.reset()
+        update_wrist_camera_pose(robot, gripper_body_id, wrist_camera)
+        step_assets(sim, robot, cube, contact_sensors, cameras)
     placed_pose = place_cube_once(
         robot,
         cube,
@@ -1126,6 +1210,18 @@ def main() -> int:
     records: list[dict[str, object]] = []
     time_s = -args_cli.settle_s
     while time_s < 0.0:
+        if probe_j_config is not None:
+            probe = probe_j_config["probe"]
+            probe_target = q[0, arm_ids].clone()
+            probe_target[int(probe["joint_index"])] += probe_joint_offset_rad(
+                time_s + args_cli.settle_s,
+                duration_s=float(probe["duration_s"]),
+                amplitude_rad=float(probe["amplitude_rad"]),
+                frequency_hz=float(probe["frequency_hz"]),
+            )
+            robot.set_joint_position_target_index(
+                target=probe_target.unsqueeze(0), joint_ids=arm_ids
+            )
         update_wrist_camera_pose(robot, gripper_body_id, wrist_camera)
         step_assets(sim, robot, cube, contact_sensors, cameras)
         time_s += sim.get_physics_dt()
@@ -1161,6 +1257,85 @@ def main() -> int:
         dtype=torch.float32,
         device=sim.device,
     )
+    probe_j_evidence = None
+    if probe_j_config is not None:
+        held_probe_records = [
+            {
+                "arm_effort_nm": record["arm_joint_effort_nm"],
+                "gripper_effort_nm": record["gripper_effort_nm"],
+                "joint_velocity_rad_s": record["arm_joint_velocity_rad_s"],
+                "gripper_position": record["gripper_drive_rad"],
+            }
+            for record in records
+            if record["phase"] == "settle"
+        ]
+        posterior = estimate_probe_posterior(
+            empty_arm_effort_nm=[
+                item["arm_effort_nm"] for item in empty_probe_records
+            ],
+            held_arm_effort_nm=[
+                item["arm_effort_nm"] for item in held_probe_records
+            ],
+            empty_gripper_effort_nm=[
+                item["gripper_effort_nm"] for item in empty_probe_records
+            ],
+            held_gripper_effort_nm=[
+                item["gripper_effort_nm"] for item in held_probe_records
+            ],
+            held_joint_velocity_rad_s=[
+                item["joint_velocity_rad_s"] for item in held_probe_records
+            ],
+            held_gripper_position=[
+                item["gripper_position"] for item in held_probe_records
+            ],
+            projected_width_m=float(probe_j_config["projected_width_m"]),
+            calibration=probe_j_config["calibration"],
+        )
+        selected_candidate, j_ranking = select_catch_candidate(
+            posterior, probe_j_config["catch_candidates"]
+        )
+        controller = selected_candidate["controller"]
+        args_cli.catch_servo_start_time_s = float(
+            controller["catch_servo_start_time_s"]
+        )
+        args_cli.catch_close_time_s = float(controller["catch_close_time_s"])
+        args_cli.vision_control_end_time_s = float(
+            controller["vision_control_end_time_s"]
+        )
+        args_cli.catch_intercept_time_s = float(
+            controller["catch_intercept_time_s"]
+        )
+        args_cli.catch_lateral_only = bool(controller["catch_lateral_only"])
+        args_cli.catch_hold_throw_joints = bool(
+            controller["catch_hold_throw_joints"]
+        )
+        args_cli.catch_position_bias_m = tuple(
+            controller["catch_position_bias_m"]
+        )
+        args_cli.catch_drive_rad = float(controller["catch_drive_rad"])
+        probe_j_evidence = {
+            "probe_used_for_control": True,
+            "j_used_for_control": True,
+            "probe_posterior": posterior.as_dict(),
+            "catch_candidate_ranking": j_ranking,
+            "selected_catch_candidate": selected_candidate["name"],
+            "selected_controller": controller,
+        }
+        probe_j_evidence["probe_gate_passed"] = bool(
+            posterior.held_probability
+            >= float(probe_j_config["minimum_held_probability"])
+            and posterior.slip_probability
+            <= float(probe_j_config["maximum_slip_probability"])
+        )
+        (args_cli.output / "probe_j.json").write_text(
+            json.dumps(probe_j_evidence, indent=2) + "\n", encoding="utf-8"
+        )
+        if not probe_j_evidence["probe_gate_passed"]:
+            raise RuntimeError(
+                "Probe held/slip gate failed before throw: "
+                f"held={posterior.held_probability:.3f}, "
+                f"slip={posterior.slip_probability:.3f}"
+            )
 
     open_target = torch.tensor(
         [[args_cli.partial_open_drive_rad]],
@@ -1732,6 +1907,16 @@ def main() -> int:
         time_s += dt
 
     summary = summarize(records, placed_pose)
+    if probe_j_evidence is None:
+        summary.update(
+            probe_used_for_control=False,
+            j_used_for_control=False,
+        )
+    else:
+        summary.update(probe_j_evidence)
+        (args_cli.output / "probe_j.json").write_text(
+            json.dumps(probe_j_evidence, indent=2) + "\n", encoding="utf-8"
+        )
     detach_time_s = summary["detach_time_s"]
     post_detach_camera_updates = [
         measurement
@@ -1926,6 +2111,18 @@ def main() -> int:
 
 if __name__ == "__main__":
     try:
-        raise SystemExit(main())
-    finally:
+        exit_code = main()
+    except BaseException:
+        # Kit's shutdown hooks overwrite an unhandled exception with status 0
+        # on this Isaac build. Emit the failure first, then preserve status 1.
+        import os
+        import sys
+        import traceback
+
+        traceback.print_exc()
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(1)
+    else:
         simulation_app.close()
+        raise SystemExit(exit_code)

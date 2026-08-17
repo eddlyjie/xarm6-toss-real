@@ -1,0 +1,90 @@
+{
+  "schema": "xarm6_probe_j_native_v1",
+  "projected_width_m": 0.038,
+  "minimum_held_probability": 0.90,
+  "maximum_slip_probability": 0.50,
+  "probe": {
+    "joint_index": 4,
+    "duration_s": 0.30,
+    "amplitude_rad": 0.030,
+    "frequency_hz": 1.5
+  },
+  "calibration": {
+    "payload_joint_indices": [1, 2, 4],
+    "payload_mass_range_kg": [0.020, 0.050],
+    "payload_signal_range_nm": [0.8571761, 1.1289567],
+    "payload_std_floor_kg": 0.006,
+    "com_offset_matrix_m_per_nm": [
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    ],
+    "com_offset_std_m": 0.008,
+    "gripper_contact_signal_center_nm": 0.020,
+    "gripper_contact_signal_scale_nm": 0.010,
+    "slip_gripper_drift_center": 0.040,
+    "slip_gripper_drift_scale": 0.100,
+    "slip_effort_rms_center_nm": 1.0,
+    "slip_effort_rms_scale_nm": 10.0,
+    "detach_time_std_floor_s": 0.006,
+    "detach_mass_std_gain_s_per_kg": 0.5,
+    "detach_slip_gain_s": 0.015
+  },
+  "catch_candidates": [
+    {
+      "name": "stable_third_view_learned",
+      "payload_std_gain": 10.0,
+      "detach_std_gain": 10.0,
+      "objective_terms": {
+        "task_grasp_error": 0.0,
+        "relative_contact_velocity": 0.12,
+        "impact_energy": 0.05,
+        "slip_risk": 0.03,
+        "arm_motion_cost": 0.10,
+        "base_cvar_failure": 0.08,
+        "catch_probability": 0.80
+      },
+      "controller": {
+        "catch_servo_start_time_s": 0.790,
+        "catch_close_time_s": 0.790,
+        "vision_control_end_time_s": 0.990,
+        "catch_intercept_time_s": 0.930,
+        "catch_lateral_only": true,
+        "catch_hold_throw_joints": false,
+        "catch_position_bias_m": [0.0, 0.015, 0.0],
+        "catch_drive_rad": 0.60
+      }
+    },
+    {
+      "name": "clear_flight_upgrade",
+      "payload_std_gain": 20.0,
+      "detach_std_gain": 20.0,
+      "objective_terms": {
+        "task_grasp_error": 0.0,
+        "relative_contact_velocity": 0.10,
+        "impact_energy": 0.08,
+        "slip_risk": 0.05,
+        "arm_motion_cost": 0.08,
+        "base_cvar_failure": 0.12,
+        "catch_probability": 0.25
+      },
+      "controller": {
+        "catch_servo_start_time_s": 0.790,
+        "catch_close_time_s": 0.890,
+        "vision_control_end_time_s": 1.140,
+        "catch_intercept_time_s": 0.930,
+        "catch_lateral_only": true,
+        "catch_hold_throw_joints": true,
+        "catch_position_bias_m": [0.0, 0.0, 0.0],
+        "catch_drive_rad": 0.60
+      }
+    }
+  ],
+  "notes": [
+    "The paired empty/held excitation uses only q, dq and applied actuator effort; simulator cube mass is not a policy input.",
+    "The payload signal map is calibrated by successful 20 g and 35 g paired runs and linearly extrapolated to 50 g; the 50 g run failed the held/slip gate and is not a calibration endpoint.",
+    "J selects between the 3/3 stable camera candidate and the clear-flight upgrade; the selected controller values are applied before throw execution.",
+    "Controller event times include the measured 0.09 s arm tracking-delay compensation; the paired release command is shifted by the same 0.09 s in the native run timeline.",
+    "The zero CoM calibration matrix intentionally yields a broad zero-centered CoM posterior until multi-axis calibration data exist."
+  ]
+}

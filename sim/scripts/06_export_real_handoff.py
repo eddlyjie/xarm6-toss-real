@@ -23,7 +23,8 @@ from xarm6_toss_sim import URDFKinematics, load_real_setup  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "sim" / "configs" / "outward_vertical_real_detach_v7.json"
-DEFAULT_RESULT = ROOT / "outputs" / "final_learned_seed_20260834"
+DEFAULT_RESULT = ROOT / "outputs" / "final_probe_j_seed_20260861_v3"
+DEFAULT_PROBE_J_CONFIG = ROOT / "sim" / "configs" / "probe_j_fixed_cube_v1.json"
 DEFAULT_MODEL = ROOT / "sim" / "models" / "intercept_residual_vertical_third_view_v1.json"
 DEFAULT_OUTPUT = ROOT / "real_handoff"
 
@@ -101,6 +102,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--result", type=Path, default=DEFAULT_RESULT)
+    parser.add_argument("--probe-j-config", type=Path, default=DEFAULT_PROBE_J_CONFIG)
     parser.add_argument("--model", type=Path, default=DEFAULT_MODEL)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--joint6-roll-offset-rad", type=float, default=0.0)
@@ -116,6 +118,14 @@ def main() -> int:
     camera_rows = json.loads(
         (args.result / "camera_measurements.json").read_text(encoding="utf-8")
     )
+    probe_j_config = json.loads(args.probe_j_config.read_text(encoding="utf-8"))
+    probe_j_evidence = json.loads(
+        (args.result / "probe_j.json").read_text(encoding="utf-8")
+    )
+    clear_controller = next(
+        item["controller"] for item in probe_j_config["catch_candidates"]
+        if item["name"] == "clear_flight_upgrade"
+    )
     model = json.loads(args.model.read_text(encoding="utf-8"))
 
     args.output.mkdir(parents=True, exist_ok=True)
@@ -127,7 +137,7 @@ def main() -> int:
     reference_max_speed = float(np.max(np.abs(reference_qd)))
     reference_max_acceleration = float(np.max(np.abs(reference_qdd)))
     timeline = {
-        "schema": "xarm6_outward_toss_timeline_v2",
+        "schema": "xarm6_outward_toss_timeline_v3",
         "control_period_s": setup.control_period_s,
         "joint6_roll_offset_rad": args.joint6_roll_offset_rad,
         "joint6_roll_is_baked_into_reference": True,
@@ -137,12 +147,23 @@ def main() -> int:
         "reference_max_joint_acceleration_rad_s2": reference_max_acceleration,
         "g1_events_are_asynchronous_to_arm_ticks": True,
         "g1_events": [
-            {"time_s": 0.655, "name": "release_partial_open", "position": setup.partial_open_gripper_position},
-            {"time_s": 0.700, "name": "stable_candidate_close", "position": setup.close_gripper_position},
+            {
+                "time_s": summary["release_command_time_s"],
+                "name": "release_partial_open",
+                "position": setup.partial_open_gripper_position,
+            },
+            {
+                "time_s": summary["catch_close_time_s"],
+                "name": "stable_candidate_close",
+                "position": setup.close_gripper_position,
+            },
         ],
         "clear_flight_upgrade_g1_event": {
-            "time_s": 0.800, "name": "clear_flight_upgrade_close", "position": setup.close_gripper_position
+            "time_s": clear_controller["catch_close_time_s"],
+            "name": "clear_flight_upgrade_close",
+            "position": setup.close_gripper_position,
         },
+        "arm_tracking_delay_compensation_s": summary["arm_tracking_delay_s"],
         "samples": rows,
     }
     (args.output / "nominal_timeline.json").write_text(
@@ -151,7 +172,7 @@ def main() -> int:
     write_csv(args.output / "nominal_timeline.csv", rows)
 
     controller = {
-        "schema": "xarm6_outward_camera_ballistic_controller_v2",
+        "schema": "xarm6_outward_camera_ballistic_controller_v3",
         "fixed_cube_side_m": setup.cube_side_m,
         "nominal_cube_mass_kg": setup.nominal_cube_mass_kg,
         "arm": {
@@ -174,12 +195,13 @@ def main() -> int:
             "firmware_speed": 5000,
         },
         "timing_s": {
-            "release_command": 0.655,
-            "detach_prior": 0.030,
-            "catch_servo_start": 0.700,
-            "vision_control_end": 0.900,
-            "catch_close_command": 0.700,
-            "ballistic_intercept": 0.840,
+            "release_command": summary["release_command_time_s"],
+            "detach_prior": summary["detach_delay_prior_s"],
+            "catch_servo_start": summary["catch_servo_start_time_s"],
+            "vision_control_end": summary["vision_control_end_time_s"],
+            "catch_close_command": summary["catch_close_time_s"],
+            "ballistic_intercept": summary["catch_intercept_time_s"],
+            "arm_tracking_delay_compensation": summary["arm_tracking_delay_s"],
         },
         "catch_servo": {
             "mode": "third_view_lateral_joint1",
@@ -212,12 +234,23 @@ def main() -> int:
                 "slip_probability",
                 "detach_timing_uncertainty",
             ],
+            "sim_paired_probe_config": "../sim/configs/probe_j_fixed_cube_v1.json",
+            "sim_paired_probe_used_for_control": summary["probe_used_for_control"],
+            "sim_j_used_for_control": summary["j_used_for_control"],
+            "sim_probe_gate_passed": summary["probe_gate_passed"],
+            "sim_probe_posterior": summary["probe_posterior"],
+            "sim_selected_catch_candidate": summary["selected_catch_candidate"],
+            "sim_catch_candidate_ranking": summary["catch_candidate_ranking"],
+            "real_paired_probe_completed": False,
             "current_sim_evidence_consumes_real_probe_output": False,
         },
         "spectator_used_for_control": False,
     }
     (args.output / "controller_config.json").write_text(
         json.dumps(controller, indent=2) + "\n", encoding="utf-8"
+    )
+    (args.output / "sim_probe_j_evidence.json").write_text(
+        json.dumps(probe_j_evidence, indent=2) + "\n", encoding="utf-8"
     )
 
     actual_q = np.asarray([row["arm_joint_position_rad"] for row in trajectory])
@@ -237,7 +270,7 @@ def main() -> int:
             ),
         }
     report = {
-        "schema": "xarm6_real_constraints_report_v2",
+        "schema": "xarm6_real_constraints_report_v3",
         "source_result": str(args.result.relative_to(ROOT)),
         "success": {
             "detach_detected": summary["detach_detected"],
@@ -305,37 +338,36 @@ def main() -> int:
     )
 
     manifest = {
-        "schema": "xarm6_outward_real_handoff_v2",
+        "schema": "xarm6_outward_real_handoff_v3",
         "source_config": str(args.config.relative_to(ROOT)),
         "source_result": str(args.result.relative_to(ROOT)),
         "primary_candidate": "stable_third_view_learned",
         "timeline": "nominal_timeline.json",
         "controller": "controller_config.json",
         "constraints_report": "real_constraints_report.json",
+        "probe_j_evidence": "sim_probe_j_evidence.json",
         "videos": {
-            "spectator": "../outputs/final_learned_seed_20260834/spectator.mp4",
-            "spectator_slow": "../outputs/final_learned_seed_20260834/spectator_slow_0p4x.mp4",
-            "spectator_zoom_slow": "../outputs/final_learned_seed_20260834/spectator_zoom_slow_0p4x.mp4",
-            "third_view": "../outputs/final_learned_seed_20260834/spectator_third_view.mp4",
-            "wrist": "../outputs/final_learned_seed_20260834/spectator_wrist.mp4",
-            "three_view": "../outputs/final_learned_seed_20260834/three_view.mp4",
+            "spectator": "../outputs/final_probe_j_seed_20260861_v3/spectator.mp4",
+            "spectator_slow": "../outputs/final_probe_j_seed_20260861_v3/spectator_slow_0p25x.mp4",
+            "third_view": "../outputs/final_probe_j_seed_20260861_v3/spectator_third_view.mp4",
+            "wrist": "../outputs/final_probe_j_seed_20260861_v3/spectator_wrist.mp4",
             "clear_flight_camera_diagnostic": "../outputs/final_clear_camera_seed_20260841/spectator.mp4",
             "clear_flight_camera_diagnostic_zoom_slow": "../outputs/final_clear_camera_seed_20260841/spectator_zoom_slow_0p4x.mp4",
         },
         "evidence": {
-            "stable_camera_learned": "3/3 catches; 110 ms free flight; strict obvious-flight gate false",
+            "probe_j_camera_learned": "3/3 catches with paired Probe, J selection, cameras, learned residual and 90 ms arm lag; 95/95/145 ms free flight",
             "clear_flight_physics": "1/1 stable catch; 245 ms free flight; apex and descending catch; no policy camera",
             "clear_flight_rendered_camera": "160 ms free flight and apex; final bilateral fraction 0.667; not a stable catch",
         },
         "validated_scope": "one fixed 38 mm cube near 35 g; nominal camera/dropout seeds",
         "known_limits": [
-            "The stable 3/3 candidate renews contact at 110 ms, just before the strict internal-apex gate.",
+            "The 3/3 Probe/J candidate is the stable transfer baseline, not a strict obvious-flight success; only seed 20260863 reached an internal apex and descending renewed contact, with one rather than two post-apex spectator frames.",
             "The strict clear-flight stable success uses physics observation; rendered-camera clear flight is not yet a stable catch.",
-            "The real paired empty/held Probe has not yet been run or consumed by this simulator result.",
+            "The simulator consumes paired empty/held actuator effort and uses its posterior in J; the corresponding real paired-current Probe has not yet been run.",
             "Wrist has zero terminal detections in this reversed-wrist candidate; third_view carries flight tracking.",
-            "The 1x reference reaches about 1.745 rad/s and 13.057 rad/s^2, above the current 0.45/1.5 transfer cap.",
+            "The 1x reference exceeds the current 0.45/1.5 transfer cap, and sim actual acceleration peaks near 90.2 rad/s^2 despite the 20 rad/s^2 command cap; it is not approved for direct real execution.",
         ],
-        "real_execution_status": "disconnected dry-run, paired Probe, empty 0.25x preview; 0.5x/1x review only until explicit operator approval",
+        "real_execution_status": "paired real Probe and disconnected dry-run required; only empty 0.25x preview is inside the current transfer cap; full-speed throw requires operator approval and acceleration retiming",
     }
     (args.output / "manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"

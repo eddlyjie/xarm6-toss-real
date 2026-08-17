@@ -1,5 +1,5 @@
 {
-  "schema": "xarm6_outward_camera_ballistic_controller_v2",
+  "schema": "xarm6_outward_camera_ballistic_controller_v3",
   "fixed_cube_side_m": 0.038,
   "nominal_cube_mass_kg": 0.035,
   "arm": {
@@ -25,12 +25,13 @@
     "firmware_speed": 5000
   },
   "timing_s": {
-    "release_command": 0.655,
+    "release_command": 0.745,
     "detach_prior": 0.03,
-    "catch_servo_start": 0.7,
-    "vision_control_end": 0.9,
-    "catch_close_command": 0.7,
-    "ballistic_intercept": 0.84
+    "catch_servo_start": 0.79,
+    "vision_control_end": 0.99,
+    "catch_close_command": 0.79,
+    "ballistic_intercept": 0.93,
+    "arm_tracking_delay_compensation": 0.09
   },
   "catch_servo": {
     "mode": "third_view_lateral_joint1",
@@ -63,6 +64,77 @@
       "slip_probability",
       "detach_timing_uncertainty"
     ],
+    "sim_paired_probe_config": "../sim/configs/probe_j_fixed_cube_v1.json",
+    "sim_paired_probe_used_for_control": true,
+    "sim_j_used_for_control": true,
+    "sim_probe_gate_passed": true,
+    "sim_probe_posterior": {
+      "effective_payload_mean_kg": 0.03499999738986686,
+      "effective_payload_std_kg": 0.015000000000000001,
+      "com_offset_mean_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "com_offset_std_m": [
+        0.008,
+        0.008,
+        0.008
+      ],
+      "held_probability": 1.0,
+      "slip_probability": 0.0,
+      "projected_width_m": 0.038,
+      "detach_time_std_s": 0.013500000000000002,
+      "payload_signal_nm": 0.9930663763538816,
+      "gripper_contact_signal_nm": 0.4361780401493888,
+      "effort_residual_mean_nm": [
+        -1.8679043353800808,
+        -0.10374095272272825,
+        -0.981394468457438,
+        -15.531782920693512,
+        0.11083113215136109,
+        0.06428089807856532
+      ],
+      "effort_residual_dynamic_rms_nm": [
+        1.0253822536758692,
+        0.15151529893861876,
+        0.37354026152791936,
+        3.936333259878746,
+        1.6774866630205252,
+        0.21593301393729458
+      ],
+      "sample_count": 80
+    },
+    "sim_selected_catch_candidate": "stable_third_view_learned",
+    "sim_catch_candidate_ranking": [
+      {
+        "name": "stable_third_view_learned",
+        "J": 1.0007153269713145,
+        "terms": {
+          "task_grasp_error": 0.0,
+          "relative_contact_velocity": 0.12,
+          "impact_energy": 0.05,
+          "slip_risk": 0.03,
+          "arm_motion_cost": 0.1,
+          "cvar_failure": 0.36500000000000005,
+          "catch_probability": 0.8
+        }
+      },
+      {
+        "name": "clear_flight_upgrade",
+        "J": 3.0874415416798358,
+        "terms": {
+          "task_grasp_error": 0.0,
+          "relative_contact_velocity": 0.1,
+          "impact_energy": 0.08,
+          "slip_risk": 0.05,
+          "arm_motion_cost": 0.08,
+          "cvar_failure": 0.6900000000000001,
+          "catch_probability": 0.25
+        }
+      }
+    ],
+    "real_paired_probe_completed": false,
     "current_sim_evidence_consumes_real_probe_output": false
   },
   "spectator_used_for_control": false
