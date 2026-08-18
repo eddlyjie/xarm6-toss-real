@@ -1,5 +1,23 @@
 # xArm6 camera-under-forearm 定轴翻滚抛接 v3
 
+## 2026-08-18 stable-upgrade 停止 checkpoint
+
+本轮已停止继续扫 controller/timing 参数。以 stable-recovered reference 做 throw-only 时，cube
+达到 0.121 s 严格 all-link free-flight、56.9 mm 上升、30.4 mm 最大 hand-relative
+separation、内部 apex、下降段首次重新接触和 0.961 tumble-axis alignment；这说明当前动作本身
+已经能产生合格的短腾空窗口。但是 detach→apex 只有 2.83°、整段目标轴旋转约 3.15°，且没有
+稳定接住，因而 strict goal 仍未完成。
+
+把 close 延后、降低 G1 stiffness、推迟/提前 catch servo、增加 early-J1 lateral motion 都没有
+同时保住腾空并形成 bilateral stable catch。最后的 soft-close run 保住 0.116 s free-flight、内部
+apex 和下降段首次接触，但仍只是右侧单边接触。v18 高抛分支在 80 ms lag 和当前 1× 真机
+joint envelope 内也没有可达的在线 recatch，不继续围绕它加 controller 特例。
+
+本轮没有保留新的 controller 源码改动，也不改变真机默认交付：继续使用
+`bash sim/scripts/13_run_stable_camera_closed_loop.sh`。它是已经三 seed 重复的“小旋转 + camera
+correction + 稳定接取”版本；本轮 long-flight 结果只作后续 reference-level throw/catch 协同设计的
+证据。完整结果和失败边界见 `docs/STABLE_UPGRADE_CLOSEOUT_20260818.md`。
+
 ## 2026-08-18 strict v18 收束 checkpoint
 
 本轮停止继续扩展 controller。`camera_under_tumble_v18_mid_pose` 的 throw-only 已达到
