@@ -1,0 +1,97 @@
+{
+  "schema": "xarm6_g1_cube_tumble_v18_mid_pose",
+  "name": "camera_under_tumble_v18_mid_pose",
+  "physics_dt_s": 0.001,
+  "control_period_s": 0.02,
+  "measured_real_arm_tracking_delay_s": 0.08,
+  "execution_envelope": "verified_1x_joint_command_envelope_empty_run_required",
+  "operator_approval_required_for_real_execution": true,
+  "limits": {
+    "joint_speed_rad_s": 1.74483445,
+    "joint_acceleration_rad_s2": 13.0573925,
+    "max_joint_step_rad": 0.0348967,
+    "max_qdot_change_rad_s": 0.261148,
+    "minimum_joint_margin_rad": 0.15
+  },
+  "cube_physics": {
+    "side_length_m_range": [0.035, 0.040],
+    "mass_kg_range": [0.020, 0.050],
+    "contact_offset_m": 0.0002,
+    "static_friction": 1.2,
+    "dynamic_friction": 0.9
+  },
+  "gripper_sim": {
+    "effort_limit_n": 4.0,
+    "stiffness_n_m": 60.0,
+    "damping_n_s_m": 5.0,
+    "max_depenetration_velocity_m_s": 0.5,
+    "contact_offset_m": 0.0002
+  },
+  "wrist_under_geometry": {
+    "joint6_static_offset_deg": 155.0,
+    "joint6_rad": 2.88250534,
+    "joint6_minimum_margin_rad": 0.25908731,
+    "selection_status": "kinematic_candidate_pending_housing_and_cable_clearance_gate"
+  },
+  "reference_segments": [
+    {
+      "phase": "mid_pose_throw",
+      "duration_s": 0.46,
+      "start_joint_rad": [0.0, 0.150000000, -0.300000000, 0.0, -1.300000000, 2.882505340],
+      "start_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "start_joint_acceleration_rad_s2": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "end_joint_rad": [0.0, -0.040000000, -0.650000000, 0.0, -1.150000000, 2.882505340],
+      "end_joint_velocity_rad_s": [0.0, -1.650000000, -1.740000000, 0.0, -1.050000000, 0.0],
+      "end_joint_acceleration_rad_s2": [0.0, -7.000000000, -7.000000000, 0.0, -7.000000000, 0.0]
+    },
+    {
+      "phase": "mid_pose_flick",
+      "duration_s": 0.08,
+      "start_joint_rad": [0.0, -0.040000000, -0.650000000, 0.0, -1.150000000, 2.882505340],
+      "start_joint_velocity_rad_s": [0.0, -1.650000000, -1.740000000, 0.0, -1.050000000, 0.0],
+      "start_joint_acceleration_rad_s2": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "end_joint_rad": [0.0, -0.172000000, -0.789200000, 0.0, -1.234000000, 2.882505340],
+      "end_joint_velocity_rad_s": [0.0, -1.650000000, -1.740000000, 0.0, -1.050000000, 0.0],
+      "end_joint_acceleration_rad_s2": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    },
+    {
+      "phase": "post_detach_brake",
+      "duration_s": 0.14,
+      "start_joint_rad": [0.0, -0.172000000, -0.789200000, 0.0, -1.234000000, 2.882505340],
+      "start_joint_velocity_rad_s": [0.0, -1.650000000, -1.740000000, 0.0, -1.050000000, 0.0],
+      "start_joint_acceleration_rad_s2": [0.0, 11.785714286, 12.428571429, 0.0, 7.500000000, 0.0],
+      "end_joint_rad": [0.0, -0.287500000, -0.911000000, 0.0, -1.307500000, 2.882505340],
+      "end_joint_velocity_rad_s": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      "end_joint_acceleration_rad_s2": [0.0, 11.785714286, 12.428571429, 0.0, 7.500000000, 0.0]
+    }
+  ],
+  "sim_gripper_events": [
+    {"time_s": 0.600, "name": "release_partial_open", "drive_rad": 0.39}
+  ],
+  "real_g1_events": [
+    {"time_s": 0.600, "name": "release_partial_open", "position": 520.0}
+  ],
+  "state_estimator": {
+    "mode": "actual_q_dq_release_prior_plus_ballistic_propagation",
+    "camera_required_for_control": false,
+    "detach_delay_range_s": [0.025, 0.044]
+  },
+  "validation_targets": {
+    "minimum_continuous_free_flight_s": 0.12,
+    "minimum_relative_separation_m": 0.025,
+    "minimum_axis_alignment": 0.85,
+    "minimum_detach_to_apex_tumble_deg": 5.0,
+    "minimum_strict_free_flight_tumble_deg": 12.0,
+    "minimum_stable_hold_s": 0.5
+  },
+  "lineage": {
+    "frozen_real_baseline": "REAL_ROBOT_TEST_20260817.md",
+    "sim_motion_parent": "sim/configs/camera_under_tumble_v11_high_omega.json",
+    "design": "local release-pose change for seven-percent higher vertical Jacobian without the v15/v16 wrist rotation"
+  },
+  "notes": [
+    "J6 remains static at the +155 degree camera-under candidate.",
+    "The release pose stays near the v11 geometry and keeps positive tool-z elevation.",
+    "This remains throw-only until Isaac contact and camera clearance gates pass."
+  ]
+}

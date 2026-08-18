@@ -1,5 +1,11 @@
 # xArm6 fixed-cube toss/catch
 
+## 2026-08-18 strict v18 收束
+
+明显腾空的 `v18` 已达到 123.2 mm 上升、0.914 轴对齐和 4.303° detach→apex 翻滚，
+但尚未 recatch，也未达到 5°/12° rotation gate。边界与复现命令见
+[`docs/STRICT_V18_CHECKPOINT_20260818.md`](docs/STRICT_V18_CHECKPOINT_20260818.md)。
+
 ## 2026-08-18 stable-recovered handoff
 
 当前建议真机先接手的是 `stable_recovered` 小旋转稳定接取版，而不是下方旧的

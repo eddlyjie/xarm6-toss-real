@@ -1,5 +1,17 @@
 # xArm6 camera-under-forearm 定轴翻滚抛接 v3
 
+## 2026-08-18 strict v18 收束 checkpoint
+
+本轮停止继续扩展 controller。`camera_under_tumble_v18_mid_pose` 的 throw-only 已达到
+1.137 s all-link robot-free、123.2 mm 上升、内部 apex、0.914 axis alignment 和
+4.303° detach→apex 目标轴旋转，且 command/reference 机械门槛通过；但没有 recatch，
+整段 signed target rotation 也只有 6.842°，所以 strict goal 未完成。
+
+最接近的 catch 实验有 0.131 s free-flight，但只发生上升段右指单边轻触，未形成 bilateral
+stable catch。未验证的 velocity/lateral-pre/two-stage 接球接口不进入真机默认源码。
+当前真机仍使用下方 stable-recovered checkpoint；strict v18 的完整证据边界见
+`docs/STRICT_V18_CHECKPOINT_20260818.md`。
+
 ## 2026-08-18 实用 checkpoint（strict goal 继续保留）
 
 已修正 IsaacLab `xyzw` quaternion contract 与 wrist-camera extrinsic，并重复验证一个可优先
