@@ -1,5 +1,23 @@
 # xArm6 camera-under-forearm 定轴翻滚抛接 v3
 
+## 2026-08-18 passive-release + clearance checkpoint
+
+在 stable reference 上把 G1 改成“10 ms 主动打开完成后卸载 sim drive”，消除了主要横向
+release impulse：detach cube `vy` 从约 -0.153 m/s 降到 -0.003 m/s，tumble-axis alignment
+从 0.961 提高到 0.992。再用 bounded Cartesian preposition 沿 x 跟随、沿 z 保持 clearance，
+已经得到 0.138 s 严格 all-link free-flight、35.4 mm 最大 separation、内部 apex、下降段首次
+重新接触、2.79° detach→apex 和 3.98° 整段目标轴旋转，command/reference 机械门槛通过。
+
+但首次重新接触对象仍是 `gripper_base`，没有 finger bilateral contact，`catch_stable=false`；
+因此这不是新 handoff，更不是 strict success。passive sim drive 只模拟 G1 完成开指后不再持续
+对 cube 施力，真机能否等效必须由 G1 position/current 和实际 detach 录像验证，不能发送 sim
+stiffness/effort 数值给真机。
+
+下一步不再扫 close time：需要把 full-IK follow 提前并写进受约束 reference，使指尖夹持中心在
+下降段进入 cube，而不是让 cube 落到 gripper base；online servo 仅做 actual-q/dq ballistic
+residual。先恢复 bilateral stable catch，再提高 J5-dominant detach omega 以满足 5°/12° 旋转
+门槛。默认真机交付仍是 `sim/scripts/13_run_stable_camera_closed_loop.sh`。
+
 ## 2026-08-18 stable-upgrade 停止 checkpoint
 
 本轮已停止继续扫 controller/timing 参数。以 stable-recovered reference 做 throw-only 时，cube
