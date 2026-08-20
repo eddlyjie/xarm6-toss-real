@@ -216,6 +216,20 @@ class PickPlaceRobot:
         )
         return tuple(float(value) for value in joint_rad[:6])
 
+    def linear_speed_limit_factor(self) -> float:
+        return float(
+            _value(
+                self.arm.get_linear_spd_limit_factor(),
+                "get_linear_spd_limit_factor",
+            )
+        )
+
+    def set_linear_speed_limit_factor(self, factor: float) -> None:
+        _ok(
+            self.arm.set_linear_spd_limit_factor(float(factor)),
+            "set_linear_spd_limit_factor",
+        )
+
     def gripper_position(self, *, check_baud: bool = True) -> float:
         return float(
             _value(

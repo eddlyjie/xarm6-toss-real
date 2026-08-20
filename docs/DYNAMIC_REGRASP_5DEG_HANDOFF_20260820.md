@@ -56,7 +56,8 @@ toss_project_sim_handoff/toss_project/real_cube_demo/scripts/10_measure_detach.p
 3. 空载/held 各跑一次低幅 Probe，计算 held/slip posterior；gate 不过就停止，J 若选 fallback 就按
    fallback timing，不要强行执行 dynamic 候选。
 4. arm reference 以 20 ms `servo_j` 发送。J2/J3/J5 动，J1/J4/J6 保持；先 0.25× 空载，再 0.5×
-   空载，最后 1× 空载。确认真机已有的 Cartesian linear-speed factor 设置仍有效。
+   空载，最后 1× 空载。runner 会读取、设置并回读确认 `linear_spd_limit_factor=1.6`；这是 2026-08-17
+   真机 1× baseline 消除 C60 后的实测设置，并会写入每次 `summary.json`。
 5. 1× cube trial 在 arm t=0.585 s 异步发送 G1 `370→520`，speed=5000。
 6. 先用下方 global-camera fixed-pose calibration 得到物理离手时的 G1 actual position。runtime
    release 后只轮询 G1 actual position；越过该阈值就冻结 actual q/dq，经 FK/Jacobian 与固定

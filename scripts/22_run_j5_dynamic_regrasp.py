@@ -125,6 +125,9 @@ def plan_payload(
         "speed_scale": speed_scale,
         "duration_s": samples[-1]["time_s"],
         "control_period_s": 0.02,
+        "required_linear_speed_limit_factor": controller_config["robot"][
+            "linear_speed_limit_factor"
+        ],
         "selected_candidate": selected["name"],
         "probe": probe_evidence,
         "detach_calibration": calibration,
@@ -151,6 +154,27 @@ def plan_payload(
                 )
             )
         ),
+    }
+
+
+def configure_linear_speed_limit(robot, required_factor: float) -> dict[str, float]:
+    before = robot.linear_speed_limit_factor()
+    if abs(before - required_factor) > 1.0e-6:
+        robot.set_linear_speed_limit_factor(required_factor)
+    after = robot.linear_speed_limit_factor()
+    if abs(after - required_factor) > 1.0e-6:
+        raise RuntimeError(
+            "linear_spd_limit_factor did not reach "
+            f"{required_factor:g}; controller reports {after:g}"
+        )
+    print(
+        "linear_spd_limit_factor: "
+        f"before={before:g}, required={required_factor:g}, verified={after:g}"
+    )
+    return {
+        "linear_speed_limit_factor_before": before,
+        "linear_speed_limit_factor_required": required_factor,
+        "linear_speed_limit_factor_verified": after,
     }
 
 
@@ -504,6 +528,10 @@ def main() -> int:
 
     with PickPlaceRobot(hardware) as robot:
         robot.prepare_motion()
+        robot_setup = configure_linear_speed_limit(
+            robot,
+            float(controller_config["robot"]["linear_speed_limit_factor"]),
+        )
         try:
             robot.move_joints(
                 tuple(samples[0]["joint_position_rad"]),
@@ -559,6 +587,7 @@ def main() -> int:
         **payload,
         "robot_commands_sent": len(records),
         "condition": condition,
+        "robot_setup": robot_setup,
         "execution": execution,
         "global_camera": camera_metadata,
         "recorded_samples": len(records),

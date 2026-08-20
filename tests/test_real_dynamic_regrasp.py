@@ -301,3 +301,33 @@ def test_plan_payload_uses_the_supplied_controller_config():
     )
 
     assert payload["grasp_offset"]["cube_center_m"] == [0.01, 0.02, 0.03]
+
+
+def test_runner_sets_and_verifies_proven_linear_speed_factor():
+    spec = importlib.util.spec_from_file_location(
+        "xarm6_real_runner_factor", ROOT / "scripts" / "22_run_j5_dynamic_regrasp.py"
+    )
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+
+    class FakeRobot:
+        def __init__(self):
+            self.factor = 1.2
+            self.set_calls = []
+
+        def linear_speed_limit_factor(self):
+            return self.factor
+
+        def set_linear_speed_limit_factor(self, factor):
+            self.factor = factor
+            self.set_calls.append(factor)
+
+    robot = FakeRobot()
+    setup = runner.configure_linear_speed_limit(robot, 1.6)
+
+    assert robot.set_calls == [1.6]
+    assert setup == {
+        "linear_speed_limit_factor_before": 1.2,
+        "linear_speed_limit_factor_required": 1.6,
+        "linear_speed_limit_factor_verified": 1.6,
+    }

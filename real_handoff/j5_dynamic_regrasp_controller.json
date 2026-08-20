@@ -7,6 +7,7 @@
   "robot": {
     "control_period_s": 0.02,
     "measured_tracking_delay_s": 0.08,
+    "linear_speed_limit_factor": 1.6,
     "active_throw_joints_one_based": [2, 3, 5],
     "fixed_throw_joints_one_based": [1, 4, 6],
     "reference_peak_speed_rad_s": 0.9058528514173009,
