@@ -72,6 +72,11 @@ parser.add_argument(
     help="Keep held G1 gains during the drive transition, then apply release gains.",
 )
 parser.add_argument(
+    "--release-dynamics-before-transition",
+    action="store_true",
+    help="Apply release gains before the G1 drive transition; overrides after-transition mode.",
+)
+parser.add_argument(
     "--release-drive-start-delay-s",
     type=float,
     default=0.0,
@@ -88,6 +93,18 @@ parser.add_argument(
     type=float,
     default=None,
     help="Command the G1 back to held position at this episode time.",
+)
+parser.add_argument(
+    "--catch-preclose-time-s",
+    type=float,
+    default=None,
+    help="Command an intermediate G1 aperture before final catch close.",
+)
+parser.add_argument(
+    "--catch-preclose-drive-rad",
+    type=float,
+    default=None,
+    help="Intermediate G1 drive target used by --catch-preclose-time-s.",
 )
 parser.add_argument(
     "--vision-control-end-time-s",
@@ -110,6 +127,11 @@ parser.add_argument(
     "--catch-hold-throw-joints",
     action="store_true",
     help="At catch-servo activation hold joints 2-6 at their measured pose.",
+)
+parser.add_argument(
+    "--catch-preserve-nominal-momentum",
+    action="store_true",
+    help="Enter catch servo without resetting the nominal commanded q/dq.",
 )
 parser.add_argument(
     "--catch-joint1-start-time-s",
@@ -208,6 +230,13 @@ parser.add_argument(
     action="store_true",
     help="Record third-view and wrist video without using either for control.",
 )
+parser.add_argument(
+    "--wrist-camera-hardware-removed",
+    action="store_true",
+    help=(
+        "Disable the wrist D435/mount collision proxy; recorded wrist view is virtual-only."
+    ),
+)
 parser.add_argument("--arm-tracking-delay-s", type=float, default=0.09)
 parser.add_argument(
     "--arm-drive-interpolation",
@@ -257,7 +286,10 @@ from xarm6_toss.probe_j import (  # noqa: E402
     probe_joint_offset_rad,
     select_catch_candidate,
 )
-from xarm6_toss.flight import continuous_free_flight_evidence  # noqa: E402
+from xarm6_toss.flight import (  # noqa: E402
+    continuous_free_flight_evidence,
+    cube_ground_clearance_m,
+)
 from xarm6_toss.motion_limits import (  # noqa: E402
     evaluate_joint_trajectory,
     evaluate_reference_samples,
@@ -804,13 +836,23 @@ def record_state(
     contact_forces["link_eef"] = max(
         contact_forces["link6"], contact_forces["gripper_base"]
     )
-    wrist_clearance_m = wrist_camera_cube_clearance_m(
-        hand_position, hand_quaternion, cube_pose[:3], args_cli.cube_size_m
-    )
-    contact_forces["wrist_camera_proxy"] = 1.0 if wrist_clearance_m <= 0.0 else 0.0
+    if args_cli.wrist_camera_hardware_removed:
+        wrist_clearance_m = None
+        contact_forces["wrist_camera_proxy"] = 0.0
+    else:
+        wrist_clearance_m = wrist_camera_cube_clearance_m(
+            hand_position, hand_quaternion, cube_pose[:3], args_cli.cube_size_m
+        )
+        contact_forces["wrist_camera_proxy"] = (
+            1.0 if wrist_clearance_m <= 0.0 else 0.0
+        )
     # The ground cuboid does not expose a rigid-body prim that accepts an
     # Isaac ContactSensor. End ballistic flight when the cube bottom reaches it.
-    ground_clearance_m = float(cube_pose[2]) - 0.5 * args_cli.cube_size_m
+    ground_clearance_m = cube_ground_clearance_m(
+        cube_pose[:3].tolist(),
+        cube_quaternion_wxyz.tolist(),
+        args_cli.cube_size_m,
+    )
     contact_forces["ground"] = 1.0 if ground_clearance_m <= 0.001 else 0.0
     return {
         "time_s": time_s,
@@ -873,6 +915,7 @@ def record_state(
         ),
         "robot_cube_contact_forces_n": contact_forces,
         "wrist_camera_proxy_clearance_m": wrist_clearance_m,
+        "ground_clearance_m": ground_clearance_m,
         "left_finger_cube_contact_force_n": contact_forces["left_finger"],
         "right_finger_cube_contact_force_n": contact_forces["right_finger"],
     }
@@ -1116,6 +1159,9 @@ def summarize(
         "release_dynamics_after_transition": bool(
             args_cli.release_dynamics_after_transition
         ),
+        "release_dynamics_before_transition": bool(
+            args_cli.release_dynamics_before_transition
+        ),
         "release_drive_start_delay_s": args_cli.release_drive_start_delay_s,
         "release_height_m": release_height,
         "release_hand_position_m": release_hand_position.tolist(),
@@ -1128,6 +1174,8 @@ def summarize(
         "catch_servo_enabled": args_cli.catch_servo_start_time_s is not None,
         "catch_servo_start_time_s": args_cli.catch_servo_start_time_s,
         "catch_close_time_s": args_cli.catch_close_time_s,
+        "catch_preclose_time_s": args_cli.catch_preclose_time_s,
+        "catch_preclose_drive_rad": args_cli.catch_preclose_drive_rad,
         "catch_prediction_horizon_s": args_cli.catch_prediction_horizon_s,
         "catch_intercept_time_s": args_cli.catch_intercept_time_s,
         "catch_max_relative_error_m": catch_max_relative_error,
@@ -1169,6 +1217,10 @@ def summarize(
         ),
         "cube_size_m": args_cli.cube_size_m,
         "cube_mass_kg": args_cli.cube_mass_kg,
+        "wrist_camera_hardware_removed": bool(
+            args_cli.wrist_camera_hardware_removed
+        ),
+        "wrist_camera_recording_virtual_only": bool(args_cli.wrist_camera_hardware_removed),
         "held_drive_rad": args_cli.held_drive_rad,
         "held_gripper_effort_limit_n": args_cli.held_gripper_effort_limit_n,
         "partial_open_drive_rad": args_cli.partial_open_drive_rad,
@@ -1188,6 +1240,9 @@ def summarize(
         "catch_lateral_only": bool(args_cli.catch_lateral_only),
         "catch_hold_throw_joints": bool(
             args_cli.catch_hold_throw_joints
+        ),
+        "catch_preserve_nominal_momentum": bool(
+            args_cli.catch_preserve_nominal_momentum
         ),
         "catch_joint1_start_time_s": args_cli.catch_joint1_start_time_s,
         "actual_max_joint_speed_rad_s": actual_limit_evidence["max_joint_speed_rad_s"],
@@ -1249,6 +1304,28 @@ def main() -> int:
             raise ValueError("catch servo requires --catch-close-time-s")
         if args_cli.catch_close_time_s < args_cli.catch_servo_start_time_s:
             raise ValueError("catch close time must not precede servo start")
+        if (args_cli.catch_preclose_time_s is None) != (
+            args_cli.catch_preclose_drive_rad is None
+        ):
+            raise ValueError("catch preclose time and drive must be set together")
+        if args_cli.catch_preclose_time_s is not None:
+            if args_cli.catch_preclose_time_s < args_cli.catch_servo_start_time_s:
+                raise ValueError("catch preclose must not precede servo start")
+            if args_cli.catch_preclose_time_s > args_cli.catch_close_time_s:
+                raise ValueError("catch preclose must not follow final close")
+            catch_drive = (
+                args_cli.held_drive_rad
+                if args_cli.catch_drive_rad is None
+                else args_cli.catch_drive_rad
+            )
+            if not (
+                min(args_cli.partial_open_drive_rad, catch_drive)
+                <= args_cli.catch_preclose_drive_rad
+                <= max(args_cli.partial_open_drive_rad, catch_drive)
+            ):
+                raise ValueError(
+                    "catch preclose drive must lie between open and closed targets"
+                )
         duration = max(
             duration,
             args_cli.catch_close_time_s + args_cli.catch_evidence_window_s + 0.10,
@@ -1604,6 +1681,14 @@ def main() -> int:
         ]],
         device=sim.device,
     )
+    catch_preclose_target = (
+        None
+        if args_cli.catch_preclose_drive_rad is None
+        else torch.tensor(
+            [[args_cli.catch_preclose_drive_rad]],
+            device=sim.device,
+        )
+    )
     release_gripper_dynamics_applied = False
     catch_gripper_dynamics_applied = False
     dt = sim.get_physics_dt()
@@ -1685,8 +1770,9 @@ def main() -> int:
                 catch_wrist_position = commanded_arm_position[1:].clone()
                 commanded_arm_velocity[1:] = 0.0
             elif not args_cli.catch_lateral_only:
-                commanded_arm_position = robot.data.joint_pos.torch[0, arm_ids].clone()
-                commanded_arm_velocity = robot.data.joint_vel.torch[0, arm_ids].clone()
+                if not args_cli.catch_preserve_nominal_momentum:
+                    commanded_arm_position = robot.data.joint_pos.torch[0, arm_ids].clone()
+                    commanded_arm_velocity = robot.data.joint_vel.torch[0, arm_ids].clone()
                 fixed_joint_start = 3 if args_cli.catch_lock_wrist else 6
                 if fixed_joint_start < 6:
                     catch_wrist_position = commanded_arm_position[
@@ -2144,7 +2230,8 @@ def main() -> int:
             )
         release_dynamics_start_s = physical_open_start_s
         if (
-            args_cli.release_dynamics_after_transition
+            not args_cli.release_dynamics_before_transition
+            and args_cli.release_dynamics_after_transition
             and args_cli.release_drive_transition_s is not None
         ):
             release_dynamics_start_s += args_cli.release_drive_transition_s
@@ -2180,10 +2267,15 @@ def main() -> int:
             blend = progress**3 * (10.0 + progress * (-15.0 + 6.0 * progress))
             measured_drive = held_target + blend * (open_target - held_target)
             gripper_target = measured_drive
-        if (
+        preclose_active = (
+            args_cli.catch_preclose_time_s is not None
+            and time_s >= args_cli.catch_preclose_time_s
+        )
+        final_close_active = (
             args_cli.catch_close_time_s is not None
             and time_s >= args_cli.catch_close_time_s
-        ):
+        )
+        if preclose_active or final_close_active:
             if not catch_gripper_dynamics_applied:
                 if args_cli.catch_gripper_effort_limit_n is not None:
                     robot.write_joint_effort_limit_to_sim_index(
@@ -2196,6 +2288,10 @@ def main() -> int:
                         joint_ids=drive_ids,
                     )
                 catch_gripper_dynamics_applied = True
+        if preclose_active:
+            gripper_target = catch_preclose_target
+            phase = "precatch"
+        if final_close_active:
             gripper_target = catch_target
             phase = "catch"
         robot.set_joint_position_target_index(

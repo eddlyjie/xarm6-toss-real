@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TARGET="${1:-0p8}"
 case "$TARGET" in
-  0p8|1p2|1p6|2p0) ;;
+  0p8|1p2|1p6|2p0|2p4h) ;;
   *)
-    echo "target must be one of: 0p8, 1p2, 1p6, 2p0" >&2
+    echo "target must be one of: 0p8, 1p2, 1p6, 2p0, 2p4h" >&2
     exit 2
     ;;
 esac

@@ -45,6 +45,57 @@ large-rotation regrasp；两个分支的结果不得混写。
 完成定义。下一步真机先复现 throw-only detach/timing，再启用 `stable_0640` close；sim 若继续开发，
 重点是 G1 release angular-momentum transfer，而不是继续增加 J5 速度。
 
+## 2026-08-20 最新动作决策：固定 J4，释放 J5 的大角度能力
+
+现场关节语义按用户观察修正并冻结：J4 负责左右 wrist branch / 动作平面选择，不负责 cube
+正前翻。J4 只在进入蓄势姿势前移动到约 165°，整段 throw、brake、regrasp 保持静态；不得再用
+J4 的动态旋转制造或放大前翻角度。J6 也保持静态，仅负责 finger opening 方向以及 camera/cable
+位于腕部下侧。真正的前翻由 J5 主导，J2/J3 配合生成向上、向外的 TCP 速度和离手后的回撤。
+
+把 J4 换到这一 branch 的直接收益，是 J5 从旧的负下限附近搬到约 +82.5°，获得接近 97.5°
+的正向可用角度和更大的无碰撞 brake 行程。因此当前 4.747° throw-only 不是这套构型的能力上限，
+必须继续开发大角度 forward rotation；但不得把“J5 可用角度大”等同于允许超过真机 1× 的
+速度、加速度、servo step、joint margin 或 collision gate。
+
+下一阶段只做下面两个结构实验，不展开 close-time 网格：
+
+1. `J5 rotation capability`：固定 J4/J6，在 1× 真机 envelope 内重新设计 J2/J3/J5 的
+   accelerate→detach→brake reference，先达到 8°，再验证 ≥12° flight-only forward rotation；
+   只有前一档保持 axis alignment、clearance 和 joint margin 后才尝试 20°。
+2. `rotation-preserving recapture`：从合规 throw-only reference 回退能量，在 physical detach
+   前按约 80 ms lag 提前发出 brake/retract reference，但 catch controller 接管时必须保留 nominal
+   commanded `q/dq`，不得重置成 actual state 而消掉上抛动量。先恢复 ≥5° 的同一-trial stable
+   recapture，再向 10–20°推进。
+
+每个候选必须分别报告 release 时 J5 对 `a_forward` 的 angular-velocity contribution、cube detach
+omega、strict contact-free rotation、最大 separation、首次 recontact link 和 stable bilateral hold。
+大角度 throw-only 与小角度 stable recatch 仍是不同证据；在同一 trial 达到 ≥5° 并稳定接住前，
+不得称为 large-rotation regrasp。camera 继续只作 spectator/third-view 录像和离线证据，不进入主控制。
+
+## 2026-08-20 camera-removed / early-brake checkpoint
+
+本轮确认腕部 D435/mount 的实体状态会直接改变可用抛掷空间。只有真机把 wrist camera、mount 和
+cable 全部拆除时，才允许采用 `--wrist-camera-hardware-removed` 分支；此时仿真 wrist 视频只是
+virtual recording，不能当作真机相机证据。
+
+当前最佳 camera-removed throw-only 为 `v35_1p6_no_wrist_camera_oriented_ground`：
+
+- strict all-link contact-free flight 0.330 s，最大 hand-relative separation 397.8 mm；
+- apex 位于 strict flight 内，detach 后上升 24.2 mm；
+- signed target-axis rotation 9.599°，axis alignment 0.981；
+- reference peak speed 0.906 rad/s、acceleration 8.929 rad/s²、minimum margin 0.260 rad；
+- 首次 renewed contact 是 0.945 s 的 oriented cube-ground contact，不是 robot link；
+- 无 recatch，因此 `tumble_toss_success=false`，不能移交为完整 regrasp。
+
+`v37_2p4h_early_strong_brake_no_camera` 把 brake reference 提前到 0.540 s、reverse velocity scale
+提高到 −0.75；reference 仍通过 1× 限制（1.000 rad/s、12.500 rad/s²、0.260 rad margin），但 cube
+在 0.700 s 撞到 gripper base。撞前 strict flight 只有 0.085 s、2.408°，比 v36 仅延迟约 7 ms，
+因此该 2.4 rad/s high-upward reference 判定失败，禁止进入真机 timeline。
+
+暂停点的判断：J4 翻转确实提供了 J5 joint-space margin，但当前瓶颈是 detach 后 gripper base 的
+Cartesian 退让方向/速度，而不是 J5 上翘角度不足。恢复开发时应从 v35 的 1.6 reference 出发重做
+collision-aware retract；不要继续提高 throw target，也不要继续扫 G1 close time。
+
 ## 当前证据与判断
 
 已经分别证明：

@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from xarm6_toss.flight import (
     angular_velocity_for_target_rotation,
     continuous_free_flight_evidence,
+    cube_ground_clearance_m,
     flight_time_to_height,
     make_flight_state,
     nominal_object_twist,
@@ -66,6 +67,25 @@ class FlightPhysicsTests(unittest.TestCase):
         )
         self.assertEqual(angular, (0.0, 2.0, 0.0))
         np.testing.assert_allclose(linear, [0.0, 0.0, 0.3])
+
+    def test_oriented_cube_ground_clearance_uses_lowest_corner(self):
+        size_m = 0.035
+        center = [0.0, 0.0, 0.027]
+        identity_clearance = cube_ground_clearance_m(
+            center, [1.0, 0.0, 0.0, 0.0], size_m
+        )
+        tilted_xyzw = Rotation.from_euler("x", 45.0, degrees=True).as_quat()
+        tilted_clearance = cube_ground_clearance_m(
+            center,
+            [tilted_xyzw[3], *tilted_xyzw[:3]],
+            size_m,
+        )
+        self.assertAlmostEqual(identity_clearance, 0.0095)
+        self.assertAlmostEqual(
+            tilted_clearance,
+            0.027 - 0.5 * size_m * math.sqrt(2.0),
+        )
+        self.assertLess(tilted_clearance, identity_clearance)
 
 
     def test_obvious_free_flight_requires_apex_and_descending_contact(self):

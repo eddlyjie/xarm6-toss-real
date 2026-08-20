@@ -72,6 +72,27 @@ def _rotation_from_wxyz(value, name: str) -> np.ndarray:
     )
 
 
+def cube_ground_clearance_m(
+    center_position_m,
+    quaternion_wxyz,
+    side_length_m: float,
+    ground_height_m: float = 0.0,
+) -> float:
+    """Clearance from an oriented cube's lowest corner to a horizontal ground."""
+    center = _vector3(center_position_m, "center_position_m")
+    side_length = float(side_length_m)
+    ground_height = float(ground_height_m)
+    if not math.isfinite(side_length) or side_length <= 0.0:
+        raise ValueError("side_length_m must be finite and positive")
+    if not math.isfinite(ground_height):
+        raise ValueError("ground_height_m must be finite")
+    rotation = _rotation_from_wxyz(quaternion_wxyz, "quaternion_wxyz")
+    vertical_half_extent = 0.5 * side_length * float(
+        np.sum(np.abs(rotation[2, :]))
+    )
+    return float(center[2] - vertical_half_extent - ground_height)
+
+
 def _robot_contact_forces(record) -> tuple[dict[str, float], bool]:
     mapped = record.get("robot_cube_contact_forces_n")
     if isinstance(mapped, Mapping):

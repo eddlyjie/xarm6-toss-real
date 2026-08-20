@@ -63,6 +63,7 @@ LADDER = (
     ("1p2", 1.2, 0.60, -0.20),
     ("1p6", 1.6, 0.75, -0.25),
     ("2p0", 2.0, 0.75, -0.25),
+    ("2p4h", 2.4, 1.20, -1.00),
 )
 
 
@@ -156,10 +157,17 @@ def build_candidate(
         target_upward_m_s,
         joint3_velocity_rad_s,
     )
+    high_throw = label == "2p4h"
+    flick_duration_s = (
+        0.080 if high_throw else FLICK_DURATION_S
+    )
+    reverse_velocity_scale = (
+        -0.75 if high_throw else REVERSE_VELOCITY_SCALE
+    )
     accel = release_velocity / ACCEL_DURATION_S
     accel_end_q = start_q + 0.5 * release_velocity * ACCEL_DURATION_S
-    flick_end_q = accel_end_q + release_velocity * FLICK_DURATION_S
-    brake_end_velocity = REVERSE_VELOCITY_SCALE * release_velocity
+    flick_end_q = accel_end_q + release_velocity * flick_duration_s
+    brake_end_velocity = reverse_velocity_scale * release_velocity
     brake_accel = (
         brake_end_velocity - release_velocity
     ) / BRAKE_DURATION_S
@@ -184,7 +192,7 @@ def build_candidate(
         ),
         QuinticJointSegment(
             "detach_flick",
-            FLICK_DURATION_S,
+            flick_duration_s,
             tuple(accel_end_q),
             tuple(release_velocity),
             tuple(flick_end_q),
@@ -293,6 +301,10 @@ def build_candidate(
             "target_tumble_omega_rad_s": target_omega_rad_s,
             "target_upward_tcp_velocity_m_s": target_upward_m_s,
             "predicted_physical_detach_reference_time_s": DETACH_REFERENCE_TIME_S,
+            "brake_start_reference_time_s": (
+                ACCEL_DURATION_S + flick_duration_s
+            ),
+            "post_detach_reverse_velocity_scale": reverse_velocity_scale,
             "release_joint_velocity_rad_s": vector(release_velocity),
             "predicted_detach_tcp_position_m": vector(detach_transform[:3, 3]),
             "predicted_tumble_axis_world": vector(axis),

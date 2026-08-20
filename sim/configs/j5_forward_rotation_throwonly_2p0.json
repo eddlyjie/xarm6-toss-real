@@ -51,6 +51,8 @@
     "target_tumble_omega_rad_s": 2.0,
     "target_upward_tcp_velocity_m_s": 0.75,
     "predicted_physical_detach_reference_time_s": 0.54,
+    "brake_start_reference_time_s": 0.56,
+    "post_detach_reverse_velocity_scale": -0.38,
     "release_joint_velocity_rad_s": [
       0.0,
       -0.653002582637772,

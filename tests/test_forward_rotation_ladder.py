@@ -27,7 +27,13 @@ class ForwardRotationLadderTests(unittest.TestCase):
         )
 
     def test_ladder_uses_static_j4_j6_and_transfer_safe_j2_j3_j5(self) -> None:
-        for label, target in (("0p8", 0.8), ("1p2", 1.2), ("1p6", 1.6), ("2p0", 2.0)):
+        for label, target in (
+            ("0p8", 0.8),
+            ("1p2", 1.2),
+            ("1p6", 1.6),
+            ("2p0", 2.0),
+            ("2p4h", 2.4),
+        ):
             with self.subTest(label=label):
                 config = json.loads(
                     (

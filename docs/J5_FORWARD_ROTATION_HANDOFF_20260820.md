@@ -9,16 +9,22 @@
 真正的前翻与上抛由 J2/J3/J5 完成。相机不进入真机主 policy；spectator、third-view、wrist
 只用于录像和离线核对。
 
-本轮保留两个不能混写的结果：
+本轮保留三个不能混写的结果：
 
-| 结果 | strict flight | separation | apex | signed forward rotation | catch |
-|---|---:|---:|---|---:|---|
-| `throwonly_4p75deg` | 0.163 s | 109.3 mm | internal | 4.747° | 无 |
-| `probe_j_regrasp_1p42deg` | 0.049 s | 10.6 mm | 否 | 1.416° | 双侧稳定 |
+| 结果 | wrist hardware | strict flight | separation | apex | forward rotation | catch |
+|---|---|---:|---:|---|---:|---|
+| `throwonly_9p60deg_camera_removed` | 已拆除 | 0.330 s | 397.8 mm | internal | 9.599° | 无，最后落地 |
+| `throwonly_4p75deg` | 保留 collision proxy | 0.163 s | 109.3 mm | internal | 4.747° | 无 |
+| `probe_j_regrasp_1p42deg` | 保留 collision proxy | 0.049 s | 10.6 mm | 否 | 1.416° | 双侧稳定 |
 
-throw-only 证明该 branch 已产生真实离手、内部 apex 和接近 5° 的目标轴前翻；它没有抓回。
+camera-removed throw-only 是当前最清楚的离手与前翻证据：axis alignment 0.981，首次 renewed contact
+是 oriented cube-ground contact，不是机械臂；它仍低于 12°且没有抓回。
 Probe/J 版本证明最小闭环可以在同一 trial 中完成 Probe、J selection、ballistic servo 和稳定抓回；
 它不是“大角度”结果。当前诚实边界是：大角度与稳定抓回尚未在同一 trial 同时成立。
+
+不要把 `2p4h` high-upward candidate 交给真机。即使把 brake reference 提前到 0.540 s 并把
+reverse velocity scale 提到 −0.75，v37 仍在 0.700 s 撞到 gripper base；撞前只有 0.085 s strict
+flight 和 2.408° rotation。J4 翻转提供了关节行程，但没有自动解决掌座的 Cartesian 退让问题。
 
 ## 动作与真机数值
 
@@ -83,6 +89,9 @@ selected controller 实际覆盖了 CLI timing。
 ## Pull 后先看什么
 
 ```text
+docs/media/j5_forward_rotation/throwonly_9p60deg_camera_removed/spectator.mp4
+docs/media/j5_forward_rotation/throwonly_9p60deg_camera_removed/third_view.mp4
+docs/media/j5_forward_rotation/throwonly_9p60deg_camera_removed/wrist_virtual_only.mp4
 docs/media/j5_forward_rotation/throwonly_4p75deg/spectator.mp4
 docs/media/j5_forward_rotation/throwonly_4p75deg/third_view.mp4
 docs/media/j5_forward_rotation/throwonly_4p75deg/wrist.mp4
@@ -91,7 +100,8 @@ docs/media/j5_forward_rotation/probe_j_regrasp_1p42deg/third_view.mp4
 docs/media/j5_forward_rotation/probe_j_regrasp_1p42deg/wrist.mp4
 ```
 
-同目录的 `summary.json` 与 `probe_j.json` 是数值证据。
+同目录的 `summary.json` 与 `probe_j.json` 是数值证据。`wrist_virtual_only.mp4` 只是仿真附加视角；
+camera-removed 真机没有对应 wrist stream。
 
 ## Sim 复现
 
@@ -103,3 +113,26 @@ bash sim/scripts/15_run_j5_probe_j_regrasp.sh
 
 大角度 throw-only：
 
+```bash
+bash sim/scripts/14_run_j5_rotation_ladder.sh \
+  1p6 \
+  outputs/j5_forward_rotation/reproduce_9p60deg_camera_removed \
+  --wrist-camera-hardware-removed
+```
+
+## 真机怎么用
+
+当前 `real_handoff/j5_forward_rotation_timeline.json` 仍对应 1.6 rad/s 的 stable/low-rotation
+reference，不是失败的 `2p4h`。真机按下面顺序进行：
+
+1. 先确认 J4=165° branch 的整段 empty preview 无 self-collision，J4/J6 在 throw 中保持静止；
+2. 腕部相机若仍安装，只执行既有 collision-proxy/stable branch；不要使用 camera-removed 结论；
+3. camera、mount、cable 全拆除后仍执行已跟踪的 stable timeline：0.25×、0.5×、1.0× empty preview
+   通过后，最多做 2–3 次 cube trial，并根据实测 physical detach delay 对齐 `stable_0640` G1 close；
+4. 9.599° 当前只是 sim throw-only evidence，没有单独导出的真机 throw-only JSON；不要临场删除 close
+   command。`2p4h` 更不得进入真机。
+
+reference evidence 通过 joint position/speed/acceleration/20 ms step 门槛。Isaac actual-state 的
+finite-difference acceleration 在初始化 controller transfer 出现 269.6 rad/s² 单样本尖峰，因此
+`sim_actual_acceleration_matches_transfer_envelope=false`；这不是可下发的 reference acceleration，
+但也不能拿它宣称真机 dynamics 已验证。真机 empty preview 必须保留。
