@@ -32,12 +32,13 @@ class ReleaseState:
     time_s: float
     position_base_m: tuple[float, float, float]
     velocity_base_m_s: tuple[float, float, float]
-    angular_velocity_base_rad_s: tuple[float, float, float]
+    angular_velocity_source: str
+    hand_angular_velocity_base_rad_s: tuple[float, float, float]
     finger_direction_base: tuple[float, float, float]
     forward_tumble_axis_base: tuple[float, float, float]
-    forward_angular_velocity_rad_s: float
-    j5_forward_angular_velocity_rad_s: float
-    forward_axis_alignment: float
+    rigid_grasp_forward_angular_velocity_prior_rad_s: float
+    j5_rigid_grasp_forward_angular_velocity_rad_s: float
+    hand_forward_axis_alignment: float
     joint_position_rad: tuple[float, ...]
     joint_velocity_rad_s: tuple[float, ...]
 
@@ -135,14 +136,17 @@ def release_state_from_arm(
         time_s=float(time_s),
         position_base_m=tuple(float(value) for value in position),
         velocity_base_m_s=tuple(float(value) for value in velocity),
-        angular_velocity_base_rad_s=tuple(float(value) for value in hand_angular),
+        angular_velocity_source="arm_fk_jacobian_rigid_grasp_prior",
+        hand_angular_velocity_base_rad_s=tuple(
+            float(value) for value in hand_angular
+        ),
         finger_direction_base=tuple(float(value) for value in finger_direction),
         forward_tumble_axis_base=tuple(float(value) for value in forward_axis),
-        forward_angular_velocity_rad_s=forward_angular_velocity,
-        j5_forward_angular_velocity_rad_s=float(
+        rigid_grasp_forward_angular_velocity_prior_rad_s=forward_angular_velocity,
+        j5_rigid_grasp_forward_angular_velocity_rad_s=float(
             np.dot(j5_angular_velocity, forward_axis)
         ),
-        forward_axis_alignment=(
+        hand_forward_axis_alignment=(
             0.0
             if angular_speed <= 1.0e-9
             else abs(forward_angular_velocity) / angular_speed

@@ -166,3 +166,9 @@ separately from the following state read and writes
 `execution.release_state` also contains the exact frozen actual
 `joint_position_rad` and `joint_velocity_rad_s` used by FK/Jacobian, together with
 the resulting cube position/velocity, so the real ballistic prior can be replayed.
+Its angular fields are explicitly named `rigid_grasp_*_prior`: they are the hand
+angular velocity inferred from arm q/dq, not a measured post-detach cube omega.
+In v47 this FK/Jacobian prior is 1.553 rad/s on the forward axis, while the first
+contact-free simulated cube state is 0.532 rad/s after G1 contact transfer. Real
+cube rotation therefore remains a third-view measurement; never report the hand
+prior as observed cube rotation.

@@ -20,6 +20,7 @@ from xarm6_toss.real_dynamic_regrasp import (
     release_state_from_arm,
     resample_timeline,
 )
+from xarm6_toss_sim.kinematics import URDFKinematics
 
 
 def test_g1_position_observer_uses_calibrated_crossing():
@@ -82,7 +83,7 @@ def test_release_state_preserves_actual_arm_sample_and_replays_ballistic_prior()
     np.testing.assert_allclose(release.position_base_m, [0.5, 0.0, 0.3])
     np.testing.assert_allclose(release.velocity_base_m_s, [0.2, 0.3, 0.2])
     np.testing.assert_allclose(
-        release.angular_velocity_base_rad_s,
+        release.hand_angular_velocity_base_rad_s,
         [0.0, 2.0, 0.0],
     )
     np.testing.assert_allclose(release.finger_direction_base, [1.0, 0.0, 0.0])
@@ -90,14 +91,81 @@ def test_release_state_preserves_actual_arm_sample_and_replays_ballistic_prior()
         release.forward_tumble_axis_base,
         [0.0, -1.0, 0.0],
     )
-    assert release.forward_angular_velocity_rad_s == -2.0
-    assert release.j5_forward_angular_velocity_rad_s == -2.0
-    assert release.forward_axis_alignment == 1.0
+    assert release.angular_velocity_source == "arm_fk_jacobian_rigid_grasp_prior"
+    assert release.rigid_grasp_forward_angular_velocity_prior_rad_s == -2.0
+    assert release.j5_rigid_grasp_forward_angular_velocity_rad_s == -2.0
+    assert release.hand_forward_axis_alignment == 1.0
     np.testing.assert_allclose(
         ballistic_position(release, 0.2),
         [0.52, 0.03, 0.27095],
     )
     assert release.as_dict()["joint_position_rad"] == tuple(q)
+
+
+def test_v47_actual_detach_state_matches_native_kinematics_and_labels_angular_prior():
+    kinematics = URDFKinematics(
+        ROOT
+        / "toss_project_sim_handoff"
+        / "toss_project"
+        / "real_cube_demo"
+        / "urdf"
+        / "xarm6_with_gripper_g1.urdf"
+    )
+    actual_q = [
+        0.060926616191864014,
+        -0.02366306260228157,
+        -0.4950313866138458,
+        2.8794138431549072,
+        1.5599160194396973,
+        -0.02615748904645443,
+    ]
+    actual_qd = [
+        0.0004886507522314787,
+        -0.8923970460891724,
+        -0.25304409861564636,
+        -0.0026499798987060785,
+        0.4636121690273285,
+        5.009653847309892e-08,
+    ]
+    release = release_state_from_arm(
+        kinematics,
+        actual_q,
+        actual_qd,
+        [0.004000254, 0.0, 0.13743645],
+        time_s=0.615,
+    )
+
+    np.testing.assert_allclose(
+        release.position_base_m,
+        [0.5160556436, 0.0920265093, 0.3338039517],
+        atol=5.0e-6,
+    )
+    np.testing.assert_allclose(
+        release.velocity_base_m_s,
+        [-0.0269825887, 0.0095730051, 0.6951870918],
+        atol=2.0e-3,
+    )
+    np.testing.assert_allclose(
+        release.hand_angular_velocity_base_rad_s,
+        [0.1998614967, -1.5839785337, 0.0623716041],
+        atol=5.0e-6,
+    )
+    np.testing.assert_allclose(
+        release.forward_tumble_axis_base,
+        [0.3511706015, -0.9363114912, 0.0],
+        atol=2.0e-6,
+    )
+    assert abs(
+        release.rigid_grasp_forward_angular_velocity_prior_rad_s
+        - 1.553283071
+    ) < 1.0e-8
+    cube_detach_omega = np.asarray([0.0960338712, -0.5319713354, 0.0032464722])
+    cube_forward_omega = float(
+        np.dot(cube_detach_omega, release.forward_tumble_axis_base)
+    )
+    assert cube_forward_omega < (
+        0.5 * release.rigid_grasp_forward_angular_velocity_prior_rad_s
+    )
 
 
 def test_v47_first_catch_delta_matches_native_controller():
