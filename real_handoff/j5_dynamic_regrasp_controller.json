@@ -43,6 +43,8 @@
     "event": "G1 actual position crosses the camera-calibrated position at physical detach",
     "on_event": "freeze actual q/dq and FK of the fixed hand-to-cube grasp offset",
     "fallback_delay_s_range": [0.025, 0.044],
+    "position_poll_start_after_release_s": 0.020,
+    "position_poll_period_s": 0.005,
     "fallback_delay_s": 0.035,
     "sim_drive_delta_threshold_rad": 0.0001,
     "sim_opening_effort_threshold_nm": 0.05,

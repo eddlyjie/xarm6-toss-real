@@ -221,6 +221,7 @@ def execute_timeline(
     g1 = controller_config["g1_real"]
     ballistic = controller_config["ballistic_catch"]
     threshold = controller_config["runtime_detach_position_threshold"]
+    detach_observer_config = controller_config["detach_observer"]
     release_command_time_s = float(g1["release_command_time_s"]) / speed_scale
     offsets = {
         key: None if value is None else value / speed_scale
@@ -231,7 +232,7 @@ def execute_timeline(
         held_position=g1["held_position"],
         open_position=g1["partial_open_position"],
         detach_position_threshold=threshold,
-        fallback_delay_s=float(controller_config["detach_observer"]["fallback_delay_s"]),
+        fallback_delay_s=float(detach_observer_config["fallback_delay_s"]),
     )
     grasp_offset = np.asarray(
         controller_config["grasp_offset_gripper_base_link_m"], dtype=float
@@ -254,7 +255,9 @@ def execute_timeline(
     commanded_velocity = np.asarray(samples[0]["joint_velocity_rad_s"], dtype=float)
     latest_signals = robot.reported_joint_signals()
     first_catch_update = None
-    next_g1_poll_s = release_command_time_s
+    next_g1_poll_s = release_command_time_s + float(
+        detach_observer_config["position_poll_start_after_release_s"]
+    )
     pending_event_label = ""
 
     robot.enter_servo_mode()
@@ -282,7 +285,9 @@ def execute_timeline(
                     g1_read_duration_s = time.monotonic() - read_start
                     g1_read_durations.append(g1_read_duration_s)
                     observation_time_s = time.monotonic() - start_host_s
-                    next_g1_poll_s = observation_time_s + 0.005
+                    next_g1_poll_s = observation_time_s + float(
+                        detach_observer_config["position_poll_period_s"]
+                    )
                     event = observer.observe(observation_time_s, g1_position)
                     if event is not None:
                         detach_event = event
@@ -418,6 +423,7 @@ def execute_timeline(
         "maximum_servo_lateness_s": float(
             np.max(record_times - [sample["time_s"] for sample in samples])
         ),
+        "g1_read_count": len(g1_read_durations),
         "mean_g1_read_duration_s": (
             None
             if not g1_read_durations

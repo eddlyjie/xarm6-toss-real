@@ -198,6 +198,7 @@ def test_real_runner_executes_detach_relative_sequence_without_hardware():
             self.gripper_commands = []
             self.arm_commands = []
             self.position_mode_entered = False
+            self.gripper_reads = 0
 
         def reported_joint_signals(self):
             return {
@@ -219,6 +220,7 @@ def test_real_runner_executes_detach_relative_sequence_without_hardware():
 
         def gripper_position(self, *, check_baud):
             assert check_baud is False
+            self.gripper_reads += 1
             return self.gripper
 
         def servo_j(self, joint_rad):
@@ -267,6 +269,11 @@ def test_real_runner_executes_detach_relative_sequence_without_hardware():
     assert len(robot.arm_commands) == len(samples) == len(records)
     assert robot.position_mode_entered is True
     assert execution["detach_event"]["source"] == "calibrated_g1_position"
+    assert execution["detach_event"]["time_s"] >= (
+        controller["g1_real"]["release_command_time_s"]
+        + controller["detach_observer"]["position_poll_start_after_release_s"]
+    )
+    assert execution["timing"]["g1_read_count"] == robot.gripper_reads == 1
     assert execution["release_state"] is not None
     assert execution["first_catch_update"] is not None
     assert any(record["catch_active"] for record in records)
