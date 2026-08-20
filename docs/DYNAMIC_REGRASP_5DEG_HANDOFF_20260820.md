@@ -172,3 +172,8 @@ In v47 this FK/Jacobian prior is 1.553 rad/s on the forward axis, while the firs
 contact-free simulated cube state is 0.532 rad/s after G1 contact transfer. Real
 cube rotation therefore remains a third-view measurement; never report the hand
 prior as observed cube rotation.
+Each recorded cube trial writes both `global_color.avi` at the native 60 fps and
+`global_color_slow_0p25x.avi` at 15 fps using the same frames. Their paths, frame
+counts, fps, and playback durations are stored under
+`global_camera.color_videos` in `summary.json`; review the slow file when judging
+the small forward pose change.

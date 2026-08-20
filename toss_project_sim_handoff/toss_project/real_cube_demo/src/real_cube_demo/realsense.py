@@ -26,6 +26,35 @@ class CaptureMetadata:
     calibration_extrinsics_yaml: str
 
 
+def write_color_video(
+    path: Path,
+    frames: list[np.ndarray],
+    *,
+    fps: float,
+    width: int,
+    height: int,
+) -> dict[str, Any]:
+    writer = cv2.VideoWriter(
+        str(path),
+        cv2.VideoWriter_fourcc(*"MJPG"),
+        fps,
+        (width, height),
+    )
+    if not writer.isOpened():
+        raise RuntimeError(f"could not open MJPG video writer for {path}")
+    try:
+        for frame in frames:
+            writer.write(frame)
+    finally:
+        writer.release()
+    return {
+        "path": path.name,
+        "fps": float(fps),
+        "frame_count": len(frames),
+        "duration_s": len(frames) / float(fps),
+    }
+
+
 class MotionCameraRecorder:
     """Record global-camera RGB/depth without blocking the servo loop."""
 
@@ -106,18 +135,21 @@ class MotionCameraRecorder:
             raise self._error
 
     def save(self, output_dir: Path, trajectory_start_host_s: float) -> dict[str, Any]:
-        video_path = output_dir / "global_color.avi"
-        writer = cv2.VideoWriter(
-            str(video_path),
-            cv2.VideoWriter_fourcc(*"MJPG"),
-            self.fps,
-            (self.width, self.height),
+        color_frames = [frame["color"] for frame in self.frames]
+        raw_video = write_color_video(
+            output_dir / "global_color.avi",
+            color_frames,
+            fps=self.fps,
+            width=self.width,
+            height=self.height,
         )
-        try:
-            for frame in self.frames:
-                writer.write(frame["color"])
-        finally:
-            writer.release()
+        slow_video = write_color_video(
+            output_dir / "global_color_slow_0p25x.avi",
+            color_frames,
+            fps=0.25 * self.fps,
+            width=self.width,
+            height=self.height,
+        )
 
         depth_path = output_dir / "global_depth_raw.npz"
         np.savez_compressed(
@@ -143,6 +175,10 @@ class MotionCameraRecorder:
             "depth_scale_m": self.depth_scale_m,
             "frame_count": len(self.frames),
             "frames": frame_records,
+            "color_videos": {
+                "raw": raw_video,
+                "slow_0p25x": slow_video,
+            },
         }
         (output_dir / "global_camera.json").write_text(
             json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
