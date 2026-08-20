@@ -19,6 +19,11 @@
     "wrist_camera_hardware_removed": true,
     "camera_required_for_control": false
   },
+  "grasp_offset_hand_m": [
+    0.004000254,
+    0.0,
+    0.13743645
+  ],
   "g1_real": {
     "firmware_speed": 5000,
     "held_position": 370,
@@ -32,25 +37,23 @@
     "real_close_note": "G1 final target remains 370 at speed 5000; sim 0.65 only reproduced rapid position-controlled closure under a 4 N contact cap"
   },
   "detach_observer": {
-    "inputs": [
-      "g1_actual_position",
-      "g1_motor_current_or_effort",
-      "actual_arm_q",
-      "actual_arm_dq"
-    ],
-    "event": "first opening-direction current response after release command",
-    "secondary_confirmation": "G1 actual position starts moving toward 520",
+    "inputs": ["g1_actual_position", "actual_arm_q", "actual_arm_dq"],
+    "event": "G1 actual position crosses the camera-calibrated position at physical detach",
     "on_event": "freeze actual q/dq and FK of the fixed hand-to-cube grasp offset",
     "fallback_delay_s_range": [0.025, 0.044],
+    "fallback_delay_s": 0.035,
     "sim_drive_delta_threshold_rad": 0.0001,
     "sim_opening_effort_threshold_nm": 0.05,
-    "real_threshold_requires_empty_held_calibration": true
+    "real_threshold_source": "real_cube_demo/scripts/10_measure_detach.py gravity_corrected_release_gripper_position",
+    "real_g1_motor_current_available": false
   },
   "ballistic_catch": {
     "gravity_m_s2": 9.81,
     "catch_servo_from_observed_detach_s": 0.005,
     "intercept_from_observed_detach_s": 0.185,
     "control_end_from_observed_detach_s": 0.215,
+    "maximum_joint_speed_rad_s": 1.74483445,
+    "maximum_joint_acceleration_rad_s2": 13.0573925,
     "locked_joints_one_based": [4, 5, 6],
     "camera_updates_enabled": false
   },

@@ -102,6 +102,20 @@ def find_downward_motion(records: list[dict]) -> tuple[float, int, float] | None
     return None
 
 
+def gripper_position_at(records: list[dict], query_time_s: float | None) -> float | None:
+    if query_time_s is None:
+        return None
+    timed = [
+        (record["gripper_time_from_command_s"], record["gripper_position"])
+        for record in records
+        if record.get("gripper_position") is not None
+    ]
+    if not timed:
+        return None
+    times, positions = zip(*timed)
+    return float(np.interp(query_time_s, times, positions))
+
+
 def annotate_frame(frame: np.ndarray, record: dict, event: bool) -> np.ndarray:
     image = frame.copy()
     cube = record["cube"]
@@ -197,6 +211,15 @@ def main() -> None:
                     host_received_s = time.monotonic()
                     color_frame = frame_set.get_color_frame()
                     depth_frame = frame_set.get_depth_frame()
+                    gripper_read_start_s = time.monotonic()
+                    gripper_position = robot.gripper_position(
+                        check_baud=False
+                    )
+                    gripper_read_end_s = time.monotonic()
+                    gripper_read_duration_s = gripper_read_end_s - gripper_read_start_s
+                    gripper_sample_host_s = 0.5 * (
+                        gripper_read_start_s + gripper_read_end_s
+                    )
                     frames.append(
                         {
                             "host_received_s": host_received_s,
@@ -204,6 +227,9 @@ def main() -> None:
                             "frame_number": int(color_frame.get_frame_number()),
                             "color": np.asanyarray(color_frame.get_data()).copy(),
                             "depth": np.asanyarray(depth_frame.get_data()).copy(),
+                            "gripper_position": gripper_position,
+                            "gripper_read_duration_s": gripper_read_duration_s,
+                            "gripper_sample_host_s": gripper_sample_host_s,
                         }
                     )
 
@@ -216,6 +242,15 @@ def main() -> None:
                     host_received_s = time.monotonic()
                     color_frame = frame_set.get_color_frame()
                     depth_frame = frame_set.get_depth_frame()
+                    gripper_read_start_s = time.monotonic()
+                    gripper_position = robot.gripper_position(
+                        check_baud=False
+                    )
+                    gripper_read_end_s = time.monotonic()
+                    gripper_read_duration_s = gripper_read_end_s - gripper_read_start_s
+                    gripper_sample_host_s = 0.5 * (
+                        gripper_read_start_s + gripper_read_end_s
+                    )
                     frames.append(
                         {
                             "host_received_s": host_received_s,
@@ -223,6 +258,9 @@ def main() -> None:
                             "frame_number": int(color_frame.get_frame_number()),
                             "color": np.asanyarray(color_frame.get_data()).copy(),
                             "depth": np.asanyarray(depth_frame.get_data()).copy(),
+                            "gripper_position": gripper_position,
+                            "gripper_read_duration_s": gripper_read_duration_s,
+                            "gripper_sample_host_s": gripper_sample_host_s,
                         }
                     )
             finally:
@@ -250,6 +288,11 @@ def main() -> None:
             "time_from_command_s": (
                 frame["camera_timestamp_s"] + clock_offset_s - command_host_s
             ),
+            "gripper_position": frame["gripper_position"],
+            "gripper_read_duration_s": frame["gripper_read_duration_s"],
+            "gripper_time_from_command_s": (
+                frame["gripper_sample_host_s"] - command_host_s
+            ),
             "cube": observe_cube(
                 frame["color"],
                 frame["depth"],
@@ -271,6 +314,9 @@ def main() -> None:
         baseline_z_m, _, observed_drop_m = event
         release_estimate_s = observed_motion_s - np.sqrt(2.0 * observed_drop_m / 9.81)
         release_estimate_s = float(release_estimate_s)
+
+    release_gripper_position = gripper_position_at(records, release_estimate_s)
+    g1_read_durations = [record["gripper_read_duration_s"] for record in records]
 
     video_path = output_dir / "detach_tracking.avi"
     writer = cv2.VideoWriter(
@@ -308,6 +354,12 @@ def main() -> None:
         "baseline_z_m": baseline_z_m,
         "first_observed_downward_motion_s": observed_motion_s,
         "gravity_corrected_release_estimate_s": release_estimate_s,
+        "gravity_corrected_release_gripper_position": release_gripper_position,
+        "g1_position_sampling": {
+            "sample_count": len(g1_read_durations),
+            "mean_read_duration_s": float(np.mean(g1_read_durations)),
+            "max_read_duration_s": float(np.max(g1_read_durations)),
+        },
         "frames": records,
     }
     result_path = output_dir / "detach_result.json"
@@ -320,6 +372,10 @@ def main() -> None:
     else:
         print(f"first observed 5 mm downward motion: {observed_motion_s:.3f} s")
         print(f"gravity-corrected release estimate: {release_estimate_s:.3f} s")
+        print(
+            "G1 actual position at corrected release: "
+            f"{release_gripper_position:.1f}"
+        )
     print(f"saved result: {result_path}")
     print(f"saved video: {video_path}")
     if strip_path is not None:

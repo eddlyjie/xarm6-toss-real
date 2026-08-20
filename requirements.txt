@@ -3,3 +3,4 @@
 # Python standard library and does not require this package.
 xarm-python-sdk>=1.16,<2
 numpy>=1.24,<3
+scipy>=1.10,<2

@@ -4,9 +4,11 @@
 
 当前推荐真机接手的是 `v47`：paired Probe posterior 经过 J 选择
 `dynamic_5deg_g1_observer`，controller 只用 actual q/dq、FK、G1 actual position 与
-opening-direction current/effort response，不读取 cube physics truth，也不需要 camera 控制。
+camera-calibrated detach-position threshold，不读取 cube physics truth，也不需要 runtime camera
+控制。真机包没有已验证的 G1 motor-current API，因此不再把 motor current 写成真机触发条件。
 同一 trial 达到 0.173 s strict all-link free flight、5.055° 前翻和稳定双侧接取；重复的
 `v46` 为 5.039°，两次 joint limits 均通过。
+真机入口是 `scripts/22_run_j5_dynamic_regrasp.py`；默认只打印 plan，不连接机械臂。
 
 先看 Git 内慢放与 third-view：
 

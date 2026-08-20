@@ -56,9 +56,9 @@
     6
   ],
   "grasp_offset_hand_m": [
-    0.004,
+    0.004000254,
     0.0,
-    0.024
+    0.13743645
   ],
   "g1_events": [
     {
@@ -84,10 +84,10 @@
     0.044
   ],
   "detach_observer": {
-    "policy_inputs": ["actual_q", "actual_dq", "g1_actual_position", "g1_motor_current"],
+    "policy_inputs": ["actual_q", "actual_dq", "g1_actual_position"],
     "sim_trigger_drive_delta_rad": 0.0001,
     "sim_trigger_opening_effort_nm": 0.05,
-    "real_trigger": "first calibrated opening-direction current response; G1 actual-position motion is secondary confirmation",
+    "real_trigger": "G1 actual position crosses camera-calibrated gravity-corrected release position",
     "fallback": "measured 25-44 ms command-to-detach range",
     "sim_observer_error_s": 0.0
   },

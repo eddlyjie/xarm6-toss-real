@@ -35,8 +35,9 @@ trial 拼接成结果：
   0.821 s 起双侧接触并稳定保持；
 - `v47`：paired Probe gate 通过，J 在两个可执行候选中选择 `dynamic_5deg_g1_observer`
   （J=0.6799，fallback=0.8450），strict flight 0.173 s，signed rotation 5.055°，稳定双侧接取；
-- 两次都只用 actual q/dq + FK ballistic prior；G1 position 与 opening-direction effort response
-  在 0.615 s 冻结 release state，与 evaluation-only physical detach 同刻，误差 0 ms；
+- 两次 sim 都只用 actual q/dq + FK ballistic prior；sim G1 position/effort response 在 0.615 s
+  冻结 release state，与 evaluation-only physical detach 同刻，误差 0 ms；真机没有已验证的 G1
+  motor-current API，因此 runtime 改用 fixed-pose camera 标定出的 detach-position threshold；
 - J4=165°、J6=−1.5° 保持静态，J2/J3/J5 reference peak 0.906 rad/s、8.929 rad/s²，
   joint mechanical limits 通过；
 - wrist camera/mount/cable 按 camera-removed 分支处理；spectator/third-view 只录像，未进入 policy。
@@ -44,7 +45,8 @@ trial 拼接成结果：
 下一步不再提高 sim 旋转角度。本 goal 剩余工作是把 v47 的 arm reference、G1 two-stage close、
 Probe/J 和 G1 detach observer 原样移交真机，先做空载/软垫 throw-only，再做最多 2–3 次 cube
 recatch。sim `.48/.65 rad` 不是 G1 真机位置；真机映射为约 `441/370`，最终以 G1 actual position
-和 current 标定为准。
+标定为准。可执行入口为 `scripts/22_run_j5_dynamic_regrasp.py`，标定入口为真机包内更新后的
+`real_cube_demo/scripts/10_measure_detach.py`。
 
 ## 2026-08-20 当前执行 checkpoint
 
