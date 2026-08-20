@@ -32,6 +32,8 @@ class ReleaseState:
     time_s: float
     position_base_m: tuple[float, float, float]
     velocity_base_m_s: tuple[float, float, float]
+    joint_position_rad: tuple[float, ...]
+    joint_velocity_rad_s: tuple[float, ...]
 
     def as_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -113,6 +115,8 @@ def release_state_from_arm(
         time_s=float(time_s),
         position_base_m=tuple(float(value) for value in position),
         velocity_base_m_s=tuple(float(value) for value in velocity),
+        joint_position_rad=tuple(float(value) for value in q),
+        joint_velocity_rad_s=tuple(float(value) for value in qd),
     )
 
 

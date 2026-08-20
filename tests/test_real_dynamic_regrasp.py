@@ -11,11 +11,13 @@ sys.path.insert(0, str(ROOT / "src"))
 from xarm6_toss.real_dynamic_regrasp import (
     G1PositionDetachObserver,
     advance_limited_command,
+    ballistic_position,
     controller_offsets,
     damped_catch_delta,
     estimate_arm_tracking_delay,
     load_real_probe_selection,
     real_probe_posterior,
+    release_state_from_arm,
     resample_timeline,
 )
 
@@ -46,6 +48,39 @@ def test_g1_position_observer_has_measured_delay_fallback():
     event = observer.observe(0.620, 420)
     assert event is not None
     assert event.source == "measured_delay_fallback"
+
+
+def test_release_state_preserves_actual_arm_sample_and_replays_ballistic_prior():
+    class FakeKinematics:
+        def forward(self, joint_rad, *, target_link):
+            assert target_link == "xarm_gripper_base_link"
+            transform = np.eye(4)
+            transform[:3, 3] = [0.4, 0.0, 0.3]
+            return transform
+
+        def jacobian(self, joint_rad, *, target_link):
+            assert target_link == "xarm_gripper_base_link"
+            return np.eye(6)
+
+    q = [0.1, -0.2, 0.3, 0.4, -0.5, 0.6]
+    qd = [0.2, 0.3, 0.4, 0.0, 2.0, 0.0]
+    release = release_state_from_arm(
+        FakeKinematics(),
+        q,
+        qd,
+        [0.1, 0.0, 0.0],
+        time_s=0.1,
+    )
+
+    assert release.joint_position_rad == tuple(q)
+    assert release.joint_velocity_rad_s == tuple(qd)
+    np.testing.assert_allclose(release.position_base_m, [0.5, 0.0, 0.3])
+    np.testing.assert_allclose(release.velocity_base_m_s, [0.2, 0.3, 0.2])
+    np.testing.assert_allclose(
+        ballistic_position(release, 0.2),
+        [0.52, 0.03, 0.27095],
+    )
+    assert release.as_dict()["joint_position_rad"] == tuple(q)
 
 
 def test_v47_first_catch_delta_matches_native_controller():

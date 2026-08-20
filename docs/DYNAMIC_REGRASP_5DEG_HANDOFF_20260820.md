@@ -163,3 +163,6 @@ measured real tracking lag remains visible. The runner timestamps every arm comm
 separately from the following state read and writes
 `execution.arm_tracking.estimated_delay_s`, active-joint RMS values, and fit RMS to
 `summary.json`; use this measured value when transferring the next sim timing update.
+`execution.release_state` also contains the exact frozen actual
+`joint_position_rad` and `joint_velocity_rad_s` used by FK/Jacobian, together with
+the resulting cube position/velocity, so the real ballistic prior can be replayed.
