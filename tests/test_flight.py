@@ -18,6 +18,7 @@ from xarm6_toss.flight import (
     g1_release_response,
     make_flight_state,
     nominal_object_twist,
+    release_transfer_evidence,
     propagate_cube,
 )
 
@@ -119,6 +120,62 @@ class FlightPhysicsTests(unittest.TestCase):
             opening_effort_threshold_nm=0.05,
         )
         self.assertFalse(triggered)
+
+    def test_release_transfer_reports_rigid_hand_residual(self):
+        records = []
+        for time_s, cube_omega in (
+            (0.00, 2.0),
+            (0.01, 1.8),
+            (0.02, 0.8),
+            (0.03, 0.75),
+        ):
+            records.append(
+                {
+                    "time_s": time_s,
+                    "cube_position_w_m": [0.1, 0.0, 0.0],
+                    "hand_position_w_m": [0.0, 0.0, 0.0],
+                    "cube_linear_velocity_w_m_s": [0.0, 0.0, 0.7],
+                    "cube_angular_velocity_w_rad_s": [0.0, cube_omega, 0.0],
+                    "hand_linear_velocity_w_m_s": [0.0, 0.0, 0.5],
+                    "hand_angular_velocity_w_rad_s": [0.0, 2.0, 0.0],
+                }
+            )
+        evidence = release_transfer_evidence(
+            records,
+            release_motion_start_time_s=0.0,
+            detach_time_s=0.02,
+            target_axis_world=[0.0, 1.0, 0.0],
+        )
+        self.assertTrue(evidence["available"])
+        self.assertAlmostEqual(evidence["release_contact_window_s"], 0.02)
+        self.assertAlmostEqual(
+            evidence["cube_axis_angular_retention_from_preopen"], 0.4
+        )
+        self.assertAlmostEqual(
+            evidence["cube_axis_angular_transfer_from_hand_at_detach"], 0.4
+        )
+        self.assertAlmostEqual(
+            evidence["detach_axis_angular_velocity_residual_rad_s"], -1.2
+        )
+        np.testing.assert_allclose(
+            evidence["detach_angular_velocity_residual_w_rad_s"],
+            [0.0, -1.2, 0.0],
+        )
+        np.testing.assert_allclose(
+            evidence["detach_linear_velocity_residual_w_m_s"],
+            [0.0, 0.0, 0.4],
+        )
+
+    def test_release_transfer_is_unavailable_without_detach_axis(self):
+        self.assertEqual(
+            release_transfer_evidence(
+                [],
+                release_motion_start_time_s=0.0,
+                detach_time_s=None,
+                target_axis_world=None,
+            ),
+            {"available": False},
+        )
 
 
     def test_obvious_free_flight_requires_apex_and_descending_contact(self):

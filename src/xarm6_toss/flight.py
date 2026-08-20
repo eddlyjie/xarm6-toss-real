@@ -298,6 +298,116 @@ def g1_release_response(
     )
 
 
+def release_transfer_evidence(
+    records,
+    *,
+    release_motion_start_time_s: float,
+    detach_time_s: float | None,
+    target_axis_world,
+) -> dict[str, object]:
+    """Measure the release residual from a rigid hand prior to actual detach.
+
+    The nominal Detach prior assumes the cube shares the measured hand twist.
+    This evidence reports how the finite G1 contact-release window changes that
+    twist before the first sustained contact-free sample.
+    """
+
+    if detach_time_s is None or target_axis_world is None:
+        return {"available": False}
+    axis = _vector3(target_axis_world, "target_axis_world")
+    axis_norm = float(np.linalg.norm(axis))
+    if axis_norm == 0.0:
+        return {"available": False}
+    axis /= axis_norm
+    ordered = sorted(records, key=lambda record: float(record["time_s"]))
+    preopen_candidates = [
+        record
+        for record in ordered
+        if float(record["time_s"]) <= release_motion_start_time_s + 1.0e-9
+    ]
+    predetach_candidates = [
+        record
+        for record in ordered
+        if float(record["time_s"]) < detach_time_s - 1.0e-9
+    ]
+    detach_candidates = [
+        record
+        for record in ordered
+        if float(record["time_s"]) >= detach_time_s - 1.0e-9
+    ]
+    if not preopen_candidates or not predetach_candidates or not detach_candidates:
+        return {"available": False}
+
+    preopen = preopen_candidates[-1]
+    predetach = predetach_candidates[-1]
+    detach = detach_candidates[0]
+    postdetach_candidates = [
+        record
+        for record in detach_candidates
+        if float(record["time_s"]) >= detach_time_s + DETACH_DEBOUNCE_S - 1.0e-9
+    ]
+    postdetach = postdetach_candidates[0] if postdetach_candidates else detach
+
+    def vector(record, key):
+        return _vector3(record[key], key)
+
+    def projected(record, key):
+        return float(np.dot(vector(record, key), axis))
+
+    cube_preopen_axis = projected(preopen, "cube_angular_velocity_w_rad_s")
+    cube_predetach_axis = projected(predetach, "cube_angular_velocity_w_rad_s")
+    cube_detach_axis = projected(detach, "cube_angular_velocity_w_rad_s")
+    cube_postdetach_axis = projected(postdetach, "cube_angular_velocity_w_rad_s")
+    hand_detach_angular = vector(detach, "hand_angular_velocity_w_rad_s")
+    hand_detach_axis = float(np.dot(hand_detach_angular, axis))
+    lever_world = (
+        vector(detach, "cube_position_w_m")
+        - vector(detach, "hand_position_w_m")
+    )
+    nominal_linear = (
+        vector(detach, "hand_linear_velocity_w_m_s")
+        + np.cross(hand_detach_angular, lever_world)
+    )
+    actual_linear = vector(detach, "cube_linear_velocity_w_m_s")
+    actual_angular = vector(detach, "cube_angular_velocity_w_rad_s")
+    angular_residual = actual_angular - hand_detach_angular
+
+    def ratio(numerator: float, denominator: float) -> float | None:
+        if abs(denominator) <= 1.0e-9:
+            return None
+        return float(numerator / denominator)
+
+    return {
+        "available": True,
+        "target_axis_world": axis.tolist(),
+        "release_motion_start_time_s": float(release_motion_start_time_s),
+        "preopen_sample_time_s": float(preopen["time_s"]),
+        "predetach_sample_time_s": float(predetach["time_s"]),
+        "detach_sample_time_s": float(detach["time_s"]),
+        "postdetach_debounce_sample_time_s": float(postdetach["time_s"]),
+        "release_contact_window_s": float(detach["time_s"])
+        - float(preopen["time_s"]),
+        "cube_preopen_axis_omega_rad_s": cube_preopen_axis,
+        "cube_predetach_axis_omega_rad_s": cube_predetach_axis,
+        "cube_detach_axis_omega_rad_s": cube_detach_axis,
+        "cube_postdetach_axis_omega_rad_s": cube_postdetach_axis,
+        "hand_detach_axis_omega_rad_s": hand_detach_axis,
+        "cube_axis_angular_retention_from_preopen": ratio(
+            cube_detach_axis, cube_preopen_axis
+        ),
+        "cube_axis_angular_transfer_from_hand_at_detach": ratio(
+            cube_detach_axis, hand_detach_axis
+        ),
+        "detach_linear_velocity_residual_w_m_s": (
+            actual_linear - nominal_linear
+        ).tolist(),
+        "detach_angular_velocity_residual_w_rad_s": angular_residual.tolist(),
+        "detach_axis_angular_velocity_residual_rad_s": float(
+            np.dot(angular_residual, axis)
+        ),
+    }
+
+
 
 def continuous_free_flight_evidence(
     records,

@@ -302,6 +302,7 @@ from xarm6_toss.flight import (  # noqa: E402
     continuous_free_flight_evidence,
     cube_ground_clearance_m,
     g1_release_response,
+    release_transfer_evidence,
 )
 from xarm6_toss.motion_limits import (  # noqa: E402
     evaluate_joint_trajectory,
@@ -1150,6 +1151,15 @@ def summarize(
     detach_time_s = free_flight_evidence.get(
         "continuous_free_flight_start_time_s"
     )
+    release_transfer = release_transfer_evidence(
+        records,
+        release_motion_start_time_s=(
+            args_cli.gripper_open_command_time_s
+            + args_cli.release_drive_start_delay_s
+        ),
+        detach_time_s=detach_time_s,
+        target_axis_world=free_flight_evidence.get("tumble_axis_world"),
+    )
     return {
         "schema": "xarm6_native_release_smoke_v1",
         "trajectory_quaternion_order": "wxyz",
@@ -1161,6 +1171,7 @@ def summarize(
         "detach_time_s": detach_time_s,
         "legacy_short_contact_detach_time_s": legacy_detach_time_s,
         **free_flight_evidence,
+        "release_transfer_evidence": release_transfer,
         "release_command_time_s": args_cli.gripper_open_command_time_s,
         "kinematic_release_time_s": args_cli.release_time_s,
         "detach_delay_s": (

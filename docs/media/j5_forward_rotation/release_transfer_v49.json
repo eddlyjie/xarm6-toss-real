@@ -1,0 +1,41 @@
+{
+  "schema": "xarm6_release_transfer_evidence_v1",
+  "source_run": "outputs/j5_forward_rotation/v49_measured_g1_metrics_1p6",
+  "release_profile": {
+    "g1_open_command_time_s": 0.585,
+    "g1_motion_start_delay_s": 0.02264,
+    "g1_full_transition_s": 0.10279,
+    "physical_detach_time_s": 0.633,
+    "command_to_detach_s": 0.048
+  },
+  "release_transfer_evidence": {
+    "release_contact_window_s": 0.026,
+    "cube_preopen_axis_omega_rad_s": 1.4553178411789276,
+    "cube_predetach_axis_omega_rad_s": 0.8006756652992102,
+    "cube_detach_axis_omega_rad_s": 0.5706451274522448,
+    "cube_postdetach_axis_omega_rad_s": 0.5438984940781447,
+    "hand_detach_axis_omega_rad_s": 1.566557645311762,
+    "cube_axis_angular_retention_from_preopen": 0.3921103083502193,
+    "cube_axis_angular_transfer_from_hand_at_detach": 0.3642669193566,
+    "detach_linear_velocity_residual_w_m_s": [
+      0.0003622727825474681,
+      -0.00226955044510313,
+      -0.008645363440408116
+    ],
+    "detach_angular_velocity_residual_w_rad_s": [
+      -0.14247256517410278,
+      1.011383831501007,
+      -0.0847698524594307
+    ],
+    "detach_axis_angular_velocity_residual_rad_s": -0.9959125178595172
+  },
+  "strict_flight": {
+    "duration_s": 0.065,
+    "maximum_separation_m": 0.020565543156578058,
+    "signed_forward_rotation_deg": 1.9024640973078262,
+    "axis_alignment": 0.9645699788647035,
+    "first_recontact_time_s": 0.698,
+    "first_recontact_link": "left_finger"
+  },
+  "interpretation": "Measured G1 timing preserves linear release velocity but introduces a large forward angular residual; early left-finger recontact separately truncates flight."
+}

@@ -1,8 +1,133 @@
+# xArm6 0–90° pose-conditioned release-mediated regrasp v5
+
+更新日期：2026-08-21
+
+> 本节是当前唯一生效的 goal。下方 v4/v3 只作历史证据；其中 5°、12°、20° 等旧完成门槛全部失效。
+
+## Paper-facing objective
+
+针对同一只约 35–40 mm 的轻量规则 cube，建立可控的前翻 dynamic regrasp skill family：
+
+~~~text
+fixed grasp + Probe posterior + requested target rotation
+→ target-conditioned J selects throw/release/brake/catch reference
+→ J4/J6 static camera-under branch, J2/J3/J5 coordinated flick
+→ measured-G1 release and true all-link contact loss
+→ Detach model predicts actual Δt/Δv/Δω
+→ ballistic propagation and catch timing adaptation
+→ same G1 bilateral stable recapture
+~~~
+
+paper-facing targets 固定为 `0° / 30° / 60° / 90°`。这不是四个后处理标签：target 改变时，
+pre-detach q/dq、G1 release timing、brake/retract 或 catch timing 必须实际改变，flight-only signed
+forward rotation 必须随 target 单调变化。`120° / 180°` 是 stretch。规则 cube 必须贴不对称
+角标或使用不同颜色的面，使 90° cube symmetry 不会掩盖视觉和 pose measurement。
+
+`v47` 的 5.055°、5/5 nominal stable regrasp 只作为真机 commissioning/fallback，证明控制、
+Probe/J、detach observer 和双侧接取链路可运行；它不计入本 goal 的 pose-changing result，不能
+作为论文最终角度。
+
+## Method hypothesis
+
+当前瓶颈不是 xArm6 已被证明只能转个位数，而是 release-mediated angular transfer 与早期
+recontact：现有 reference peak joint speed 约 0.906 rad/s，低于真机已验证 1× 上限
+1.74483445 rad/s。按实际 v35 detach Jacobian 重新施加 Cartesian gate 后，J2/J3/J5 在 conservative
+TCP 1.44 m/s 下的 forward hand omega 上限约为 3.53 rad/s，在真机已设置的 1.6 m/s gate 下约为
+3.82 rad/s；后一解主要使用 J3=-1.745、J5=+1.745 rad/s，仍位于 1× joint envelope。若 release
+近似完整保留该角速度，90°需要约 0.41–0.45 s strict flight；当前 35–40% retention 不足以直接
+达到该角度，因此必须同时提高 release transfer 并延长无 recontact flight。
+
+Detach model 显式学习 G1 有限响应、grasp offset、摩擦和 Probe posterior 造成的
+`[Δt, Δp, ΔR, Δv, Δω]`。同一 arm reference 必须比较 ideal instantaneous、10 ms sim 与真机
+measured-G1 profile（22.64 ms first motion、102.79 ms full travel、25–44 ms physical detach）。
+每次输出 pre-open/actual-detach twist、angular retention、rigid-hand residual、strict flight
+rotation 和 first recontact。Detach model 的作用不仅是解释损失；J 必须根据预测 `Δω` 增加
+pre-detach omega、延长 flight 或改变 release action，从而命中 requested angle。
+
+2026-08-21 measured-G1 native `v49` 已把该 residual 直接写入 summary：detach 为 0.633 s，即
+command 后 48 ms；G1 motion start 到 detach 的 contact window 为 26 ms；cube forward omega 从
+pre-open 1.455 rad/s 降到 detach 0.571 rad/s，retention=0.392，relative-to-hand angular transfer
+为 0.364，forward `Δω=-0.996 rad/s`。detach linear residual 很小，而 0.698 s 的左指 recontact
+把 strict flight 限制为 0.065 s、rotation 限制为 1.90°。该结果是 timing/contact failure evidence，
+不是能力上限；compact evidence 保存于 `docs/media/j5_forward_rotation/release_transfer_v49.json`。
+
+## Development gates
+
+### A. Release transfer identification
+
+- 固定 arm reference，完成三种 G1 profile 的 controlled ablation；
+- summary 直接保存 actual-minus-rigid-hand `Δv/Δω` 与 angular retention；
+- 调整 measured-G1 command lead，使 physical detach 落在 J2/J3/J5 omega peak；
+- 设计 simultaneous 与可实现的 asymmetric/rolling release candidate，提高角速度保留率；
+- 不允许以 PhysX-only 瞬时无摩擦开爪作为最终高角度方案。
+
+### B. Throw-only controllability
+
+- 在同一 1× real envelope 内生成 `30° / 60° / 90°` 三档 reference；
+- 每档 all-link strict contact-free，axis alignment ≥0.85，actual angle 对 target 误差 ≤12°；
+- physical detach 后立即 brake/retract，避免任何 finger/base/camera early recontact；
+- 至少达到 90° throw-only 后才把 90°称为 kinematic/dynamic capability；
+- 通过 90°后才尝试 120°，180°只作 stretch，不靠 joint clipping 或超 1×实现。
+
+### C. Target-conditioned stable regrasp
+
+- 先恢复 30° same-trial bilateral stable recapture，再做 60°，最后做 90°；
+- 0° low-spin skill 与 30/60/90° skills 进入同一个 J candidate library；
+- actual detach q/dq 与 learned residual 必须改变 ballistic intercept/catch schedule；
+- selected target 的同一 trial 必须同时具有目标 flight rotation 和 ≥0.5 s stable hold；
+- throw-only 与 recatch 结果始终分开报告，不得拼接。
+
+### D. Frozen validation and real handoff
+
+- 选定 60°或90° skill 冻结后运行 5 个 dynamics seeds，至少 3/5 stable success；
+- third-view/global spectator 提供全程证据；camera 不进入高速主 policy；
+- 真机依次 empty 0.25×→0.5×→1×、软垫 throw-only 15°→30°→45°→60°→90°；
+- 只在前一档无 C60、joint/collision violation 且落点安全时进入下一档；
+- 最终选定 60°或90°做最多 3–5 次 regrasp，至少保留 2 次完整成功。
+
+## Fixed real envelope
+
+~~~text
+control period                 0.020 s
+max joint speed               1.74483445 rad/s
+max joint acceleration        13.0573925 rad/s²
+max joint step                0.0348967 rad
+max qdot change/command       0.261148 rad/s
+minimum joint margin          0.15 rad，目标 ≥0.25 rad
+arm tracking lag              ≈80 ms
+G1                            370→520→370, speed 5000
+physical detach delay         25–44 ms
+~~~
+
+J4=165°附近只负责静态 wrist branch，J6 只负责 camera/cable 下置；J4/J6 不作为动态前翻作弊轴。
+J2/J3/J5 共同提供 upward/outward translation 与 forward rotation。任何 reference sample 超过
+joint/Cartesian/effort/collision gate 都失败，不得依赖 clipping。
+
+## Completion definition
+
+本轮 goal 只在以下条件同时成立时完成：
+
+1. controlled G1 ablation 和 release-transfer residual 已进入 summary/Detach model；
+2. sim 分别得到 30°、60°、90°机械合规 strict throw-only，actual error 均 ≤12°；
+3. `0/30/60/90°` target 会选择不同 executable action，并在 sim 中形成单调 angle response；
+4. 至少 30°、60°、90°各有 same-trial stable recapture，选定的 60°或90° frozen skill 达到 3/5；
+5. Probe/J 与 actual-detach adaptation 真实改变 command，而不只是写日志；
+6. GitHub fresh clone 包含真机 runner、配置、角标说明、软垫递进命令和第三视角视频；
+7. 真机选定的 60°或90° target 至少 2 次完成 contact loss、可见 rotation、同手 recapture 与
+   ≥0.5 s stable hold；若真机只能达到更低角度，必须缩小 paper claim，不能用 sim 结果代替。
+
+只完成 sim 时标记 `sim_validated_real_unverified`；真机只跑固定 timing 或个位数 rotation 时标记
+`real_open_loop_commissioning_baseline`。camera 只用于离线证据，不是本 goal 的主闭环传感器。
+
+---
+
+## 以下为 v4/v3 历史记录
+
 # xArm6 forward-rotation release-mediated regrasp v4
 
 更新日期：2026-08-21
 
-> 本节是当前唯一生效的 goal。下方 v3 内容仅作历史证据，不再作为本轮完成条件。
+> 历史记录：本节不再作为当前完成条件；仅用于追溯 v47 commissioning、J4/J5 branch 与旧门槛。
 
 ## 核心任务
 
@@ -56,6 +181,29 @@ Probe/J 和 G1 detach observer 继续原样移交真机，先做空载/软垫 th
 recatch。sim `.48/.65 rad` 不是 G1 真机位置；真机映射为约 `441/370`，最终以 G1 actual position
 标定为准。可执行入口为 `scripts/22_run_j5_dynamic_regrasp.py`，标定入口为真机包内更新后的
 `real_cube_demo/scripts/10_measure_detach.py`。
+
+## 2026-08-21 Detach model 主线：显式建模 G1 release impulse
+
+当前 rotation-expansion 分支不再把开爪后的角速度损失简单归因于“xArm 不够快”。初步 native
+sim 记录显示，cube 在开爪前随手运动时的前翻角速度约为 `1.46–1.93 rad/s`，真实 contact loss
+后只保留约 `0.53 rad/s`，对应约 `27–34%` angular retention。该现象应作为 Detach model 的
+研究对象：G1 command-to-motion delay、有限开爪速度、指尖摩擦、grasp offset 和 Probe posterior
+共同决定真实 detach time、linear velocity 与 angular velocity residual。
+
+先固定同一条 J2/J3/J5 arm reference，只比较三种 release profile：
+
+1. ideal instantaneous open；
+2. 当前 10 ms sim transition；
+3. 真机测得的 G1 response：首次运动约 22.64 ms、完整 `370→520` 行程约 102.79 ms，physical
+   detach delay 约 25–44 ms。
+
+每个 profile 必须输出 `pre-open hand/cube twist`、`actual detach twist`、`Δt`、`Δv`、`Δω`、
+`eta_omega=(omega_cube_detach·a_forward)/(omega_cube_preopen·a_forward)`、strict flight rotation
+与首次 recontact。只有 measured-G1 profile 也重复出现显著 angular residual，才允许把它写成
+G1 release-mediated Detach 结论；当前 10 ms 结果只能作为 hypothesis，不得直接冒充真机机制。
+Detach predictor 延续已有 13-D residual 语义 `[Δt, Δp, ΔR, Δv, Δω]`，由 Probe posterior 与
+release action 条件化；J 使用预测的 actual post-detach state 选择 catch timing/reference。这样
+即使 G1 只保留部分角速度，也不是方法失败，而是被显式预测并用于闭环协调的 detach dynamics。
 
 ## 2026-08-20 当前执行 checkpoint
 
