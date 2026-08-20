@@ -57,6 +57,7 @@ class G1PositionDetachObserver:
         open_position: float,
         detach_position_threshold: float | None,
         fallback_delay_s: float,
+        calibrated_position_timeout_s: float | None = None,
     ):
         self.command_time_s = float(command_time_s)
         self.held_position = float(held_position)
@@ -67,6 +68,11 @@ class G1PositionDetachObserver:
             else float(detach_position_threshold)
         )
         self.fallback_delay_s = float(fallback_delay_s)
+        self.calibrated_position_timeout_s = (
+            None
+            if calibrated_position_timeout_s is None
+            else float(calibrated_position_timeout_s)
+        )
         self.opening_direction = math.copysign(
             1.0, self.open_position - self.held_position
         )
@@ -81,18 +87,26 @@ class G1PositionDetachObserver:
             * (gripper_position - self.detach_position_threshold)
             >= 0.0
         )
-        fallback_due = (
-            time_s >= self.command_time_s + self.fallback_delay_s
+        fallback_delay_s = self.fallback_delay_s
+        if (
+            self.detach_position_threshold is not None
+            and self.calibrated_position_timeout_s is not None
+        ):
+            fallback_delay_s = self.calibrated_position_timeout_s
+        fallback_due = time_s >= (
+            self.command_time_s + fallback_delay_s
         )
         if threshold_crossed or fallback_due:
+            if threshold_crossed:
+                source = "calibrated_g1_position"
+            elif self.detach_position_threshold is not None:
+                source = "calibrated_position_timeout_fallback"
+            else:
+                source = "measured_delay_fallback"
             self.event = DetachEvent(
                 time_s=float(time_s),
                 gripper_position=float(gripper_position),
-                source=(
-                    "calibrated_g1_position"
-                    if threshold_crossed
-                    else "measured_delay_fallback"
-                ),
+                source=source,
             )
         return self.event
 

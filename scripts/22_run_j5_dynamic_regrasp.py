@@ -133,6 +133,20 @@ def plan_payload(
         "probe": probe_evidence,
         "detach_calibration": calibration,
         "detach_position_threshold": threshold,
+        "detach_observer_timing_s": {
+            "position_poll_start": controller_config["detach_observer"][
+                "position_poll_start_after_release_s"
+            ],
+            "position_poll_period": controller_config["detach_observer"][
+                "position_poll_period_s"
+            ],
+            "uncalibrated_fallback": controller_config["detach_observer"][
+                "fallback_delay_s"
+            ],
+            "calibrated_position_timeout": controller_config["detach_observer"][
+                "calibrated_position_timeout_s"
+            ],
+        },
         "release_command_time_s": positions["release_command_time_s"] / speed_scale,
         "detach_relative_offsets_s": {
             key: None if value is None else value / speed_scale
@@ -235,6 +249,9 @@ def execute_timeline(
         open_position=g1["partial_open_position"],
         detach_position_threshold=threshold,
         fallback_delay_s=float(detach_observer_config["fallback_delay_s"]),
+        calibrated_position_timeout_s=float(
+            detach_observer_config["calibrated_position_timeout_s"]
+        ),
     )
     grasp_offset = np.asarray(
         controller_config["grasp_offset_gripper_base_link_m"], dtype=float

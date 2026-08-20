@@ -43,12 +43,28 @@ def test_g1_position_observer_has_measured_delay_fallback():
         command_time_s=0.585,
         held_position=370,
         open_position=520,
-        detach_position_threshold=500,
+        detach_position_threshold=None,
         fallback_delay_s=0.035,
     )
     event = observer.observe(0.620, 420)
     assert event is not None
     assert event.source == "measured_delay_fallback"
+
+
+def test_g1_position_observer_waits_through_calibrated_detach_range():
+    observer = G1PositionDetachObserver(
+        command_time_s=0.585,
+        held_position=370,
+        open_position=520,
+        detach_position_threshold=500,
+        fallback_delay_s=0.035,
+        calibrated_position_timeout_s=0.044,
+    )
+    assert observer.observe(0.620, 420) is None
+    event = observer.observe(0.630, 430)
+    assert event is not None
+    assert event.source == "calibrated_position_timeout_fallback"
+    assert event.time_s == 0.630
 
 
 def test_release_state_preserves_actual_arm_sample_and_replays_ballistic_prior():
@@ -522,6 +538,12 @@ def test_plan_payload_uses_the_supplied_controller_config():
     )
 
     assert payload["grasp_offset"]["cube_center_m"] == [0.01, 0.02, 0.03]
+    assert payload["detach_observer_timing_s"] == {
+        "position_poll_start": 0.020,
+        "position_poll_period": 0.005,
+        "uncalibrated_fallback": 0.035,
+        "calibrated_position_timeout": 0.044,
+    }
 
 
 def test_runner_sets_and_verifies_proven_linear_speed_factor():
