@@ -60,8 +60,10 @@ toss_project_sim_handoff/toss_project/real_cube_demo/scripts/10_measure_detach.p
 5. 1× cube trial 在 arm t=0.585 s 异步发送 G1 `370→520`，speed=5000。
 6. 先用下方 global-camera fixed-pose calibration 得到物理离手时的 G1 actual position。runtime
    release 后只轮询 G1 actual position；越过该阈值就冻结 actual q/dq，经 FK/Jacobian 与固定
-   hand-to-cube offset 得到 cube release position/velocity，再按重力传播。若读取未及时越阈值，
-   使用实测 25–44 ms 区间内的 35 ms fallback。真机包没有可用的 G1 motor-current signal。
+   `xarm_gripper_base_link → cube center` offset 得到 cube release position/velocity，再按重力传播。
+   真机使用 `[4.000, 0, 137.436] mm`；sim summary 中 `[4,0,24] mm` 是另一个 hand-local
+   placement frame，不能复制到真机 FK。若读取未及时越阈值，使用实测 25–44 ms 区间内的
+   35 ms fallback。真机包没有可用的 G1 motor-current signal。
 7. 从 observed detach 计时：+5 ms 启动 bounded J1–J3 catch servo；+65 ms 发 G1 preclose≈441；
    +165 ms 发最终 close=370；目标 intercept 为 +185 ms，+215 ms 停止更新。J4–J6 全程锁定。
 8. G1 441 只是 sim 0.48 rad 的初始线性映射；先用空夹爪 actual-position log 检查。sim 0.65 rad

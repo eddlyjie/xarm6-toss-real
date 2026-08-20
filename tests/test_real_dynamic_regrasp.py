@@ -271,3 +271,33 @@ def test_real_runner_executes_detach_relative_sequence_without_hardware():
     assert execution["first_catch_update"] is not None
     assert any(record["catch_active"] for record in records)
     assert execution["timing"]["maximum_control_period_s"] <= 0.0200001
+
+
+def test_plan_payload_uses_the_supplied_controller_config():
+    spec = importlib.util.spec_from_file_location(
+        "xarm6_real_runner_plan", ROOT / "scripts" / "22_run_j5_dynamic_regrasp.py"
+    )
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+    timeline = runner.load_json(
+        ROOT / "real_handoff" / "j5_forward_rotation_timeline.json"
+    )
+    probe_j = runner.load_json(
+        ROOT / "sim" / "configs" / "probe_j_j5_dynamic_regrasp_v2.json"
+    )
+    controller = runner.load_json(
+        ROOT / "real_handoff" / "j5_dynamic_regrasp_controller.json"
+    )
+    controller["grasp_offset_gripper_base_link_m"] = [0.01, 0.02, 0.03]
+
+    payload = runner.plan_payload(
+        timeline,
+        probe_j["catch_candidates"][0],
+        {"status": "test"},
+        controller,
+        None,
+        {"status": "test"},
+        speed_scale=0.25,
+    )
+
+    assert payload["grasp_offset"]["cube_center_m"] == [0.01, 0.02, 0.03]

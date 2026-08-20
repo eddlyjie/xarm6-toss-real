@@ -92,14 +92,16 @@ def release_state_from_arm(
     kinematics,
     joint_position_rad,
     joint_velocity_rad_s,
-    grasp_offset_hand_m,
+    grasp_offset_gripper_base_link_m,
     *,
     time_s: float,
     target_link: str = "xarm_gripper_base_link",
 ) -> ReleaseState:
     q = np.asarray(joint_position_rad, dtype=float)
     qd = np.asarray(joint_velocity_rad_s, dtype=float)
-    offset_hand = np.asarray(grasp_offset_hand_m, dtype=float)
+    offset_hand = np.asarray(
+        grasp_offset_gripper_base_link_m, dtype=float
+    )
     transform = kinematics.forward(q, target_link=target_link)
     jacobian = kinematics.jacobian(q, target_link=target_link)
     offset_world = transform[:3, :3] @ offset_hand
@@ -146,7 +148,7 @@ def catch_position_target(
     kinematics,
     joint_position_rad,
     intercept_position_base_m,
-    grasp_offset_hand_m,
+    grasp_offset_gripper_base_link_m,
     *,
     controlled_joint_count: int = 3,
     target_link: str = "xarm_gripper_base_link",
@@ -155,7 +157,7 @@ def catch_position_target(
     transform = kinematics.forward(q, target_link=target_link)
     full_jacobian = kinematics.jacobian(q, target_link=target_link)
     offset_world = transform[:3, :3] @ np.asarray(
-        grasp_offset_hand_m, dtype=float
+        grasp_offset_gripper_base_link_m, dtype=float
     )
     desired_hand_position = (
         np.asarray(intercept_position_base_m, dtype=float) - offset_world

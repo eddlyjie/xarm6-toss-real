@@ -55,11 +55,17 @@
     4,
     6
   ],
-  "grasp_offset_hand_m": [
+  "sim_cube_offset_hand_m": [
+    0.004,
+    0.0,
+    0.024
+  ],
+  "real_grasp_offset_gripper_base_link_m": [
     0.004000254,
     0.0,
     0.13743645
   ],
+  "grasp_offset_frame_note": "sim hand-local placement and real xarm_gripper_base_link FK offsets are different frames and must not be interchanged",
   "g1_events": [
     {
       "time_s": 0.585,

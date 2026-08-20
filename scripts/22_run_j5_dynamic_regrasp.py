@@ -108,6 +108,7 @@ def plan_payload(
     timeline: dict,
     selected: dict,
     probe_evidence: dict,
+    controller_config: dict,
     threshold: float | None,
     calibration: dict,
     *,
@@ -117,7 +118,7 @@ def plan_payload(
         timeline["samples"], speed_scale=speed_scale
     )
     offsets = controller_offsets(selected["controller"])
-    positions = load_json(CONTROLLER_PATH)["g1_real"]
+    positions = controller_config["g1_real"]
     return {
         "schema": "xarm6_j5_dynamic_regrasp_real_plan_v1",
         "robot_commands_sent": 0,
@@ -138,6 +139,10 @@ def plan_payload(
             "partial_open": positions["partial_open_position"],
             "preclose": positions["preclose_position_initial_mapping"],
             "final_close": positions["final_close_position"],
+        },
+        "grasp_offset": {
+            "frame": "xarm_gripper_base_link",
+            "cube_center_m": controller_config["grasp_offset_gripper_base_link_m"],
         },
         "reference_peak_speed_rad_s": float(
             np.max(
@@ -205,7 +210,7 @@ def execute_timeline(
         fallback_delay_s=float(controller_config["detach_observer"]["fallback_delay_s"]),
     )
     grasp_offset = np.asarray(
-        controller_config["grasp_offset_hand_m"], dtype=float
+        controller_config["grasp_offset_gripper_base_link_m"], dtype=float
     )
     records = []
     g1_events = []
@@ -437,12 +442,14 @@ def main() -> int:
             "outputs/detach_trials/*/detach_result.json"
         )
     timeline = load_json(args.timeline)
+    controller_config = load_json(args.controller)
     selected, probe_evidence = select_candidate(args.probe_comparison)
     threshold, calibration = detach_threshold(args.detach_result)
     payload = plan_payload(
         timeline,
         selected,
         probe_evidence,
+        controller_config,
         threshold,
         calibration,
         speed_scale=args.speed_scale,
@@ -468,7 +475,6 @@ def main() -> int:
     if (args.execute_cube or args.execute_throw_only) and args.speed_scale != 1.0:
         raise RuntimeError("cube trials use the validated 1.0 speed scale")
 
-    controller_config = load_json(args.controller)
     controller_config["runtime_detach_position_threshold"] = threshold
     samples = resample_timeline(
         timeline["samples"], speed_scale=args.speed_scale

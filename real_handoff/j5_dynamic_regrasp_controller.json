@@ -19,11 +19,12 @@
     "wrist_camera_hardware_removed": true,
     "camera_required_for_control": false
   },
-  "grasp_offset_hand_m": [
+  "grasp_offset_gripper_base_link_m": [
     0.004000254,
     0.0,
     0.13743645
   ],
+  "grasp_offset_source": "v47 fixed grasp ported through the received xarm6_with_gripper_g1 URDF; not the sim hand-local placement offset",
   "g1_real": {
     "firmware_speed": 5000,
     "held_position": 370,
