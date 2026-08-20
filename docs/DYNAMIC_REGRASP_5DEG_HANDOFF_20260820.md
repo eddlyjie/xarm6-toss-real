@@ -155,3 +155,8 @@ real detach_state_source = calibrated_g1_position (or measured_delay_fallback)
 probe_used_for_control = true
 j_used_for_control = true
 ```
+
+Runtime invariant: catch servo continuously takes over from the nominal command
+`q/dq`; actual `q/dq` is used for FK, ballistic release state, and position error,
+but never replaces the command seed. `first_catch_update` logs both states so the
+measured real tracking lag remains visible.

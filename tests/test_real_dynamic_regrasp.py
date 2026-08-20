@@ -243,6 +243,19 @@ def test_real_runner_executes_detach_relative_sequence_without_hardware():
             assert target_link == "xarm_gripper_base_link"
             return np.eye(6)
 
+    class LaggedFakeRobot(FakeRobot):
+        actual_tracking_offset_rad = np.asarray(
+            [0.01, -0.02, 0.03, 0.01, -0.01, 0.02]
+        )
+
+        def reported_joint_signals(self):
+            signals = super().reported_joint_signals()
+            signals["joint_position_rad"] = (
+                np.asarray(signals["joint_position_rad"])
+                - self.actual_tracking_offset_rad
+            ).tolist()
+            return signals
+
     timeline = runner.load_json(
         ROOT / "real_handoff" / "j5_forward_rotation_timeline.json"
     )
@@ -255,7 +268,7 @@ def test_real_runner_executes_detach_relative_sequence_without_hardware():
         ROOT / "sim" / "configs" / "probe_j_j5_dynamic_regrasp_v2.json"
     )
     selected = probe_j["catch_candidates"][0]
-    robot = FakeRobot(samples[0]["joint_position_rad"])
+    robot = LaggedFakeRobot(samples[0]["joint_position_rad"])
     clock = FakeClock()
     runner.time = clock
 
@@ -283,6 +296,16 @@ def test_real_runner_executes_detach_relative_sequence_without_hardware():
     assert execution["release_state"] is not None
     assert execution["first_catch_update"] is not None
     assert any(record["catch_active"] for record in records)
+    catch_start = execution["first_catch_update"]
+    assert catch_start["command_seed_source"] == "preserved_nominal_reference"
+    np.testing.assert_allclose(
+        np.asarray(catch_start["command_position_before_update_rad"])
+        - np.asarray(catch_start["actual_position_rad"]),
+        robot.actual_tracking_offset_rad,
+    )
+    assert np.max(
+        np.abs(catch_start["command_velocity_before_update_rad_s"])
+    ) > 0.0
     assert execution["timing"]["maximum_control_period_s"] <= 0.0200001
 
     failed_robot = FakeRobot(

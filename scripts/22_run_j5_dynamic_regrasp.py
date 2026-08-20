@@ -250,6 +250,7 @@ def execute_timeline(
     intercept_position = None
     catch_started = False
     catch_target = None
+    catch_start_state = None
     fixed_wrist = None
     commanded_position = np.asarray(samples[0]["joint_position_rad"], dtype=float)
     commanded_velocity = np.asarray(samples[0]["joint_velocity_rad_s"], dtype=float)
@@ -350,13 +351,22 @@ def execute_timeline(
                 and elapsed >= detach_event.time_s + float(offsets["catch_servo"])
             )
             if catch_active and not catch_started:
-                commanded_position = np.asarray(
-                    latest_signals["joint_position_rad"], dtype=float
-                )
-                commanded_velocity = np.asarray(
-                    latest_signals["joint_velocity_rad_s"], dtype=float
-                )
                 fixed_wrist = commanded_position[3:].copy()
+                catch_start_state = {
+                    "command_seed_source": "preserved_nominal_reference",
+                    "command_position_before_update_rad": (
+                        commanded_position.tolist()
+                    ),
+                    "command_velocity_before_update_rad_s": (
+                        commanded_velocity.tolist()
+                    ),
+                    "actual_position_rad": list(
+                        latest_signals["joint_position_rad"]
+                    ),
+                    "actual_velocity_rad_s": list(
+                        latest_signals["joint_velocity_rad_s"]
+                    ),
+                }
                 catch_started = True
             if catch_active:
                 control_end_s = detach_event.time_s + float(offsets["control_end"])
@@ -375,6 +385,7 @@ def execute_timeline(
                     catch_target[3:] = fixed_wrist
                     if first_catch_update is None:
                         first_catch_update = {
+                            **catch_start_state,
                             "time_s": elapsed,
                             "position_error_m": error.tolist(),
                             "joint_delta_rad": delta.tolist(),
