@@ -51,6 +51,25 @@ pre-open 1.455 rad/s 降到 detach 0.571 rad/s，retention=0.392，relative-to-h
 把 strict flight 限制为 0.065 s、rotation 限制为 1.90°。该结果是 timing/contact failure evidence，
 不是能力上限；compact evidence 保存于 `docs/media/j5_forward_rotation/release_transfer_v49.json`。
 
+2026-08-21 `v50–v65` expansion checkpoint 已把“机械臂速度不足”和“G1 detach transfer不足”分开：
+
+- `v52` measured-G1 full-open 是原始最佳：strict flight 0.338 s、forward rotation 9.878°、
+  hand/cube detach omega 2.636/0.599 rad/s，transfer=22.7%；
+- `v60` 后移 release 后 hand omega 提高到 3.346 rad/s、flight 延长到 0.404 s，但 cube omega
+  只有 0.554 rad/s、transfer=16.6%，最终 11.259°；
+- `v62` 对称 two-stage pre-open 保持夹持且达到当前最佳 11.530°，但 transfer 仍为 16.5%；
+- cube `±30°` edge placement 在 throw 前掉落，closing-axis 4 mm 偏心在 settle 时被自动居中；
+- `v63–v65` 的 J1 inertial-preload reference 虽通过 1× joint/TCP gate，但约 80 ms tracking dynamics
+  把短时 lateral pulse 滤掉，actual detach J1 velocity 约 0.001 rad/s，左右接触顺序没有改变，
+  结果仍为 11.30–11.56°。这些候选不得进入真机运行入口。
+
+因此标准 G1 + controller-only symmetric opening 的当前可信能力 checkpoint 是约 11.5°，不是90°。
+机械臂已能提供约 3.1–3.35 rad/s forward hand omega 和约 0.40 s flight，主瓶颈是 opening 最后
+数毫秒只保留 16–23% angular velocity。下一 active method branch 是可拆卸的 passive unilateral
+release insert/roller：cube 仍为规则 cube，insert 只在一侧指面形成可复现 rolling detach；其
+geometry、contact material 和真机安装图必须公开，并把标准 G1结果作为 hardware-matched baseline。
+若不接受该最小硬件改动，则 paper claim 必须降到小角度离手 regrasp，不能以 sim 90°代替真机。
+
 ## Development gates
 
 ### A. Release transfer identification

@@ -42,6 +42,12 @@ parser.add_argument(
     default=(0.0, 0.0, 0.0),
     metavar=("X", "Y", "Z"),
 )
+parser.add_argument(
+    "--cube-rotation-hand-y-deg",
+    type=float,
+    default=0.0,
+    help="Fixed cube rotation about hand-local Y at the one-time placement.",
+)
 parser.add_argument("--held-drive-rad", type=float, default=0.37)
 parser.add_argument("--held-gripper-effort-limit-n", type=float, default=None)
 parser.add_argument("--partial-open-drive-rad", type=float, default=0.52)
@@ -59,6 +65,24 @@ parser.add_argument(
     type=float,
     default=None,
     help="Allow the nonblocking G1 open command to lead kinematic release.",
+)
+parser.add_argument(
+    "--gripper-preopen-command-time-s",
+    type=float,
+    default=None,
+    help="Optional first-stage G1 command that unloads symmetric pinch before flick.",
+)
+parser.add_argument(
+    "--gripper-preopen-drive-rad",
+    type=float,
+    default=None,
+    help="G1 drive target for the first-stage rolling-release preload.",
+)
+parser.add_argument(
+    "--gripper-preopen-transition-s",
+    type=float,
+    default=None,
+    help="Measured-response transition duration for the first-stage preload.",
 )
 parser.add_argument(
     "--release-drive-transition-s",
@@ -797,9 +821,20 @@ def place_cube_once(
         hand_quaternion.unsqueeze(0),
         local_offset,
     )[0]
+    half_angle_rad = 0.5 * np.deg2rad(args_cli.cube_rotation_hand_y_deg)
+    local_rotation_xyzw = torch.tensor(
+        [
+            0.0,
+            np.sin(half_angle_rad),
+            0.0,
+            np.cos(half_angle_rad),
+        ],
+        dtype=torch.float32,
+        device=robot.device,
+    )
     pose = cube.data.default_root_pose.torch.clone()
     pose[0, :3] = finger_midpoint + world_offset
-    pose[0, 3:7] = hand_quaternion
+    pose[0, 3:7] = quat_mul(hand_quaternion, local_rotation_xyzw)
     velocity = torch.zeros((1, 6), device=robot.device)
     cube.write_root_pose_to_sim_index(root_pose=pose)
     cube.write_root_velocity_to_sim_index(root_velocity=velocity)
@@ -969,6 +1004,28 @@ def all_robot_contact_free(record: dict[str, object]) -> bool:
     )
 
 
+def relative_orientation_wxyz(record: dict[str, object]) -> np.ndarray:
+    hand = np.asarray(record["hand_quaternion_wxyz"], dtype=float)
+    cube = np.asarray(record["cube_quaternion_wxyz"], dtype=float)
+    hand = hand / np.linalg.norm(hand)
+    cube = cube / np.linalg.norm(cube)
+    hand_w, hand_xyz = hand[0], hand[1:]
+    cube_w, cube_xyz = cube[0], cube[1:]
+    return np.concatenate(
+        (
+            [hand_w * cube_w + float(np.dot(hand_xyz, cube_xyz))],
+            hand_w * cube_xyz - cube_w * hand_xyz - np.cross(hand_xyz, cube_xyz),
+        )
+    )
+
+
+def quaternion_distance_deg(first: np.ndarray, second: np.ndarray) -> float:
+    first = first / np.linalg.norm(first)
+    second = second / np.linalg.norm(second)
+    half_angle_cosine = float(np.clip(abs(np.dot(first, second)), 0.0, 1.0))
+    return float(np.rad2deg(2.0 * np.arccos(half_angle_cosine)))
+
+
 def summarize(
     records: list[dict[str, object]],
     placed_pose: list[float],
@@ -996,6 +1053,14 @@ def summarize(
         settle_records[-1]["cube_position_hand_m"],
         dtype=float,
     )
+    baseline_orientation = relative_orientation_wxyz(settle_records[-1])
+    prethrow_orientation_errors_deg = [
+        quaternion_distance_deg(
+            relative_orientation_wxyz(record),
+            baseline_orientation,
+        )
+        for record in throw_records
+    ]
     prethrow_errors = [
         float(
             np.linalg.norm(
@@ -1166,7 +1231,11 @@ def summarize(
         "cube_state_writes_after_initialization": 0,
         "placed_cube_pose_w": placed_pose,
         "prethrow_max_relative_error_m": max(prethrow_errors),
-        "prethrow_stable": max(prethrow_errors) <= 0.008,
+        "prethrow_max_relative_orientation_error_deg": max(
+            prethrow_orientation_errors_deg
+        ),
+        "prethrow_stable": max(prethrow_errors) <= 0.008
+        and max(prethrow_orientation_errors_deg) <= 8.0,
         "detach_detected": detach_time_s is not None,
         "detach_time_s": detach_time_s,
         "legacy_short_contact_detach_time_s": legacy_detach_time_s,
@@ -1247,6 +1316,9 @@ def summarize(
         "wrist_camera_recording_virtual_only": bool(args_cli.wrist_camera_hardware_removed),
         "held_drive_rad": args_cli.held_drive_rad,
         "held_gripper_effort_limit_n": args_cli.held_gripper_effort_limit_n,
+        "gripper_preopen_command_time_s": args_cli.gripper_preopen_command_time_s,
+        "gripper_preopen_drive_rad": args_cli.gripper_preopen_drive_rad,
+        "gripper_preopen_transition_s": args_cli.gripper_preopen_transition_s,
         "partial_open_drive_rad": args_cli.partial_open_drive_rad,
         "release_gripper_effort_limit_n": (
             args_cli.release_gripper_effort_limit_n
@@ -1272,6 +1344,7 @@ def summarize(
         "actual_max_joint_speed_rad_s": actual_limit_evidence["max_joint_speed_rad_s"],
         "actual_max_joint_acceleration_rad_s2": actual_limit_evidence["max_joint_acceleration_rad_s2"],
         "cube_offset_hand_m": list(args_cli.cube_offset_hand_m),
+        "cube_rotation_hand_y_deg": args_cli.cube_rotation_hand_y_deg,
     }
 
 
@@ -1300,6 +1373,36 @@ def main() -> int:
         )
     if args_cli.gripper_open_command_time_s is None:
         args_cli.gripper_open_command_time_s = args_cli.release_time_s
+    preopen_values = (
+        args_cli.gripper_preopen_command_time_s,
+        args_cli.gripper_preopen_drive_rad,
+        args_cli.gripper_preopen_transition_s,
+    )
+    preopen_enabled = all(value is not None for value in preopen_values)
+    if any(value is not None for value in preopen_values) and not preopen_enabled:
+        raise ValueError("G1 preopen command time, drive and transition must be set together")
+    if preopen_enabled:
+        if args_cli.gripper_preopen_transition_s <= 0.0:
+            raise ValueError("G1 preopen transition must be positive")
+        if not (
+            min(args_cli.partial_open_drive_rad, args_cli.held_drive_rad)
+            <= args_cli.gripper_preopen_drive_rad
+            <= max(args_cli.partial_open_drive_rad, args_cli.held_drive_rad)
+        ):
+            raise ValueError("G1 preopen target must lie between held and open targets")
+        preopen_motion_start_s = (
+            args_cli.gripper_preopen_command_time_s
+            + args_cli.release_drive_start_delay_s
+        )
+        full_open_motion_start_s = (
+            args_cli.gripper_open_command_time_s
+            + args_cli.release_drive_start_delay_s
+        )
+        if (
+            preopen_motion_start_s + args_cli.gripper_preopen_transition_s
+            > full_open_motion_start_s
+        ):
+            raise ValueError("G1 preopen transition must finish before final open starts")
     preposition_pair_complete = (
         args_cli.catch_preposition_bias_m is None
     ) == (args_cli.catch_preposition_end_time_s is None)
@@ -1709,6 +1812,14 @@ def main() -> int:
     open_target = torch.tensor(
         [[args_cli.partial_open_drive_rad]],
         device=sim.device,
+    )
+    preopen_target = (
+        None
+        if not preopen_enabled
+        else torch.tensor(
+            [[args_cli.gripper_preopen_drive_rad]],
+            device=sim.device,
+        )
     )
     catch_target = torch.tensor(
         [[
@@ -2299,11 +2410,35 @@ def main() -> int:
                     joint_ids=drive_ids,
                 )
             release_gripper_dynamics_applied = True
+        preopen_motion_start_s = None
+        preopen_motion_end_s = None
+        if preopen_enabled:
+            preopen_motion_start_s = (
+                args_cli.gripper_preopen_command_time_s
+                + args_cli.release_drive_start_delay_s
+            )
+            preopen_motion_end_s = (
+                preopen_motion_start_s + args_cli.gripper_preopen_transition_s
+            )
         gripper_target = (
             open_target
             if time_s >= physical_open_start_s
+            else preopen_target
+            if preopen_motion_end_s is not None and time_s >= preopen_motion_end_s
             else held_target
         )
+        if (
+            preopen_motion_start_s is not None
+            and preopen_motion_start_s <= time_s < preopen_motion_end_s
+        ):
+            progress = (
+                (time_s - preopen_motion_start_s)
+                / args_cli.gripper_preopen_transition_s
+            )
+            blend = progress**3 * (10.0 + progress * (-15.0 + 6.0 * progress))
+            gripper_target = held_target + blend * (
+                preopen_target - held_target
+            )
         if (
             args_cli.release_drive_transition_s is not None
             and physical_open_start_s <= time_s
@@ -2314,7 +2449,12 @@ def main() -> int:
                 / args_cli.release_drive_transition_s
             )
             blend = progress**3 * (10.0 + progress * (-15.0 + 6.0 * progress))
-            measured_drive = held_target + blend * (open_target - held_target)
+            release_start_target = (
+                held_target if preopen_target is None else preopen_target
+            )
+            measured_drive = release_start_target + blend * (
+                open_target - release_start_target
+            )
             gripper_target = measured_drive
         preclose_active = (
             args_cli.catch_preclose_time_s is not None

@@ -1,0 +1,63 @@
+{
+  "schema": "xarm6_rotation_expansion_checkpoint_v1",
+  "date": "2026-08-21",
+  "cube": {
+    "side_length_m": 0.035,
+    "mass_kg": 0.025
+  },
+  "measured_g1": {
+    "command_to_motion_s": 0.02264,
+    "full_transition_s": 0.10279
+  },
+  "runs": [
+    {
+      "name": "v52_r90_plateau_fullopen",
+      "output": "outputs/pose_rotation/v52_r90_plateau_fullopen",
+      "strict_flight_s": 0.338,
+      "forward_rotation_deg": 9.877838518511181,
+      "axis_alignment": 0.9977079434306741,
+      "hand_detach_omega_rad_s": 2.635536006101622,
+      "cube_detach_omega_rad_s": 0.5994098210141356,
+      "hand_to_cube_transfer": 0.2274337438860334
+    },
+    {
+      "name": "v60_r90_late_release",
+      "output": "outputs/pose_rotation/v60_r90_late_release",
+      "strict_flight_s": 0.4039999999999928,
+      "forward_rotation_deg": 11.259497891432211,
+      "axis_alignment": 0.9365655019175574,
+      "hand_detach_omega_rad_s": 3.3455788800724275,
+      "cube_detach_omega_rad_s": 0.5538000085787393,
+      "hand_to_cube_transfer": 0.16553189401014817
+    },
+    {
+      "name": "v62_r90_two_stage_055",
+      "output": "outputs/pose_rotation/v62_r90_two_stage_055",
+      "strict_flight_s": 0.39399999999999424,
+      "forward_rotation_deg": 11.52959069907775,
+      "axis_alignment": 0.973743249690684,
+      "hand_detach_omega_rad_s": 3.3121301256442766,
+      "cube_detach_omega_rad_s": 0.5476594189458629,
+      "hand_to_cube_transfer": 0.16534960830964696
+    },
+    {
+      "name": "v65_ul90_tracking",
+      "output": "outputs/pose_rotation/v65_ul90_tracking",
+      "strict_flight_s": 0.38499999999999523,
+      "forward_rotation_deg": 11.29590439658188,
+      "axis_alignment": 0.9782995532714741,
+      "hand_detach_omega_rad_s": 3.1439774839325785,
+      "cube_detach_omega_rad_s": 0.555967987569883,
+      "hand_to_cube_transfer": 0.17683586807195006,
+      "actual_detach_j1_velocity_rad_s": 0.0004,
+      "accepted": false,
+      "rejection": "J1 preload did not survive measured arm tracking or change finger contact order"
+    }
+  ],
+  "conclusion": {
+    "standard_g1_controller_only_checkpoint_deg": 11.53,
+    "paper_target_deg": [0, 30, 60, 90],
+    "target_met": false,
+    "next_method": "passive_unilateral_fingertip_release_insert_or_reduce_claim"
+  }
+}
