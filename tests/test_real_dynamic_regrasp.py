@@ -13,6 +13,7 @@ from xarm6_toss.real_dynamic_regrasp import (
     advance_limited_command,
     controller_offsets,
     damped_catch_delta,
+    estimate_arm_tracking_delay,
     load_real_probe_selection,
     real_probe_posterior,
     resample_timeline,
@@ -90,6 +91,42 @@ def test_timeline_resampling_preserves_20ms_servo_rate():
     assert np.max(
         np.abs([sample["joint_velocity_rad_s"] for sample in samples])
     ) <= 0.25 * timeline["reference_limit_evidence"]["max_joint_speed_rad_s"] + 1e-9
+
+
+def test_tracking_delay_estimator_recovers_measured_command_lag():
+    times = np.arange(0.0, 1.001, 0.02)
+    command = np.zeros((len(times), 6))
+    command[:, 1] = np.sin(2.0 * np.pi * times)
+    command[:, 2] = 0.4 * np.cos(2.0 * np.pi * 0.7 * times)
+    command[:, 4] = 0.25 * np.sin(2.0 * np.pi * 1.3 * times + 0.2)
+    true_delay_s = 0.08
+    actual = np.column_stack(
+        [
+            np.interp(times - true_delay_s, times, command[:, joint])
+            for joint in range(6)
+        ]
+    )
+    records = [
+        {
+            "command_time_s": float(time_s),
+            "time_s": float(time_s),
+            "command_joint_rad": command[index].tolist(),
+            "joint_position_rad": actual[index].tolist(),
+        }
+        for index, time_s in enumerate(times)
+    ]
+
+    estimate = estimate_arm_tracking_delay(
+        records,
+        maximum_delay_s=0.14,
+        delay_step_s=0.005,
+    )
+
+    assert estimate["status"] == "estimated"
+    assert abs(estimate["estimated_delay_s"] - true_delay_s) < 1.0e-12
+    assert estimate["active_joint_indices"] == [2, 3, 5]
+    assert estimate["fit_rms_rad"] < 1.0e-12
+    assert estimate["rms_rad_by_joint"][0] is None
 
 
 def test_controller_offsets_are_detach_relative():
@@ -306,6 +343,7 @@ def test_real_runner_executes_detach_relative_sequence_without_hardware():
     assert np.max(
         np.abs(catch_start["command_velocity_before_update_rad_s"])
     ) > 0.0
+    assert execution["arm_tracking"]["status"] == "estimated"
     assert execution["timing"]["maximum_control_period_s"] <= 0.0200001
 
     failed_robot = FakeRobot(

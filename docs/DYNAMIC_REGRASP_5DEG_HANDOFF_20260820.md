@@ -159,4 +159,7 @@ j_used_for_control = true
 Runtime invariant: catch servo continuously takes over from the nominal command
 `q/dq`; actual `q/dq` is used for FK, ballistic release state, and position error,
 but never replaces the command seed. `first_catch_update` logs both states so the
-measured real tracking lag remains visible.
+measured real tracking lag remains visible. The runner timestamps every arm command
+separately from the following state read and writes
+`execution.arm_tracking.estimated_delay_s`, active-joint RMS values, and fit RMS to
+`summary.json`; use this measured value when transferring the next sim timing update.

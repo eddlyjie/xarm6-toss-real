@@ -25,6 +25,7 @@ from xarm6_toss.real_dynamic_regrasp import (  # noqa: E402
     ballistic_position,
     catch_position_target,
     controller_offsets,
+    estimate_arm_tracking_delay,
     load_real_probe_selection,
     release_state_from_arm,
     resample_timeline,
@@ -181,6 +182,7 @@ def configure_linear_speed_limit(robot, required_factor: float) -> dict[str, flo
 def write_signals(path: Path, records: list[dict]) -> None:
     columns = [
         "time_s",
+        "command_time_s",
         "reference_time_s",
         "phase",
         "g1_event",
@@ -194,7 +196,7 @@ def write_signals(path: Path, records: list[dict]) -> None:
         writer = csv.DictWriter(stream, fieldnames=columns)
         writer.writeheader()
         for record in records:
-            row = {key: record.get(key) for key in columns[:7]}
+            row = {key: record.get(key) for key in columns[:8]}
             for field in VECTOR_FIELDS:
                 row.update(
                     {
@@ -407,11 +409,13 @@ def execute_timeline(
                 commanded_position = nominal_position
                 commanded_velocity = nominal_velocity
 
+            command_time_s = time.monotonic() - start_host_s
             robot.servo_j(tuple(float(value) for value in commanded_position))
             latest_signals = robot.reported_joint_signals()
             records.append(
                 {
                     "time_s": time.monotonic() - start_host_s,
+                    "command_time_s": command_time_s,
                     "reference_time_s": sample["time_s"],
                     "phase": sample["phase"],
                     "g1_event": pending_event_label,
@@ -458,10 +462,12 @@ def execute_timeline(
             else float(np.max(g1_read_durations))
         ),
     }
+    arm_tracking = estimate_arm_tracking_delay(records)
     return records, {
         "trajectory_start_host_s": start_host_s,
         "error": execution_error,
         "timing": timing,
+        "arm_tracking": arm_tracking,
         "g1_events": g1_events,
         "detach_event": None if detach_event is None else detach_event.as_dict(),
         "release_state": None if release_state is None else release_state.as_dict(),

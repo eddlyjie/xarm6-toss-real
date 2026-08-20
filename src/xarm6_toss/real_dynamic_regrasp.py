@@ -254,6 +254,92 @@ def resample_timeline(
     return result
 
 
+def estimate_arm_tracking_delay(
+    records: Sequence[Mapping[str, object]],
+    *,
+    maximum_delay_s: float = 0.16,
+    delay_step_s: float = 0.005,
+    minimum_joint_range_rad: float = 0.02,
+) -> dict[str, object]:
+    """Align measured q against prior commands and estimate servo tracking lag."""
+    if len(records) < 4:
+        return {"status": "insufficient_samples"}
+
+    command_time = np.asarray(
+        [record["command_time_s"] for record in records], dtype=float
+    )
+    actual_time = np.asarray(
+        [record["time_s"] for record in records], dtype=float
+    )
+    command = np.asarray(
+        [record["command_joint_rad"] for record in records], dtype=float
+    )
+    actual = np.asarray(
+        [record["joint_position_rad"] for record in records], dtype=float
+    )
+    active_joints = np.flatnonzero(
+        np.ptp(command, axis=0) >= minimum_joint_range_rad
+    )
+    if not active_joints.size:
+        return {"status": "insufficient_joint_motion"}
+
+    maximum_delay_s = min(
+        float(maximum_delay_s),
+        float(actual_time[-1] - actual_time[0] - 2.0 * delay_step_s),
+    )
+    fit_mask = actual_time >= command_time[0] + maximum_delay_s
+    if maximum_delay_s <= 0.0 or np.count_nonzero(fit_mask) < 3:
+        return {"status": "insufficient_motion_duration"}
+
+    query_actual_time = actual_time[fit_mask]
+    delays = np.arange(
+        0.0,
+        maximum_delay_s + 0.5 * delay_step_s,
+        delay_step_s,
+    )
+    scores = []
+    for delay_s in delays:
+        query_command_time = query_actual_time - delay_s
+        aligned_command = np.column_stack(
+            [
+                np.interp(
+                    query_command_time,
+                    command_time,
+                    command[:, joint],
+                )
+                for joint in active_joints
+            ]
+        )
+        error = actual[fit_mask][:, active_joints] - aligned_command
+        scores.append(float(np.sqrt(np.mean(np.square(error)))))
+
+    best_index = int(np.argmin(scores))
+    estimated_delay_s = float(delays[best_index])
+    aligned_at_best = np.column_stack(
+        [
+            np.interp(
+                query_actual_time - estimated_delay_s,
+                command_time,
+                command[:, joint],
+            )
+            for joint in active_joints
+        ]
+    )
+    best_error = actual[fit_mask][:, active_joints] - aligned_at_best
+    rms_by_joint = [None] * command.shape[1]
+    for column, joint in enumerate(active_joints):
+        rms_by_joint[int(joint)] = float(
+            np.sqrt(np.mean(np.square(best_error[:, column])))
+        )
+    return {
+        "status": "estimated",
+        "estimated_delay_s": estimated_delay_s,
+        "fit_rms_rad": scores[best_index],
+        "active_joint_indices": [int(joint) + 1 for joint in active_joints],
+        "rms_rad_by_joint": rms_by_joint,
+    }
+
+
 def real_probe_posterior(
     comparison: Mapping[str, object],
     cube_probe: Mapping[str, object],
