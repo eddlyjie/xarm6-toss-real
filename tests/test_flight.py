@@ -28,8 +28,12 @@ STRICT_FREE = {
     "left_inner_knuckle": 0.0,
     "right_inner_knuckle": 0.0,
     "gripper_base": 0.0,
+    "link_eef": 0.0,
     "link6": 0.0,
+    "link5": 0.0,
+    "link4": 0.0,
     "wrist_camera_proxy": 0.0,
+    "ground": 0.0,
 }
 
 
@@ -217,6 +221,37 @@ class FlightPhysicsTests(unittest.TestCase):
             abs(evidence["free_flight_signed_tumble_rotation_deg"]), 12.0
         )
         self.assertFalse(evidence["target_axis_tumble"])
+
+    def test_first_detach_arc_is_not_reopened_after_robot_contact(self):
+        records = []
+        hand_xyzw = Rotation.from_euler("y", math.pi / 2.0).as_quat()
+        for index in range(21):
+            contacts = dict(STRICT_FREE)
+            if index == 5:
+                contacts["gripper_base"] = 1.0
+                contacts["link_eef"] = 1.0
+            time_s = 0.01 * index
+            records.append(
+                {
+                    "time_s": time_s,
+                    "phase": "flight",
+                    "cube_position_w_m": [0.4, 0.0, 0.3],
+                    "cube_linear_velocity_w_m_s": [0.0, 0.0, -0.1],
+                    "cube_angular_velocity_w_rad_s": [0.0, -1.0, 0.0],
+                    "cube_quaternion_wxyz": [1.0, 0.0, 0.0, 0.0],
+                    "hand_quaternion_wxyz": [hand_xyzw[3], *hand_xyzw[:3]],
+                    "cube_position_hand_m": [0.02 * index, 0.0, 0.12],
+                    "left_finger_cube_contact_force_n": 0.0,
+                    "right_finger_cube_contact_force_n": 0.0,
+                    "robot_cube_contact_forces_n": contacts,
+                }
+            )
+        evidence = continuous_free_flight_evidence(
+            records, [0.0, 0.0, 0.12]
+        )
+        self.assertAlmostEqual(evidence["continuous_free_flight_start_time_s"], 0.0)
+        self.assertAlmostEqual(evidence["continuous_free_flight_end_time_s"], 0.05)
+        self.assertAlmostEqual(evidence["continuous_free_flight_duration_s"], 0.05)
 
 
 if __name__ == "__main__":

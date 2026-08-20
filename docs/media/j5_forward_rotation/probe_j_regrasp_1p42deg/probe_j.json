@@ -1,0 +1,85 @@
+{
+  "probe_used_for_control": true,
+  "j_used_for_control": true,
+  "probe_posterior": {
+    "effective_payload_mean_kg": 0.02,
+    "effective_payload_std_kg": 0.006,
+    "com_offset_mean_m": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "com_offset_std_m": [
+      0.008,
+      0.008,
+      0.008
+    ],
+    "held_probability": 0.9999999993838595,
+    "slip_probability": 0.0,
+    "projected_width_m": 0.035,
+    "detach_time_std_s": 0.009000000000000001,
+    "payload_signal_nm": 0.32787421120270765,
+    "gripper_contact_signal_nm": 0.23207546163606457,
+    "effort_residual_mean_nm": [
+      -0.025553028994851047,
+      0.025453256756067275,
+      -0.3266671258332208,
+      -1.7328706301212224,
+      -0.011925560455180971,
+      0.021880049112629422
+    ],
+    "effort_residual_dynamic_rms_nm": [
+      0.10486346258894828,
+      0.021364395457739063,
+      0.11674113991831041,
+      4.876603724704073,
+      0.22795103990636303,
+      0.19582631617940618
+    ],
+    "sample_count": 500
+  },
+  "catch_candidate_ranking": [
+    {
+      "name": "j5_forward_rotation_stable_0640",
+      "J": 0.5750407739488448,
+      "terms": {
+        "task_grasp_error": 0.0,
+        "relative_contact_velocity": 0.08,
+        "impact_energy": 0.04,
+        "slip_risk": 0.03,
+        "arm_motion_cost": 0.06,
+        "cvar_failure": 0.2,
+        "catch_probability": 0.8999999997227368
+      }
+    },
+    {
+      "name": "j5_forward_rotation_aggressive_0700",
+      "J": 3.3914415421419415,
+      "terms": {
+        "task_grasp_error": 0.03,
+        "relative_contact_velocity": 0.16,
+        "impact_energy": 0.1,
+        "slip_risk": 0.1,
+        "arm_motion_cost": 0.12,
+        "cvar_failure": 0.7500000000000001,
+        "catch_probability": 0.24999999992298244
+      }
+    }
+  ],
+  "selected_catch_candidate": "j5_forward_rotation_stable_0640",
+  "selected_controller": {
+    "catch_servo_start_time_s": 0.62,
+    "catch_close_time_s": 0.64,
+    "vision_control_end_time_s": 0.685,
+    "catch_intercept_time_s": 0.685,
+    "catch_lateral_only": false,
+    "catch_hold_throw_joints": false,
+    "catch_position_bias_m": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "catch_drive_rad": 0.56
+  },
+  "probe_gate_passed": true
+}

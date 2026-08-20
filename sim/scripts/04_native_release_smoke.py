@@ -799,10 +799,19 @@ def record_state(
         name: cube_contact_force_n(sensor)
         for name, sensor in contact_sensors.items()
     }
+    # link_eef is an empty fixed frame in the received URDF. Its adjacent
+    # collision bodies are link6 and the gripper base, so their union is exact.
+    contact_forces["link_eef"] = max(
+        contact_forces["link6"], contact_forces["gripper_base"]
+    )
     wrist_clearance_m = wrist_camera_cube_clearance_m(
         hand_position, hand_quaternion, cube_pose[:3], args_cli.cube_size_m
     )
     contact_forces["wrist_camera_proxy"] = 1.0 if wrist_clearance_m <= 0.0 else 0.0
+    # The ground cuboid does not expose a rigid-body prim that accepts an
+    # Isaac ContactSensor. End ballistic flight when the cube bottom reaches it.
+    ground_clearance_m = float(cube_pose[2]) - 0.5 * args_cli.cube_size_m
+    contact_forces["ground"] = 1.0 if ground_clearance_m <= 0.001 else 0.0
     return {
         "time_s": time_s,
         "phase": phase,

@@ -19,6 +19,7 @@ from scipy.spatial.transform import Rotation
 GRAVITY_M_S2 = 9.81
 VISIBLE_SPIN_MIN_ROTATION_RAD = math.radians(8.0)
 VISIBLE_SPIN_MIN_FLIGHT_S = 0.12
+DETACH_DEBOUNCE_S = 0.005
 
 TUMBLE_MIN_AXIS_ALIGNMENT = 0.85
 TUMBLE_MIN_APEX_ROTATION_RAD = math.radians(5.0)
@@ -31,8 +32,12 @@ STRICT_CONTACT_BODY_NAMES = (
     "left_inner_knuckle",
     "right_inner_knuckle",
     "gripper_base",
+    "link_eef",
     "link6",
+    "link5",
+    "link4",
     "wrist_camera_proxy",
+    "ground",
 )
 
 
@@ -313,7 +318,9 @@ def continuous_free_flight_evidence(
         )
         return end_time - float(postrelease[first]["time_s"])
 
-    sustained_runs = [run for run in runs if run_duration(run) >= 0.05]
+    sustained_runs = [
+        run for run in runs if run_duration(run) >= DETACH_DEBOUNCE_S
+    ]
     if sustained_runs:
         start_index, last_free_index, contact_index = min(
             sustained_runs, key=lambda run: run[0]

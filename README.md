@@ -1,5 +1,30 @@
 # xArm6 fixed-cube toss/catch
 
+## 2026-08-20 J5 forward-rotation checkpoint
+
+当前新分支固定 J4=165°、J6=−1.5°，只用 J2/J3/J5 做前翻；真机主 policy 不需要 camera。
+已有两个诚实分开的结果：
+
+- throw-only：0.163 s strict free flight、109.3 mm separation、internal apex、4.747° 前翻；
+- Probe/J regrasp：Probe 与 J 实际进入控制，0.049 s 离手、1.416° 前翻、双侧稳定抓回。
+
+先看 Git 内的视频：
+
+```text
+docs/media/j5_forward_rotation/throwonly_4p75deg/spectator.mp4
+docs/media/j5_forward_rotation/probe_j_regrasp_1p42deg/spectator.mp4
+```
+
+复现最小闭环：
+
+```bash
+bash sim/scripts/15_run_j5_probe_j_regrasp.sh
+```
+
+完整 branch 职责、真机 20 ms timeline、G1 370→520→370 timing 和交接顺序见
+[`docs/J5_FORWARD_ROTATION_HANDOFF_20260820.md`](docs/J5_FORWARD_ROTATION_HANDOFF_20260820.md)。
+4.747° throw-only 不能冒充“旋转并抓回”；真机成功前仍是 `sim_validated_real_unverified`。
+
 ## 2026-08-18 strict v18 收束
 
 明显腾空的 `v18` 已达到 123.2 mm 上升、0.914 轴对齐和 4.303° detach→apex 翻滚，

@@ -26,6 +26,25 @@ J5 从旧负下限附近释放到 +82.5°、保留约 97.5° 正向行程，因�
 再把能量收回到可稳定接取的 5–20° dynamic regrasp。只有同一 trial 同时旋转并接住时，才能称
 large-rotation regrasp；两个分支的结果不得混写。
 
+## 2026-08-20 当前执行 checkpoint
+
+本轮已经按上述职责实际执行，而不是继续审计旧资产：
+
+- J4 固定 165°、J6 固定 −1.5°；J4 只换左右 branch，不参与前翻；
+- 1.6 rad/s reference 只由 J2/J3/J5 产生，reference peak 为 0.906 rad/s、8.929 rad/s²；
+- hand-local `[+4, 0, +24] mm` 固定抓点使 cube 绕开掌座；
+- throw-only 达到 0.163 s strict flight、109.3 mm separation、internal apex、4.747° signed tumble；
+- Probe/J stable trial 中 posterior 实际改变 J，选择 `stable_0640`，随后 0.049 s 离手、
+  1.416° signed tumble、bilateral fraction=1.0 并稳定抓回；
+- 2.0 rad/s candidate 虽满足 command/reference joint limits，但掌部更早追上 cube，结果劣于 1.6，
+  因此不作为真机首选；
+- camera 只录像，未进入上述 policy。
+
+当前可移交的是“一条接近 5° 的 throw-only 证据 + 一条最小 Probe/J closed-loop stable regrasp”。
+它们仍是两个 trial，不能宣称已经满足本 goal 的 5–20° dynamic regrasp 或下方 12° strict tumble
+完成定义。下一步真机先复现 throw-only detach/timing，再启用 `stable_0640` close；sim 若继续开发，
+重点是 G1 release angular-momentum transfer，而不是继续增加 J5 速度。
+
 ## 当前证据与判断
 
 已经分别证明：

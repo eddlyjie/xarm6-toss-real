@@ -1,0 +1,357 @@
+{
+  "schema": "xarm6_g1_j5_forward_rotation_throwonly_v1",
+  "name": "j5_forward_rotation_throwonly_1p2",
+  "physics_dt_s": 0.001,
+  "control_period_s": 0.02,
+  "measured_real_arm_tracking_delay_s": 0.08,
+  "execution_envelope": "verified_1x_joint_command_envelope_empty_run_required",
+  "operator_approval_required_for_real_execution": true,
+  "limits": {
+    "joint_speed_rad_s": 1.74483445,
+    "joint_acceleration_rad_s2": 13.0573925,
+    "max_joint_step_rad": 0.0348967,
+    "max_qdot_change_rad_s": 0.261148,
+    "minimum_joint_margin_rad": 0.15
+  },
+  "cube_physics": {
+    "side_length_m_range": [
+      0.035,
+      0.04
+    ],
+    "mass_kg_range": [
+      0.02,
+      0.05
+    ],
+    "contact_offset_m": 0.0002,
+    "static_friction": 1.2,
+    "dynamic_friction": 0.9
+  },
+  "gripper_sim": {
+    "effort_limit_n": 4.0,
+    "stiffness_n_m": 60.0,
+    "damping_n_s_m": 5.0,
+    "max_depenetration_velocity_m_s": 0.5,
+    "contact_offset_m": 0.0002
+  },
+  "wrist_branch": {
+    "user_seed_joint_deg": [
+      3.5,
+      9.8,
+      -25.7,
+      165.0,
+      82.5,
+      -1.5
+    ],
+    "joint4_static_deg": 165.0,
+    "joint6_static_deg": -1.5,
+    "joint4_role": "static_left_right_branch_only",
+    "joint6_role": "static_camera_housing_underneath_only"
+  },
+  "kinematic_design": {
+    "target_tumble_omega_rad_s": 1.2,
+    "target_upward_tcp_velocity_m_s": 0.6,
+    "predicted_physical_detach_reference_time_s": 0.54,
+    "release_joint_velocity_rad_s": [
+      0.0,
+      -0.7695114310070877,
+      -0.2,
+      0.0,
+      0.27778357784830976,
+      0.0
+    ],
+    "predicted_detach_tcp_position_m": [
+      0.54373227844179,
+      0.10205663021172756,
+      0.37631248598443734
+    ],
+    "predicted_tumble_axis_world": [
+      0.354314484701881,
+      -0.9351263261883073,
+      0.0
+    ],
+    "predicted_detach_twist": [
+      -0.06924621945101692,
+      0.002103660616157954,
+      0.5999999999983806,
+      0.1356688206123051,
+      -1.2318448742838244,
+      0.039289791536614986
+    ],
+    "predicted_axis_projection_rad_s": 1.1999999999882907,
+    "predicted_axis_alignment": 0.9678075520721788,
+    "reference_limit_evidence": {
+      "joint_hard_bounds_pass": true,
+      "handoff_joint_margin_pass": true,
+      "minimum_joint_margin_rad": 0.2602067342093566,
+      "per_joint_minimum_margin_rad": [
+        3.0789134761801984,
+        1.798078271890603,
+        0.6405296177625427,
+        0.2602067342093566,
+        1.5959398442707935,
+        3.115412714809878
+      ],
+      "joint_speed_pass": true,
+      "max_joint_speed_rad_s": 0.7695114310070877,
+      "joint_acceleration_pass": true,
+      "max_joint_acceleration_rad_s2": 7.5851841056412965,
+      "joint_step_pass": true,
+      "max_joint_step_rad": 0.015390228620141763,
+      "qdot_change_pass": true,
+      "max_qdot_change_rad_s": 0.15170368211282595,
+      "effort_pass": true,
+      "per_joint_peak_effort_nm": null,
+      "joint_mechanical_limits_pass": true
+    }
+  },
+  "reference_segments": [
+    {
+      "phase": "throw_accel",
+      "duration_s": 0.46,
+      "start_joint_rad": [
+        0.061086523819801536,
+        0.1710422666954443,
+        -0.4485496177625427,
+        2.8797932657906435,
+        1.4398966328953218,
+        -0.026179938779914945
+      ],
+      "start_joint_velocity_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "start_joint_acceleration_rad_s2": [
+        0.0,
+        -1.6728509369719298,
+        -0.43478260869565216,
+        0.0,
+        0.6038773431484995,
+        0.0
+      ],
+      "end_joint_rad": [
+        0.061086523819801536,
+        -0.005945362436185875,
+        -0.4945496177625427,
+        2.8797932657906435,
+        1.503786855800433,
+        -0.026179938779914945
+      ],
+      "end_joint_velocity_rad_s": [
+        0.0,
+        -0.7695114310070877,
+        -0.2,
+        0.0,
+        0.27778357784830976,
+        0.0
+      ],
+      "end_joint_acceleration_rad_s2": [
+        0.0,
+        -1.6728509369719298,
+        -0.43478260869565216,
+        0.0,
+        0.6038773431484995,
+        0.0
+      ]
+    },
+    {
+      "phase": "detach_flick",
+      "duration_s": 0.1,
+      "start_joint_rad": [
+        0.061086523819801536,
+        -0.005945362436185875,
+        -0.4945496177625427,
+        2.8797932657906435,
+        1.503786855800433,
+        -0.026179938779914945
+      ],
+      "start_joint_velocity_rad_s": [
+        0.0,
+        -0.7695114310070877,
+        -0.2,
+        0.0,
+        0.27778357784830976,
+        0.0
+      ],
+      "start_joint_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_joint_rad": [
+        0.061086523819801536,
+        -0.08289650553689465,
+        -0.5145496177625427,
+        2.8797932657906435,
+        1.531565213585264,
+        -0.026179938779914945
+      ],
+      "end_joint_velocity_rad_s": [
+        0.0,
+        -0.7695114310070877,
+        -0.2,
+        0.0,
+        0.27778357784830976,
+        0.0
+      ],
+      "end_joint_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "phase": "post_detach_brake",
+      "duration_s": 0.14,
+      "start_joint_rad": [
+        0.061086523819801536,
+        -0.08289650553689465,
+        -0.5145496177625427,
+        2.8797932657906435,
+        1.531565213585264,
+        -0.026179938779914945
+      ],
+      "start_joint_velocity_rad_s": [
+        0.0,
+        -0.7695114310070877,
+        -0.2,
+        0.0,
+        0.27778357784830976,
+        0.0
+      ],
+      "start_joint_acceleration_rad_s2": [
+        -0.0,
+        7.585184105641292,
+        1.9714285714285713,
+        -0.0,
+        -2.738152410219053,
+        -0.0
+      ],
+      "end_joint_rad": [
+        0.061086523819801536,
+        -0.11629330164260226,
+        -0.5232296177625427,
+        2.8797932657906435,
+        1.5436210208638805,
+        -0.026179938779914945
+      ],
+      "end_joint_velocity_rad_s": [
+        -0.0,
+        0.2924143437826933,
+        0.07600000000000001,
+        -0.0,
+        -0.1055577595823577,
+        -0.0
+      ],
+      "end_joint_acceleration_rad_s2": [
+        -0.0,
+        7.585184105641292,
+        1.9714285714285713,
+        -0.0,
+        -2.738152410219053,
+        -0.0
+      ]
+    },
+    {
+      "phase": "reverse_retract_stop",
+      "duration_s": 0.14,
+      "start_joint_rad": [
+        0.061086523819801536,
+        -0.11629330164260226,
+        -0.5232296177625427,
+        2.8797932657906435,
+        1.5436210208638805,
+        -0.026179938779914945
+      ],
+      "start_joint_velocity_rad_s": [
+        -0.0,
+        0.2924143437826933,
+        0.07600000000000001,
+        -0.0,
+        -0.1055577595823577,
+        -0.0
+      ],
+      "start_joint_acceleration_rad_s2": [
+        0.0,
+        -2.088673884162095,
+        -0.5428571428571429,
+        0.0,
+        0.7539839970168407,
+        0.0
+      ],
+      "end_joint_rad": [
+        0.061086523819801536,
+        -0.09582429757781373,
+        -0.5179096177625427,
+        2.8797932657906435,
+        1.5362319776931155,
+        -0.026179938779914945
+      ],
+      "end_joint_velocity_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_joint_acceleration_rad_s2": [
+        0.0,
+        -2.088673884162095,
+        -0.5428571428571429,
+        0.0,
+        0.7539839970168407,
+        0.0
+      ]
+    }
+  ],
+  "gripper_events": [
+    {
+      "time_s": 0.585,
+      "name": "release_partial_open",
+      "real_position": 520.0
+    }
+  ],
+  "sim_gripper_events": [
+    {
+      "time_s": 0.612,
+      "name": "release_partial_open",
+      "drive_rad": 0.39
+    }
+  ],
+  "real_g1_events": [
+    {
+      "time_s": 0.585,
+      "name": "release_partial_open",
+      "position": 520.0
+    }
+  ],
+  "state_estimator": {
+    "mode": "actual_q_dq_release_prior_plus_ballistic_propagation",
+    "camera_required_for_control": false,
+    "detach_delay_range_s": [
+      0.025,
+      0.044
+    ]
+  },
+  "validation_targets": {
+    "minimum_continuous_free_flight_s": 0.12,
+    "minimum_relative_separation_m": 0.025,
+    "minimum_axis_alignment": 0.85,
+    "minimum_throwonly_tumble_deg": 12.0
+  },
+  "lineage": {
+    "frozen_real_baseline": "REAL_ROBOT_TEST_20260817.md",
+    "goal": "goal.md v4",
+    "generator": "sim/tools/build_forward_rotation_ladder.py"
+  }
+}
