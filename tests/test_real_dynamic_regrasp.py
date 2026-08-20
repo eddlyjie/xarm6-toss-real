@@ -55,6 +55,11 @@ def test_release_state_preserves_actual_arm_sample_and_replays_ballistic_prior()
         def forward(self, joint_rad, *, target_link):
             assert target_link == "xarm_gripper_base_link"
             transform = np.eye(4)
+            transform[:3, :3] = [
+                [0.0, 0.0, 1.0],
+                [0.0, 1.0, 0.0],
+                [-1.0, 0.0, 0.0],
+            ]
             transform[:3, 3] = [0.4, 0.0, 0.3]
             return transform
 
@@ -68,7 +73,7 @@ def test_release_state_preserves_actual_arm_sample_and_replays_ballistic_prior()
         FakeKinematics(),
         q,
         qd,
-        [0.1, 0.0, 0.0],
+        [0.0, 0.0, 0.1],
         time_s=0.1,
     )
 
@@ -76,6 +81,18 @@ def test_release_state_preserves_actual_arm_sample_and_replays_ballistic_prior()
     assert release.joint_velocity_rad_s == tuple(qd)
     np.testing.assert_allclose(release.position_base_m, [0.5, 0.0, 0.3])
     np.testing.assert_allclose(release.velocity_base_m_s, [0.2, 0.3, 0.2])
+    np.testing.assert_allclose(
+        release.angular_velocity_base_rad_s,
+        [0.0, 2.0, 0.0],
+    )
+    np.testing.assert_allclose(release.finger_direction_base, [1.0, 0.0, 0.0])
+    np.testing.assert_allclose(
+        release.forward_tumble_axis_base,
+        [0.0, -1.0, 0.0],
+    )
+    assert release.forward_angular_velocity_rad_s == -2.0
+    assert release.j5_forward_angular_velocity_rad_s == -2.0
+    assert release.forward_axis_alignment == 1.0
     np.testing.assert_allclose(
         ballistic_position(release, 0.2),
         [0.52, 0.03, 0.27095],
@@ -308,6 +325,11 @@ def test_real_runner_executes_detach_relative_sequence_without_hardware():
         def forward(self, joint_rad, *, target_link):
             assert target_link == "xarm_gripper_base_link"
             transform = np.eye(4)
+            transform[:3, :3] = [
+                [0.0, 0.0, 1.0],
+                [0.0, 1.0, 0.0],
+                [-1.0, 0.0, 0.0],
+            ]
             transform[:3, 3] = np.asarray(joint_rad, dtype=float)[:3]
             return transform
 

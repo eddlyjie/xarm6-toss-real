@@ -32,6 +32,12 @@ class ReleaseState:
     time_s: float
     position_base_m: tuple[float, float, float]
     velocity_base_m_s: tuple[float, float, float]
+    angular_velocity_base_rad_s: tuple[float, float, float]
+    finger_direction_base: tuple[float, float, float]
+    forward_tumble_axis_base: tuple[float, float, float]
+    forward_angular_velocity_rad_s: float
+    j5_forward_angular_velocity_rad_s: float
+    forward_axis_alignment: float
     joint_position_rad: tuple[float, ...]
     joint_velocity_rad_s: tuple[float, ...]
 
@@ -111,10 +117,36 @@ def release_state_from_arm(
     hand_linear = jacobian[:3] @ qd
     hand_angular = jacobian[3:] @ qd
     velocity = hand_linear + np.cross(hand_angular, offset_world)
+    finger_direction = transform[:3, 2]
+    forward_axis = np.cross(
+        finger_direction,
+        np.asarray([0.0, 0.0, 1.0]),
+    )
+    forward_axis_norm = float(np.linalg.norm(forward_axis))
+    if forward_axis_norm <= 1.0e-6:
+        raise RuntimeError(
+            "finger direction does not define a horizontal forward-tumble axis"
+        )
+    forward_axis /= forward_axis_norm
+    forward_angular_velocity = float(np.dot(hand_angular, forward_axis))
+    j5_angular_velocity = jacobian[3:, 4] * qd[4]
+    angular_speed = float(np.linalg.norm(hand_angular))
     return ReleaseState(
         time_s=float(time_s),
         position_base_m=tuple(float(value) for value in position),
         velocity_base_m_s=tuple(float(value) for value in velocity),
+        angular_velocity_base_rad_s=tuple(float(value) for value in hand_angular),
+        finger_direction_base=tuple(float(value) for value in finger_direction),
+        forward_tumble_axis_base=tuple(float(value) for value in forward_axis),
+        forward_angular_velocity_rad_s=forward_angular_velocity,
+        j5_forward_angular_velocity_rad_s=float(
+            np.dot(j5_angular_velocity, forward_axis)
+        ),
+        forward_axis_alignment=(
+            0.0
+            if angular_speed <= 1.0e-9
+            else abs(forward_angular_velocity) / angular_speed
+        ),
         joint_position_rad=tuple(float(value) for value in q),
         joint_velocity_rad_s=tuple(float(value) for value in qd),
     )
