@@ -1,3 +1,280 @@
+# xArm6 forward-rotation release-mediated regrasp v4
+
+更新日期：2026-08-20
+
+> 本节是当前唯一生效的 goal。下方 v3 内容仅作历史证据，不再作为本轮完成条件。
+
+## 核心任务
+
+针对同一只约 35–40 mm 的轻量规则 cube，开发并移交一个最小动态 regrasp：
+
+~~~text
+固定抓取
+→ Probe 判断 held/slip 与动力学不确定度
+→ J4 静态换到外翻 wrist branch，J6 使 wrist camera 朝下
+→ 上抛并产生真实 contact loss
+→ cube 在离手段产生可测的前向小角度旋转
+→ actual detach q/dq + ballistic prior 预测短时轨迹
+→ J 选择 regrasp reference/timing
+→ 同一 G1 双侧重新抓稳
+~~~
+
+主目标是“真实离手 + 前向 pose change + 稳定 recapture”，不是夹爪原地开闭，也不再要求
+明显高抛、内部 apex 和 ≥12° flight-only tumble 同时成立。大幅 ballistic toss 保留为 stretch goal。
+
+## 当前证据与判断
+
+已经分别证明：
+
+- stable camera closed loop：三 seed 均稳定接住，all-link contact-free 0.078 s，
+  最大 hand-relative separation 14.4 mm，detach→apex rotation 2.13°；
+- long-flight throw-only：contact-free 1.124 s，flight-only signed target-axis rotation 11.50°，
+  但没有 recatch；
+- 真机 baseline：1× arm reference、20 ms servo_j、G1 370→520→370 和同手 rapid recatch 可运行，
+  但尚未证明明显 pose change 或 runtime closed loop。
+
+所以“小角度旋转”和“稳定接取”并非分别做不到；当前问题是两者尚未在同一中等能量 reference
+上同时成立。继续扫 close time 不会解决这个结构问题。
+
+当前 stable reference 的 J4≈0，J5 从 -1.509 rad 运动到约 -1.58 rad，而 J5 hard lower limit
+为 -1.693 rad；动态 brake 段只剩约 0.11 rad margin。这直接支持搜索 J4 等价换边 branch，
+把 J5 搬到正值且有更大上翘空间的工作区。
+
+## J4/J5/J6 的职责
+
+### J4 静态换 branch
+
+当前 stable reference 的 J4 接近 0，J5 工作在负下限附近。新分支不再靠 J6 单独“反腕”，而是
+搜索 J4 的腕部等价换边：
+
+~~~text
+J4 candidate: ±140°、±150°、±160°
+目标 J5 工作区: 从负下限附近移到正值且保留足够 flick/brake margin
+J6: 在保持 finger/catch geometry 后，使 wrist camera optical axis 朝下
+~~~
+
+不能简单把 J4 加 π 后直接执行。J4、J5、J6 构成耦合 wrist orientation，必须以 FK/IK 保持
+TCP 位置、finger direction 和外侧工作区，再由连续 joint/collision gate 选择符号与角度。
+
+优先目标是让整条 throw/brake/regrasp 轨迹的 J4/J5/J6 minimum margin ≥0.25 rad；最低不得
+低于 0.15 rad。若 ±160° 逼近 J4 hard limit，则使用 ±140° 或 ±150°，不强求视觉上的整 180°。
+
+### J5-dominant forward flick
+
+J5 是本轮主要动态自由度。J4 branch 冻结后，用 angular Jacobian 检查 J5 对 a_forward 的贡献，
+由 J2/J3 配合提供 upward/outward TCP velocity，J5 提供前向 angular velocity。J4/J6 在 release
+窗口原则上保持静态，只在 IK 和 orientation compensation 必要时做小幅平滑变化。
+
+候选必须同时满足：
+
+- J5 不再贴近 -1.693 rad lower limit；
+- detach 前 a_forward angular velocity projection 为期望符号；
+- TCP 仍向上/外侧，不朝 base；
+- brake 后 J5 有足够反向行程；
+- 不利用 joint clipping 生成 flick。
+
+### J6 与 wrist camera
+
+J6 的任务是让 wrist camera 朝下并保持 finger opening 方向，不承担主要抛掷角速度。使用
+configs/wrist_camera_real.json 的 T_link_eef_camera 和当前 FK 判断 optical axis，而不是用 J6
+正负号猜测。
+
+wrist camera 对本轮控制是可选的：
+
+- global/third-view 是 release、飞行、pose marker 和验收的主相机；
+- wrist camera 可以不接入 policy，只保留抓取前或接住后的局部录像；
+- 若相机、housing 和 cable仍装在真机上，仿真必须保留其 collision proxy；
+- 若整个 wrist camera/mount/cable 都拆除，才可以从碰撞模型中移除；
+- 固定 cube 的 grasp point 允许 hard-code，不依赖 wrist vision。
+
+## 前向旋转定义
+
+detach 时由 FK 定义：
+
+~~~text
+d_finger = 两根手指延伸方向
+z_world  = [0, 0, 1]
+a_forward = normalize(d_finger × z_world)
+~~~
+
+旋转符号选择为 cube 朝机器人外侧“向前翻”的方向。每次 trial 分别输出：
+
+- detach angular velocity 在 a_forward 上的投影；
+- contact-free interval 内的 signed forward rotation；
+- 非目标轴 rotation；
+- pre-grasp 到 stable post-catch 的 hand-object orientation change。
+
+接取碰撞之后的旋转不能冒充 flight-only rotation，但 release-mediated regrasp 的最终 pose change
+允许由短飞行和受控 recapture interaction共同产生，二者必须分别报告。
+
+## 动作设计
+
+### Phase A：J4 换 branch + J6 camera-down IK
+
+从真实 start/release TCP 附近，对 J4 ±140°、±150°、±160° 做受约束 IK。J5 优先选择正值且
+保留 flick/brake margin 的解；J6 再用于保持 finger direction 并让 camera optical axis 朝下。
+
+每个候选沿 start、release、detach、brake、regrasp、hold 全轨迹验证：
+
+- TCP 位于 base 外侧；
+- finger opening 对准预计 regrasp corridor；
+- J4/J5/J6 以及全关节 minimum margin ≥0.15 rad，目标 ≥0.25 rad；
+- G1、link4–6、cube 和仍保留的 camera housing/cable 无碰撞；
+- J5 对 a_forward 的 angular Jacobian contribution 足够且符号正确。
+
+先保存静态 spectator、camera optical axis 和 link-frame 数值，再运行带 cube physics。
+
+### Phase B：中等能量 release
+
+保留已经真机运行过的 pre-release upstroke，围绕 stable 与 long-flight reference 之间生成少量
+结构候选，不做参数网格：
+
+1. stable reference；
+2. stable + 更早/更强的 reference-level brake；
+3. stable + 小 J2/J3/J5 forward angular component；
+4. 候选 3 + 固定 2–4 mm grasp offset。
+
+目标是 contact-free 0.06–0.15 s、10–30 mm separation，而不是先追求最高 apex。
+
+### Phase C：brake/retract 与局部 recapture
+
+physical detach 后使用预先规划的 20–100 ms brake/retract，使 hand 不再与 cube 等速上升，
+但 finger capture center仍留在局部可达 corridor。reference 控制点必须是两指 capture center，
+不能继续控制 gripper_base 让 cube 落到 palm。
+
+G1 close 和 arm re-entry 相对 physical detach/intercept 调度。80 ms tracking lag 必须进入 reference，
+不得依赖临时 online IK 在 apex 后追赶。
+
+### Phase D：最小 closed loop
+
+Probe 不做精确称重，只输出 held/slip、effective payload interval、detach-delay uncertainty 和
+contact asymmetry。J 至少在以下两个冻结候选间选择：
+
+~~~text
+stable_recapture
+forward_pose_change_recapture
+~~~
+
+selected candidate 必须改变 arm reference、close timing 或 correction bound，不能只写日志。
+
+运行时至少满足两项：
+
+1. actual q/dq + physical detach estimate 改变 intercept/close schedule；
+2. Probe posterior 改变 J selection；
+3. timestamped third-view observation 改变 bounded catch target。
+
+sim-trained J/residual 在真机前冻结，不用 2–3 次真机成功做在线训练。
+
+## 真机约束
+
+沿用 REAL_ROBOT_TEST_20260817.md：
+
+~~~text
+control period                 0.020 s
+max joint speed               1.74483445 rad/s
+max joint acceleration        13.0573925 rad/s²
+max joint step                0.0348967 rad
+max qdot change/command       0.261148 rad/s
+minimum joint margin          0.15 rad，目标 ≥0.25 rad
+arm tracking lag              ≈80 ms
+G1                            370→520→370, speed 5000
+physical detach delay         25–44 ms
+~~~
+
+任何 reference sample 超过 joint/Cartesian/effort limit 或产生 self-collision 都失败，不能依赖 clipping。
+
+## 主任务成功门槛
+
+### Sim
+
+冻结同一配置运行至少 5 个 seed，至少 3 次同时满足：
+
+- all-link physical contact loss；
+- continuous contact-free ≥0.060 s；
+- hand-relative separation ≥10 mm；
+- detach omega 与 a_forward alignment ≥0.75；
+- contact-free signed forward rotation ≥4°；
+- pre-grasp 到 stable post-catch orientation change ≥5°；
+- bilateral stable hold ≥0.5 s，catch_stable=true；
+- 至少两项 runtime closed-loop 条件真实改变 command；
+- 通过 1× 真机 joint、collision 和 clearance gate；
+- spectator 与 third-view 视频能辨认 contact loss 和 forward pose change。
+
+不要求 internal apex，也不要求首次接触一定发生在下降段。
+
+### Real
+
+保留全部 3–5 次尝试，至少 2 次满足：
+
+- global video 或等效 timestamp evidence 证明 contact loss 和可见 separation；
+- 带不对称角标的 cube 显示 pre/post orientation change ≥5°；
+- 同一 G1 recapture 并稳定保持 ≥0.5 s；
+- 无 C60、20 ms overrun、joint/collision violation；
+- actual-detach adaptation、Probe/J selection 或 third-view correction 至少一项进入真实 command。
+
+若最后一项没有实现，只能称 real open-loop dynamic regrasp baseline。
+
+## Stretch goal
+
+主任务完成后才尝试：
+
+- all-link contact-free ≥0.12 s；
+- separation ≥25 mm；
+- internal apex 与下降段首次 recontact；
+- forward-axis alignment ≥0.85；
+- detach→apex flight-only rotation ≥5°；
+- 整段 flight-only signed forward rotation ≥12°；
+- bilateral stable catch ≥0.5 s。
+
+stretch 失败不影响主任务完成。继续 stretch 时优先扩大 reference-level brake/retract 可达域或修改
+finger capture geometry，不再围绕 close time 做 sweep。
+
+## 开发顺序
+
+1. 从真机电脑回传实际执行过的 scripts/22_run_empty_handoff.py，使 fresh clone 可执行。
+2. 明确 wrist camera 是完整拆除、仅断开数据，还是保留使用；据此建立真实附件碰撞模型。
+3. 搜索 J4 ±140° 到 ±160° 等价 branch，以 J5 正值工作区和 J6 camera-down 为选择目标。
+4. 在最佳 J4/J5/J6 pose 上先复现 stable throw/catch baseline。
+5. 只生成 3 个 J5-dominant 中等能量 brake/retract + forward angular candidates，先跑 throw-only。
+6. 选择满足 0.06–0.15 s flight、10–30 mm separation 和 ≥4° forward rotation 的候选。
+7. 写入 capture-center recapture reference，恢复 bilateral stable catch。
+8. 接入 actual-detach adaptation 与 Probe/J，再加 optional third-view bounded residual。
+9. 冻结参数跑 5 seeds并生成 spectator/third-view 视频。
+10. 真机按 empty 0.25×→0.5×→1×→throw-only 软垫→3–5 次 regrasp 执行。
+
+## 每次 trial 输出
+
+- config 与 arm/G1 command timeline；
+- commanded/actual q、dq、effort/current；
+- detach、all-link contact pair、first recontact、bilateral contact、stable hold timestamps；
+- cube pose/quaternion、linear/angular velocity；
+- forward flight-only rotation、非目标 rotation、pre/post hand-object pose change；
+- Probe posterior、J scores、selected candidate；
+- ballistic prediction、camera residual、实际 command delta；
+- joint/Cartesian limits、collision 与附件 clearance；
+- spectator、third-view 视频和 failure stage。
+
+不新增 hash、seal、sidecar 或发布审计流程。
+
+## 完成定义
+
+本轮 goal 只在以下条件同时成立时完成：
+
+1. J4 换 branch、J5 正值工作区和 J6 camera-down 解通过连续 joint/collision/attachment-clearance gate；
+2. sim 冻结配置达到主任务 3/5 success；
+3. contact loss、forward rotation、closed-loop action change 和 stable recapture均有直接证据；
+4. GitHub fresh clone 包含真实 runner、配置、文档和复现命令；
+5. 真机至少 2 次达到 dynamic regrasp 主门槛。
+
+只完成 sim 时标记 sim_validated_real_unverified；真机只跑固定 timing 时标记
+real_open_loop_baseline。
+
+---
+
+## 以下为 v3 历史记录
+
+下方原 goal 只用于追溯旧 strict tumble 实验、真机限制来源和失败边界。与本节冲突时，以 v4 为准。
+
 # xArm6 camera-under-forearm 定轴翻滚抛接 v3
 
 ## 2026-08-18 passive-release + clearance checkpoint
