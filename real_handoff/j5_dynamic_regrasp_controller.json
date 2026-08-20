@@ -1,0 +1,84 @@
+{
+  "schema": "xarm6_j5_dynamic_regrasp_controller_v1",
+  "status": "sim_validated_real_unverified",
+  "source_summary": "docs/media/j5_forward_rotation/dynamic_regrasp_5p05deg_proprio_probe_j/summary.json",
+  "reference_timeline": "real_handoff/j5_forward_rotation_timeline.json",
+  "probe_j_config": "sim/configs/probe_j_j5_dynamic_regrasp_v2.json",
+  "robot": {
+    "control_period_s": 0.02,
+    "measured_tracking_delay_s": 0.08,
+    "active_throw_joints_one_based": [2, 3, 5],
+    "fixed_throw_joints_one_based": [1, 4, 6],
+    "reference_peak_speed_rad_s": 0.9058528514173009,
+    "reference_peak_acceleration_rad_s2": 8.92912096397054,
+    "minimum_joint_margin_rad": 0.2602067342093566
+  },
+  "wrist_branch": {
+    "joint4_static_deg": 165.0,
+    "joint6_static_deg": -1.5,
+    "wrist_camera_hardware_removed": true,
+    "camera_required_for_control": false
+  },
+  "g1_real": {
+    "firmware_speed": 5000,
+    "held_position": 370,
+    "partial_open_position": 520,
+    "preclose_position_initial_mapping": 441,
+    "final_close_position": 370,
+    "release_command_time_s": 0.585,
+    "preclose_from_observed_detach_s": 0.065,
+    "final_close_from_observed_detach_s": 0.165,
+    "sim_drive_mapping_note": "sim 0.48/0.65 rad are actuator proxies; never send them as G1 real positions",
+    "real_close_note": "G1 final target remains 370 at speed 5000; sim 0.65 only reproduced rapid position-controlled closure under a 4 N contact cap"
+  },
+  "detach_observer": {
+    "inputs": [
+      "g1_actual_position",
+      "g1_motor_current_or_effort",
+      "actual_arm_q",
+      "actual_arm_dq"
+    ],
+    "event": "first opening-direction current response after release command",
+    "secondary_confirmation": "G1 actual position starts moving toward 520",
+    "on_event": "freeze actual q/dq and FK of the fixed hand-to-cube grasp offset",
+    "fallback_delay_s_range": [0.025, 0.044],
+    "sim_drive_delta_threshold_rad": 0.0001,
+    "sim_opening_effort_threshold_nm": 0.05,
+    "real_threshold_requires_empty_held_calibration": true
+  },
+  "ballistic_catch": {
+    "gravity_m_s2": 9.81,
+    "catch_servo_from_observed_detach_s": 0.005,
+    "intercept_from_observed_detach_s": 0.185,
+    "control_end_from_observed_detach_s": 0.215,
+    "locked_joints_one_based": [4, 5, 6],
+    "camera_updates_enabled": false
+  },
+  "probe_j": {
+    "required": true,
+    "selected_nominal_candidate": "dynamic_5deg_g1_observer",
+    "nominal_dynamic_J": 0.6799399420434311,
+    "nominal_fallback_J": 0.8450407739488448,
+    "fallback_candidate": "stable_1p4deg_fallback",
+    "gate": "held_probability >= 0.90 and slip_probability <= 0.50"
+  },
+  "sim_evidence": {
+    "repeat_successes": 2,
+    "v46_signed_forward_rotation_deg": 5.038515288262243,
+    "v47_signed_forward_rotation_deg": 5.055290292217609,
+    "strict_free_flight_s": 0.17300000000000015,
+    "first_renewed_contact_time_s": 0.788000000000001,
+    "first_bilateral_contact_time_s": 0.8210000000000011,
+    "bilateral_contact_fraction": 1.0,
+    "catch_stable": true,
+    "joint_mechanical_limits_pass": true,
+    "observation_mode": "proprioceptive",
+    "detach_state_source": "g1_release_response",
+    "detach_observer_error_s": 0.0
+  },
+  "camera": {
+    "third_view": "recording and offline pose-change verification only",
+    "wrist": "not installed for this camera-removed branch",
+    "spectator": "simulation video only"
+  }
+}

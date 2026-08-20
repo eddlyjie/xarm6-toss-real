@@ -1,5 +1,24 @@
 # xArm6 fixed-cube toss/catch
 
+## 2026-08-20 deployable 5° dynamic regrasp
+
+当前推荐真机接手的是 `v47`：paired Probe posterior 经过 J 选择
+`dynamic_5deg_g1_observer`，controller 只用 actual q/dq、FK、G1 actual position 与
+opening-direction current/effort response，不读取 cube physics truth，也不需要 camera 控制。
+同一 trial 达到 0.173 s strict all-link free flight、5.055° 前翻和稳定双侧接取；重复的
+`v46` 为 5.039°，两次 joint limits 均通过。
+
+先看 Git 内慢放与 third-view：
+
+```text
+docs/media/j5_forward_rotation/dynamic_regrasp_5p05deg_proprio_probe_j/spectator_slow_0p5x.mp4
+docs/media/j5_forward_rotation/dynamic_regrasp_5p05deg_proprio_probe_j/third_view_slow_0p5x.mp4
+```
+
+复现和真机 detach-relative timing 见
+[`docs/DYNAMIC_REGRASP_5DEG_HANDOFF_20260820.md`](docs/DYNAMIC_REGRASP_5DEG_HANDOFF_20260820.md)。
+真机仍未验证，因此状态是 `sim_validated_real_unverified`。
+
 ## 2026-08-20 J5 forward-rotation checkpoint
 
 当前新分支固定 J4=165°、J6=−1.5°，只用 J2/J3/J5 做前翻；真机主 policy 不需要 camera。

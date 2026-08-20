@@ -194,6 +194,18 @@ parser.add_argument(
     help="Encoder/FK prior for physical detach after the open command.",
 )
 parser.add_argument(
+    "--detach-observer-drive-delta-rad",
+    type=float,
+    default=None,
+    help="Freeze the FK release prior after this measured G1 opening travel.",
+)
+parser.add_argument(
+    "--detach-observer-opening-effort-nm",
+    type=float,
+    default=None,
+    help="Freeze the FK release prior on this opening-direction G1 effort.",
+)
+parser.add_argument(
     "--intercept-residual-model",
     type=Path,
     default=None,
@@ -289,6 +301,7 @@ from xarm6_toss.probe_j import (  # noqa: E402
 from xarm6_toss.flight import (  # noqa: E402
     continuous_free_flight_evidence,
     cube_ground_clearance_m,
+    g1_release_response,
 )
 from xarm6_toss.motion_limits import (  # noqa: E402
     evaluate_joint_trajectory,
@@ -1641,6 +1654,19 @@ def main() -> int:
         args_cli.catch_hold_throw_joints = bool(
             controller["catch_hold_throw_joints"]
         )
+        args_cli.catch_lock_wrist = bool(
+            controller.get("catch_lock_wrist", args_cli.catch_lock_wrist)
+        )
+        args_cli.catch_preclose_time_s = (
+            None
+            if controller.get("catch_preclose_time_s") is None
+            else float(controller["catch_preclose_time_s"])
+        )
+        args_cli.catch_preclose_drive_rad = (
+            None
+            if controller.get("catch_preclose_drive_rad") is None
+            else float(controller["catch_preclose_drive_rad"])
+        )
         args_cli.catch_position_bias_m = tuple(
             controller["catch_position_bias_m"]
         )
@@ -1739,6 +1765,15 @@ def main() -> int:
     encoder_prior_position = None
     encoder_prior_velocity = None
     encoder_prior_time_s = None
+    detach_observer_enabled = bool(
+        args_cli.detach_observer_drive_delta_rad is not None
+        or args_cli.detach_observer_opening_effort_nm is not None
+    )
+    detach_observer_triggered = False
+    detach_observer_time_s = None
+    detach_observer_drive_progress_rad = None
+    detach_observer_opening_effort_nm = None
+    release_response_baseline_drive_rad = None
     while time_s <= duration + 1.0e-9:
         tracked_reference_time_s = max(
             0.0, time_s - args_cli.arm_tracking_delay_s
@@ -1834,8 +1869,11 @@ def main() -> int:
             )
             gravity = torch.tensor([0.0, 0.0, -9.81], device=sim.device)
             if (
-                encoder_prior_position is None
-                or time_s <= nominal_detach_time_s + 1.0e-9
+                not detach_observer_triggered
+                and (
+                    encoder_prior_position is None
+                    or time_s <= nominal_detach_time_s + 1.0e-9
+                )
             ):
                 encoder_prior_position = encoder_cube_position
                 encoder_prior_velocity = encoder_cube_velocity
@@ -2300,6 +2338,63 @@ def main() -> int:
         )
         update_wrist_camera_pose(robot, gripper_body_id, wrist_camera)
         step_assets(sim, robot, cube, contact_sensors, cameras)
+        current_drive_rad = float(
+            robot.data.joint_pos.torch[0, drive_id].item()
+        )
+        if time_s < physical_open_start_s:
+            release_response_baseline_drive_rad = current_drive_rad
+        elif release_response_baseline_drive_rad is None:
+            release_response_baseline_drive_rad = current_drive_rad
+        if (
+            detach_observer_enabled
+            and not detach_observer_triggered
+            and time_s >= physical_open_start_s
+        ):
+            (
+                response_triggered,
+                drive_progress_rad,
+                opening_effort_nm,
+            ) = g1_release_response(
+                release_response_baseline_drive_rad,
+                args_cli.partial_open_drive_rad,
+                current_drive_rad,
+                float(robot.data.applied_torque.torch[0, drive_id].item()),
+                drive_delta_threshold_rad=(
+                    args_cli.detach_observer_drive_delta_rad
+                ),
+                opening_effort_threshold_nm=(
+                    args_cli.detach_observer_opening_effort_nm
+                ),
+            )
+            if response_triggered:
+                detach_observer_triggered = True
+                detach_observer_time_s = float(time_s)
+                detach_observer_drive_progress_rad = drive_progress_rad
+                detach_observer_opening_effort_nm = opening_effort_nm
+                hand_position, hand_quaternion, _ = hand_state(
+                    robot, gripper_body_id, finger_body_ids
+                )
+                grasp_offset_world = quat_apply(
+                    hand_quaternion.unsqueeze(0),
+                    grasp_position_hand.unsqueeze(0),
+                )[0]
+                hand_linear_velocity = robot.data.body_link_lin_vel_w.torch[
+                    0, gripper_body_id
+                ]
+                hand_angular_velocity = robot.data.body_link_ang_vel_w.torch[
+                    0, gripper_body_id
+                ]
+                encoder_prior_position = hand_position + grasp_offset_world
+                encoder_prior_velocity = hand_linear_velocity + torch.linalg.cross(
+                    hand_angular_velocity, grasp_offset_world
+                )
+                encoder_prior_time_s = float(time_s)
+                if ballistic_tracker is not None:
+                    ballistic_tracker.set_encoder_prior(
+                        encoder_prior_time_s,
+                        encoder_prior_position.detach().cpu().numpy(),
+                        encoder_prior_velocity.detach().cpu().numpy(),
+                    )
         records.append(
             record_state(
                 time_s,
@@ -2434,6 +2529,26 @@ def main() -> int:
             camera_servo_suppressed_update_count
         ),
         detach_delay_prior_s=args_cli.detach_delay_prior_s,
+        detach_observer_enabled=detach_observer_enabled,
+        detach_observer_triggered=detach_observer_triggered,
+        detach_observer_time_s=detach_observer_time_s,
+        detach_observer_drive_progress_rad=(
+            detach_observer_drive_progress_rad
+        ),
+        detach_observer_opening_effort_nm=(
+            detach_observer_opening_effort_nm
+        ),
+        detach_state_source=(
+            "g1_release_response"
+            if detach_observer_triggered
+            else "fixed_detach_delay_prior"
+        ),
+        detach_observer_error_s=(
+            None
+            if detach_observer_time_s is None or detach_time_s is None
+            else detach_observer_time_s - detach_time_s
+        ),
+        encoder_prior_time_s=encoder_prior_time_s,
         catch_position_bias_m=list(args_cli.catch_position_bias_m),
         catch_preposition_bias_m=(
             None

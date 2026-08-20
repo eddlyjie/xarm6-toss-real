@@ -263,6 +263,41 @@ def nominal_object_twist(
     )
 
 
+def g1_release_response(
+    held_drive_rad: float,
+    open_target_rad: float,
+    current_drive_rad: float,
+    current_effort_nm: float,
+    *,
+    drive_delta_threshold_rad: float | None = None,
+    opening_effort_threshold_nm: float | None = None,
+) -> tuple[bool, float, float]:
+    """Detect the first measured G1 response in the commanded opening direction.
+
+    G1 position and motor-current/effort are available on the real system.  The
+    response event is therefore a deployable replacement for reading the cube's
+    simulator contact state when freezing the encoder/FK release prior.
+    """
+    opening_direction = math.copysign(1.0, open_target_rad - held_drive_rad)
+    drive_progress_rad = opening_direction * (
+        current_drive_rad - held_drive_rad
+    )
+    opening_effort_nm = opening_direction * current_effort_nm
+    drive_triggered = (
+        drive_delta_threshold_rad is not None
+        and drive_progress_rad >= drive_delta_threshold_rad
+    )
+    effort_triggered = (
+        opening_effort_threshold_nm is not None
+        and opening_effort_nm >= opening_effort_threshold_nm
+    )
+    return (
+        bool(drive_triggered or effort_triggered),
+        float(drive_progress_rad),
+        float(opening_effort_nm),
+    )
+
+
 
 def continuous_free_flight_evidence(
     records,

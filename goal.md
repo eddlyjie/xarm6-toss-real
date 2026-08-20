@@ -26,6 +26,26 @@ J5 从旧负下限附近释放到 +82.5°、保留约 97.5° 正向行程，因�
 再把能量收回到可稳定接取的 5–20° dynamic regrasp。只有同一 trial 同时旋转并接住时，才能称
 large-rotation regrasp；两个分支的结果不得混写。
 
+## 2026-08-20 v47 达成 checkpoint
+
+本轮已经在同一 trial 达到本 goal 的最小 5° dynamic regrasp，不再把 throw-only 与 stable
+trial 拼接成结果：
+
+- `v46`：proprioceptive controller，strict flight 0.173 s，signed forward rotation 5.039°，
+  0.821 s 起双侧接触并稳定保持；
+- `v47`：paired Probe gate 通过，J 在两个可执行候选中选择 `dynamic_5deg_g1_observer`
+  （J=0.6799，fallback=0.8450），strict flight 0.173 s，signed rotation 5.055°，稳定双侧接取；
+- 两次都只用 actual q/dq + FK ballistic prior；G1 position 与 opening-direction effort response
+  在 0.615 s 冻结 release state，与 evaluation-only physical detach 同刻，误差 0 ms；
+- J4=165°、J6=−1.5° 保持静态，J2/J3/J5 reference peak 0.906 rad/s、8.929 rad/s²，
+  joint mechanical limits 通过；
+- wrist camera/mount/cable 按 camera-removed 分支处理；spectator/third-view 只录像，未进入 policy。
+
+下一步不再提高 sim 旋转角度。本 goal 剩余工作是把 v47 的 arm reference、G1 two-stage close、
+Probe/J 和 G1 detach observer 原样移交真机，先做空载/软垫 throw-only，再做最多 2–3 次 cube
+recatch。sim `.48/.65 rad` 不是 G1 真机位置；真机映射为约 `441/370`，最终以 G1 actual position
+和 current 标定为准。
+
 ## 2026-08-20 当前执行 checkpoint
 
 本轮已经按上述职责实际执行，而不是继续审计旧资产：

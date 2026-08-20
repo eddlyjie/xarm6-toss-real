@@ -15,6 +15,7 @@ from xarm6_toss.flight import (
     continuous_free_flight_evidence,
     cube_ground_clearance_m,
     flight_time_to_height,
+    g1_release_response,
     make_flight_state,
     nominal_object_twist,
     propagate_cube,
@@ -86,6 +87,38 @@ class FlightPhysicsTests(unittest.TestCase):
             0.027 - 0.5 * size_m * math.sqrt(2.0),
         )
         self.assertLess(tilted_clearance, identity_clearance)
+
+    def test_g1_release_response_uses_opening_direction(self):
+        triggered, drive_progress, opening_effort = g1_release_response(
+            held_drive_rad=0.5455,
+            open_target_rad=0.39,
+            current_drive_rad=0.5454,
+            current_effort_nm=-0.25,
+            drive_delta_threshold_rad=0.001,
+            opening_effort_threshold_nm=0.05,
+        )
+        self.assertTrue(triggered)
+        self.assertAlmostEqual(drive_progress, 0.0001)
+        self.assertAlmostEqual(opening_effort, 0.25)
+
+        triggered, drive_progress, opening_effort = g1_release_response(
+            held_drive_rad=0.5455,
+            open_target_rad=0.39,
+            current_drive_rad=0.5440,
+            current_effort_nm=0.25,
+            drive_delta_threshold_rad=0.001,
+            opening_effort_threshold_nm=0.05,
+        )
+        self.assertTrue(triggered)
+        self.assertGreaterEqual(drive_progress, 0.001)
+        self.assertLess(opening_effort, 0.0)
+
+        triggered, _, _ = g1_release_response(
+            0.5455, 0.39, 0.5455, 0.25,
+            drive_delta_threshold_rad=0.001,
+            opening_effort_threshold_nm=0.05,
+        )
+        self.assertFalse(triggered)
 
 
     def test_obvious_free_flight_requires_apex_and_descending_contact(self):

@@ -41,10 +41,20 @@ def main() -> int:
                 ],
             }
         )
-    events = [
-        {**event, "time_s": event["time_s"] / scale}
-        for event in source["g1_events"]
-    ]
+    events = []
+    for event in source["g1_events"]:
+        nominal_time_s = event.get("time_s", event.get("nominal_time_s"))
+        if nominal_time_s is None:
+            raise ValueError("G1 event requires time_s or nominal_time_s")
+        scaled = {**event, "time_s": nominal_time_s / scale}
+        if "time_from_observed_detach_s" in event:
+            scaled["time_from_observed_detach_s"] = (
+                event["time_from_observed_detach_s"] / scale
+            )
+            scaled["trigger"] = "observed_detach_relative"
+        else:
+            scaled["trigger"] = "absolute_timeline"
+        events.append(scaled)
     qd = np.asarray([sample["joint_velocity_rad_s"] for sample in samples])
     qdd = np.asarray(
         [sample["joint_acceleration_rad_s2"] for sample in samples]
