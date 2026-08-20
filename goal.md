@@ -20,7 +20,11 @@
 ~~~
 
 主目标是“真实离手 + 前向 pose change + 稳定 recapture”，不是夹爪原地开闭，也不再要求
-明显高抛、内部 apex 和 ≥12° flight-only tumble 同时成立。大幅 ballistic toss 保留为 stretch goal。
+明显高抛、内部 apex 和大角度 flight-only tumble 必须一次同时成立。但是新 J4/J5 branch 已把
+J5 从旧负下限附近释放到 +82.5°、保留约 97.5° 正向行程，因此本轮必须认真尝试扩大前向旋转，
+不能只停在当前 2.13° stable baseline。开发分成两个结果：先用 throw-only 证明 12–30° 前翻能力，
+再把能量收回到可稳定接取的 5–20° dynamic regrasp。只有同一 trial 同时旋转并接住时，才能称
+large-rotation regrasp；两个分支的结果不得混写。
 
 ## 当前证据与判断
 
@@ -45,7 +49,8 @@
 ### J4 静态换 branch
 
 当前 stable reference 的 J4 接近 0，J5 工作在负下限附近。新分支不再靠 J6 单独“反腕”，而是
-搜索 J4 的腕部等价换边：
+搜索 J4 的腕部等价换边。按真机界面和用户现场观察，J4 负责左右/换边；它只用于到达蓄势姿势，
+release flick 全程 qdot4≈0，不参与 cube 前翻。正前翻与上抛只由 J2/J3/J5 的协调速度产生：
 
 ~~~text
 J4 candidate: ±140°、±150°、±160°
@@ -90,6 +95,11 @@ J5 是本轮主要动态自由度。J4 branch 冻结后，用 angular Jacobian �
 - TCP 仍向上/外侧，不朝 base；
 - brake 后 J5 有足够反向行程；
 - 不利用 joint clipping 生成 flick。
+
+新 branch 的目的就是使用更大的 J5 正向可用行程。先以 detach target angular velocity
+0.8、1.2、1.6 rad/s 做三个 reference-level 候选；若 1× velocity/acceleration envelope 允许，
+再增加一个不超过 1.74483445 rad/s 的上界候选。J5 angle range 只是可达域，实际 qdot/qddot 仍必须
+受真机门槛限制。
 
 ### J6、wrist camera 与真机观测
 
@@ -157,6 +167,22 @@ a_forward = normalize(d_finger × z_world)
 
 目标是 contact-free 0.06–0.15 s、10–30 mm separation，而不是先追求最高 apex。
 
+### Phase B2：J5 rotation expansion
+
+在同一 J4/J6 静态 pose 上，只让 J2/J3/J5 参与动态 reference：
+
+1. J2/J3 提供主要 upward/outward TCP velocity；
+2. J5 正向加速，同时贡献 upward velocity 与 a_forward angular velocity；
+3. physical detach 后三关节按 1× acceleration envelope brake；
+4. cube 落入软垫，先不加入 catch controller。
+
+throw-only 依次验证 8°、12°、20° 三档 flight-only signed forward rotation。每一档必须保存
+detach omega、axis alignment、all-link contact-free interval 和落点；若某档破坏 axis alignment、
+工作区或机械门槛，不继续提高能量。
+
+得到至少 12° 的机械合规 throw-only 后，才加入局部 recapture。recapture 版本从较低能量回退，
+先要求 ≥5° flight-only forward rotation，目标 10–20°。不得靠延迟 close 细扫代替 reference 设计。
+
 ### Phase C：brake/retract 与局部 recapture
 
 physical detach 后使用预先规划的 20–100 ms brake/retract，使 hand 不再与 cube 等速上升，
@@ -214,7 +240,7 @@ physical detach delay         25–44 ms
 - continuous contact-free ≥0.060 s；
 - hand-relative separation ≥10 mm；
 - detach omega 与 a_forward alignment ≥0.75；
-- contact-free signed forward rotation ≥4°；
+- contact-free signed forward rotation ≥5°，目标 10–20°；
 - pre-grasp 到 stable post-catch orientation change ≥5°；
 - bilateral stable hold ≥0.5 s，catch_stable=true；
 - actual-detach adaptation 与 Probe/J selection 都真实改变 command；
@@ -240,15 +266,18 @@ physical detach delay         25–44 ms
 主任务完成后才尝试：
 
 - all-link contact-free ≥0.12 s；
-- separation ≥25 mm；
+- separation ≥25 mm，目标 30–60 mm；
 - internal apex 与下降段首次 recontact；
 - forward-axis alignment ≥0.85；
-- detach→apex flight-only rotation ≥5°；
-- 整段 flight-only signed forward rotation ≥12°；
+- detach→apex flight-only rotation ≥8°；
+- 整段 flight-only signed forward rotation ≥15°，目标 20–30°；
 - bilateral stable catch ≥0.5 s。
 
 stretch 失败不影响主任务完成。继续 stretch 时优先扩大 reference-level brake/retract 可达域或修改
 finger capture geometry，不再围绕 close time 做 sweep。
+
+另设独立的 throw-only rotation capability gate：在不要求 recatch 时，至少一条机械合规 reference
+达到 ≥12° flight-only forward rotation；目标 20–30°。该结果不能冒充 stretch catch success。
 
 ## 开发顺序
 
@@ -256,12 +285,13 @@ finger capture geometry，不再围绕 close time 做 sweep。
 2. 明确 wrist camera/mount/cable 是完整拆除还是仍留在机械臂上；据此建立真实附件碰撞模型。
 3. 从用户 seed 搜索 J4 约 160–170° 邻域及必要的另一符号解，以 J5 正值工作区为核心目标。
 4. 在最佳 J4/J5/J6 pose 上先复现 stable throw/catch baseline。
-5. 只生成 3 个 J5-dominant 中等能量 brake/retract + forward angular candidates，先跑 throw-only。
-6. 选择满足 0.06–0.15 s flight、10–30 mm separation 和 ≥4° forward rotation 的候选。
-7. 写入 capture-center recapture reference，恢复 bilateral stable catch。
-8. 接入 actual-detach adaptation 与 Probe/J；camera 只用于 evaluation。
-9. 冻结参数跑 5 seeds并生成 spectator/third-view evaluation 视频。
-10. 真机按 empty 0.25×→0.5×→1×→throw-only 软垫→3–5 次 regrasp 执行。
+5. 固定 J4/J6，只生成 J2/J3/J5 的 0.8、1.2、1.6 rad/s rotation candidates。
+6. throw-only 逐级验证 8°、12°、20°，至少保留一条 ≥12° 的机械合规 reference。
+7. 从合规 throw-only 回退能量，选择 0.06–0.15 s flight、10–30 mm separation 和 ≥5° rotation 候选。
+8. 写入 capture-center recapture reference，恢复 bilateral stable catch，目标 rotation 10–20°。
+9. 接入 actual-detach adaptation 与 Probe/J；camera 只用于 evaluation。
+10. 冻结参数跑 5 seeds并生成 spectator/third-view evaluation 视频。
+11. 真机按 empty 0.25×→0.5×→1×→throw-only 软垫→3–5 次 regrasp 执行。
 
 ## 每次 trial 输出
 
@@ -284,8 +314,9 @@ finger capture geometry，不再围绕 close time 做 sweep。
 1. J4 换 branch、J5 正值工作区和 J6 camera-under geometry 通过连续 joint/collision/attachment gate；
 2. sim 冻结配置达到主任务 3/5 success；
 3. contact loss、forward rotation、closed-loop action change 和 stable recapture均有直接证据；
-4. GitHub fresh clone 包含真实 runner、配置、文档和复现命令；
-5. 真机至少 2 次达到 dynamic regrasp 主门槛。
+4. 至少一条独立 throw-only reference 达到 ≥12° flight-only forward rotation，并明确不冒充 recatch；
+5. GitHub fresh clone 包含真实 runner、配置、文档和复现命令；
+6. 真机至少 2 次达到 dynamic regrasp 主门槛。
 
 只完成 sim 时标记 sim_validated_real_unverified；真机只跑固定 timing 时标记
 real_open_loop_baseline。
