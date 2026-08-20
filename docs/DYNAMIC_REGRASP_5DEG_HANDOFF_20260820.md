@@ -12,6 +12,14 @@ all-link contact loss、前向旋转和同一 G1 双侧重新抓稳：
 | v46 | proprioceptive G1 observer | no | 0.173 s | 5.039° | yes |
 | v47 | proprioceptive G1 observer | yes | 0.173 s | 5.055° | yes |
 
+2026-08-21 又以冻结 v47 配置启动五个独立 Isaac native process，结果为 5/5 success：每次均为
+0.173 s strict flight、15.48 mm hand-relative separation、0.984 axis alignment、5.055° flight-only
+forward rotation、bilateral fraction=1.0 和 stable catch。由逐帧 `T_hand_object` 计算，抓前到稳定
+接后的 orientation change 为 8.816°，最后 0.5 s 的相对姿态波动最大 0.008°。五次只改变录像相机
+dropout seed；`camera_seed_affects_control=false`，因此这是 nominal process repeatability，不是物理
+随机化 robustness。结构化结果见
+`docs/media/j5_forward_rotation/dynamic_regrasp_5p05deg_proprio_probe_j/frozen_validation_5run.json`。
+
 v47 的 Probe gate 通过，J 选择 `dynamic_5deg_g1_observer`（0.6799），没有选择
 `stable_1p4deg_fallback`（0.8450）。G1 observer 在 0.615 s 冻结 actual q/dq + FK release
 state，与 evaluation-only physical detach 同刻。controller 没有读取 cube pose、contact truth 或 camera。

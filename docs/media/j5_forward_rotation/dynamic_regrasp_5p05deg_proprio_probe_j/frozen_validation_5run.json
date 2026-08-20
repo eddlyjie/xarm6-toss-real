@@ -1,0 +1,63 @@
+{
+  "schema": "xarm6_v47_frozen_validation_v1",
+  "date": "2026-08-21",
+  "status": "sim_validated_real_unverified",
+  "validation_type": "independent_native_process_repeat",
+  "physics_randomization_enabled": false,
+  "observation_mode": "proprioceptive",
+  "camera_seed_affects_control": false,
+  "frozen_inputs": {
+    "arm_config": "sim/configs/j5_forward_rotation_throwonly_1p6.json",
+    "probe_j_config": "sim/configs/probe_j_j5_dynamic_regrasp_v2.json",
+    "runner": "sim/scripts/15_run_j5_probe_j_regrasp.sh"
+  },
+  "source_output_root": "outputs/j5_forward_rotation/v47_frozen_validation_20260821",
+  "trial_ids": [
+    "repeat_202608211",
+    "repeat_202608212",
+    "repeat_202608213",
+    "repeat_202608214",
+    "repeat_202608215"
+  ],
+  "camera_seeds": [
+    202608211,
+    202608212,
+    202608213,
+    202608214,
+    202608215
+  ],
+  "success_count": 5,
+  "trial_count": 5,
+  "all_repeat_metrics": {
+    "strict_contact_free_flight": true,
+    "continuous_free_flight_s": 0.17300000000000015,
+    "continuous_free_flight_max_separation_mm": 15.483545176455001,
+    "forward_axis_alignment": 0.9837865259449926,
+    "flight_only_signed_forward_rotation_deg": 5.055290292217609,
+    "pre_post_hand_object_orientation_change_deg": 8.816139373733424,
+    "post_hold_orientation_spread_max_deg": 0.0075046721002343985,
+    "bilateral_contact_fraction": 1.0,
+    "catch_stable": true,
+    "probe_gate_passed": true,
+    "probe_used_for_control": true,
+    "j_used_for_control": true,
+    "selected_candidate": "dynamic_5deg_g1_observer",
+    "reference_joint_mechanical_limits_pass": true,
+    "detach_state_source": "g1_release_response",
+    "detach_observer_error_ms": 0.0
+  },
+  "pre_post_measurement": {
+    "object_pose_field": "cube_quaternion_wxyz",
+    "hand_pose_field": "hand_quaternion_wxyz",
+    "relative_orientation": "q_HO = conjugate(q_WH) * q_WO",
+    "pre_sample": "last settle sample",
+    "post_sample": "final sample after the 0.5 s bilateral evidence window",
+    "post_stability_check": "maximum q_HO angular distance over the final 0.5 s"
+  },
+  "interpretation": [
+    "All five repeats satisfy the v4 sim main-task thresholds.",
+    "Identical metrics are expected because physics and proprioceptive control are frozen and deterministic.",
+    "The varied seed affects record-only camera dropout and does not provide dynamics robustness evidence.",
+    "Real hardware has not yet executed this v47 controller."
+  ]
+}

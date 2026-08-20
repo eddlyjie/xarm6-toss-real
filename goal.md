@@ -1,6 +1,6 @@
 # xArm6 forward-rotation release-mediated regrasp v4
 
-更新日期：2026-08-20
+更新日期：2026-08-21
 
 > 本节是当前唯一生效的 goal。下方 v3 内容仅作历史证据，不再作为本轮完成条件。
 
@@ -41,9 +41,18 @@ trial 拼接成结果：
 - J4=165°、J6=−1.5° 保持静态，J2/J3/J5 reference peak 0.906 rad/s、8.929 rad/s²，
   joint mechanical limits 通过；
 - wrist camera/mount/cable 按 camera-removed 分支处理；spectator/third-view 只录像，未进入 policy。
+- 2026-08-21 冻结 v47 配置的五次独立 native process repeat 达到 5/5 success：strict flight
+  0.173 s、separation 15.48 mm、axis alignment 0.984、flight-only forward rotation 5.055°、
+  pre/post hand-object orientation change 8.816°、bilateral fraction=1.0、stable catch；最后 0.5 s
+  相对姿态波动最大 0.008°。五次只改变 record-only camera seed，camera 不进入控制，因此该结果
+  证明 nominal repeatability，不宣称物理随机化 robustness。
 
-下一步不再提高 sim 旋转角度。本 goal 剩余工作是把 v47 的 arm reference、G1 two-stage close、
-Probe/J 和 G1 detach observer 原样移交真机，先做空载/软垫 throw-only，再做最多 2–3 次 cube
+v47 真机 handoff 分支从此冻结，不再为追角度修改其 arm reference。根据 2026-08-21 用户对
+“全臂甩动 + J5 手腕甩动仍有明显余量”的判断，允许另开不覆盖 v47 的 rotation-expansion 分支：
+先在同一 1× 真机 envelope 内让 J2/J3 提供 upward/outward 速度、J5 在 physical detach 保持前翻
+速度峰值，并在 detach 后立即 brake/retract，目标是把已达 9.599° 的 throw-only 推过 12°；随后
+回退能量尝试 8–10° stable recatch。无论该分支结果如何，v47 的 arm reference、G1 two-stage close、
+Probe/J 和 G1 detach observer 继续原样移交真机，先做空载/软垫 throw-only，再做最多 2–3 次 cube
 recatch。sim `.48/.65 rad` 不是 G1 真机位置；真机映射为约 `441/370`，最终以 G1 actual position
 标定为准。可执行入口为 `scripts/22_run_j5_dynamic_regrasp.py`，标定入口为真机包内更新后的
 `real_cube_demo/scripts/10_measure_detach.py`。

@@ -6,8 +6,10 @@
 `dynamic_5deg_g1_observer`，controller 只用 actual q/dq、FK、G1 actual position 与
 camera-calibrated detach-position threshold，不读取 cube physics truth，也不需要 runtime camera
 控制。真机包没有已验证的 G1 motor-current API，因此不再把 motor current 写成真机触发条件。
-同一 trial 达到 0.173 s strict all-link free flight、5.055° 前翻和稳定双侧接取；重复的
-`v46` 为 5.039°，两次 joint limits 均通过。
+冻结 v47 配置的五次独立 native process repeat 均达到 0.173 s strict all-link free flight、
+15.48 mm separation、5.055° 前翻和稳定双侧接取；抓前到稳定接后的 hand-object orientation
+change 为 8.816°，最后 0.5 s 相对姿态波动不超过 0.008°。五次只改变 record-only camera
+seed，camera 不进入控制，因此这是冻结 nominal repeatability，不冒充物理随机化 robustness。
 真机入口是 `scripts/22_run_j5_dynamic_regrasp.py`；默认只打印 plan，不连接机械臂。
 
 先看 Git 内慢放与 third-view：
