@@ -11,7 +11,7 @@
 ~~~text
 固定抓取
 → Probe 判断 held/slip 与动力学不确定度
-→ J4 静态换到外翻 wrist branch，J6 使 wrist camera 朝下
+→ J4 静态换到外翻 wrist branch，J6 将 camera housing/cable 转到腕部下侧
 → 上抛并产生真实 contact loss
 → cube 在离手段产生可测的前向小角度旋转
 → actual detach q/dq + ballistic prior 预测短时轨迹
@@ -50,7 +50,7 @@
 ~~~text
 J4 candidate: ±140°、±150°、±160°
 目标 J5 工作区: 从负下限附近移到正值且保留足够 flick/brake margin
-J6: 在保持 finger/catch geometry 后，使 wrist camera optical axis 朝下
+J6: 在保持 finger/catch geometry 后，将 camera housing/cable 转到腕部下侧
 ~~~
 
 不能简单把 J4 加 π 后直接执行。J4、J5、J6 构成耦合 wrist orientation，必须以 FK/IK 保持
@@ -58,6 +58,24 @@ TCP 位置、finger direction 和外侧工作区，再由连续 joint/collision 
 
 优先目标是让整条 throw/brake/regrasp 轨迹的 J4/J5/J6 minimum margin ≥0.25 rad；最低不得
 低于 0.15 rad。若 ±160° 逼近 J4 hard limit，则使用 ±140° 或 ±150°，不强求视觉上的整 180°。
+
+用户给出的真机观察 pose 是权威 IK seed：
+
+~~~text
+degrees = [3.5, 9.8, -25.7, 175.4, 82.5, -1.5]
+radians = [0.06109, 0.17104, -0.44855, 3.06178, 1.43990, -0.02618]
+~~~
+
+URDF FK/Jacobian 检查得到：
+
+- pose 全部位于 hard bounds 内；
+- J5 对 TCP 上升的 gain 约 +0.277 m/rad，对 a_forward 的 angular gain 约 +1.00；
+- J5 到 upper limit 仍有 97.5°，明显优于旧负 J5 branch；
+- TCP 约为 [0.544, 0.054, 0.194] m；
+- J4=175.4° 距 upper hard limit 只剩约 4.5°/0.079 rad，不满足 0.15 rad handoff margin。
+
+因此该 pose 用作 branch seed，不直接作为动态真机命令。第一候选先把 J4 收到约 165°，再由
+J5/J6 和必要的 J2/J3 IK 补偿 TCP/finger orientation；165° 约有 0.26 rad J4 margin，达到目标。
 
 ### J5-dominant forward flick
 
@@ -73,19 +91,22 @@ J5 是本轮主要动态自由度。J4 branch 冻结后，用 angular Jacobian �
 - brake 后 J5 有足够反向行程；
 - 不利用 joint clipping 生成 flick。
 
-### J6 与 wrist camera
+### J6、wrist camera 与真机观测
 
-J6 的任务是让 wrist camera 朝下并保持 finger opening 方向，不承担主要抛掷角速度。使用
-configs/wrist_camera_real.json 的 T_link_eef_camera 和当前 FK 判断 optical axis，而不是用 J6
-正负号猜测。
+J6 的任务是把 camera housing/cable 放到腕部下侧并保持 finger opening 方向，不承担主要抛掷
+角速度。“housing 在下侧”和“optical axis 朝地”不是同一个条件：D435 optical axis 基本沿 tool
+方向，J6 只能让偏置安装的相机绕 tool axis 换侧。
 
-wrist camera 对本轮控制是可选的：
+对用户 seed pose，J6=-1.5° 时 camera center 在 link5 frame 的局部 z 约为 -36.8 mm，world-Z
+比 link5 origin 低约 128 mm，支持“相机实体位于下侧”的现场观察。
 
-- global/third-view 是 release、飞行、pose marker 和验收的主相机；
-- wrist camera 可以不接入 policy，只保留抓取前或接住后的局部录像；
+本轮真机主 policy 不使用 camera：
+
+- wrist camera 不进入 grasp、release 或 catch controller；固定 grasp point hard-code；
+- 若允许，优先将 wrist camera、mount 和 cable 一起拆除；
 - 若相机、housing 和 cable仍装在真机上，仿真必须保留其 collision proxy；
-- 若整个 wrist camera/mount/cable 都拆除，才可以从碰撞模型中移除；
-- 固定 cube 的 grasp point 允许 hard-code，不依赖 wrist vision。
+- global/third-view 仅用于离线 contact-loss、pose change 和成功录像，不进入主 command；
+- sim 可保留 optional camera-residual ablation，但不能把它当作真机完成条件。
 
 ## 前向旋转定义
 
@@ -109,10 +130,10 @@ a_forward = normalize(d_finger × z_world)
 
 ## 动作设计
 
-### Phase A：J4 换 branch + J6 camera-down IK
+### Phase A：J4 换 branch + J6 camera-under geometry
 
 从真实 start/release TCP 附近，对 J4 ±140°、±150°、±160° 做受约束 IK。J5 优先选择正值且
-保留 flick/brake margin 的解；J6 再用于保持 finger direction 并让 camera optical axis 朝下。
+保留 flick/brake margin 的解；J6 再用于保持 finger direction 并让已安装的 housing/cable 位于下侧。
 
 每个候选沿 start、release、detach、brake、regrasp、hold 全轨迹验证：
 
@@ -122,7 +143,7 @@ a_forward = normalize(d_finger × z_world)
 - G1、link4–6、cube 和仍保留的 camera housing/cable 无碰撞；
 - J5 对 a_forward 的 angular Jacobian contribution 足够且符号正确。
 
-先保存静态 spectator、camera optical axis 和 link-frame 数值，再运行带 cube physics。
+先保存静态 spectator、camera center/housing 的 link-frame 数值，再运行带 cube physics。
 
 ### Phase B：中等能量 release
 
@@ -157,13 +178,13 @@ forward_pose_change_recapture
 
 selected candidate 必须改变 arm reference、close timing 或 correction bound，不能只写日志。
 
-运行时至少满足两项：
+真机主闭环必须同时满足：
 
 1. actual q/dq + physical detach estimate 改变 intercept/close schedule；
 2. Probe posterior 改变 J selection；
-3. timestamped third-view observation 改变 bounded catch target。
 
-sim-trained J/residual 在真机前冻结，不用 2–3 次真机成功做在线训练。
+timestamped third-view correction 仅作为 optional sim/real ablation，不属于主链。sim-trained J/residual
+在真机前冻结，不用 2–3 次真机成功做在线训练。
 
 ## 真机约束
 
@@ -196,9 +217,9 @@ physical detach delay         25–44 ms
 - contact-free signed forward rotation ≥4°；
 - pre-grasp 到 stable post-catch orientation change ≥5°；
 - bilateral stable hold ≥0.5 s，catch_stable=true；
-- 至少两项 runtime closed-loop 条件真实改变 command；
+- actual-detach adaptation 与 Probe/J selection 都真实改变 command；
 - 通过 1× 真机 joint、collision 和 clearance gate；
-- spectator 与 third-view 视频能辨认 contact loss 和 forward pose change。
+- spectator/third-view evaluation 视频能辨认 contact loss 和 forward pose change。
 
 不要求 internal apex，也不要求首次接触一定发生在下降段。
 
@@ -210,7 +231,7 @@ physical detach delay         25–44 ms
 - 带不对称角标的 cube 显示 pre/post orientation change ≥5°；
 - 同一 G1 recapture 并稳定保持 ≥0.5 s；
 - 无 C60、20 ms overrun、joint/collision violation；
-- actual-detach adaptation、Probe/J selection 或 third-view correction 至少一项进入真实 command。
+- actual-detach adaptation 与 Probe/J selection 至少一项进入真实 command。
 
 若最后一项没有实现，只能称 real open-loop dynamic regrasp baseline。
 
@@ -232,14 +253,14 @@ finger capture geometry，不再围绕 close time 做 sweep。
 ## 开发顺序
 
 1. 从真机电脑回传实际执行过的 scripts/22_run_empty_handoff.py，使 fresh clone 可执行。
-2. 明确 wrist camera 是完整拆除、仅断开数据，还是保留使用；据此建立真实附件碰撞模型。
-3. 搜索 J4 ±140° 到 ±160° 等价 branch，以 J5 正值工作区和 J6 camera-down 为选择目标。
+2. 明确 wrist camera/mount/cable 是完整拆除还是仍留在机械臂上；据此建立真实附件碰撞模型。
+3. 从用户 seed 搜索 J4 约 160–170° 邻域及必要的另一符号解，以 J5 正值工作区为核心目标。
 4. 在最佳 J4/J5/J6 pose 上先复现 stable throw/catch baseline。
 5. 只生成 3 个 J5-dominant 中等能量 brake/retract + forward angular candidates，先跑 throw-only。
 6. 选择满足 0.06–0.15 s flight、10–30 mm separation 和 ≥4° forward rotation 的候选。
 7. 写入 capture-center recapture reference，恢复 bilateral stable catch。
-8. 接入 actual-detach adaptation 与 Probe/J，再加 optional third-view bounded residual。
-9. 冻结参数跑 5 seeds并生成 spectator/third-view 视频。
+8. 接入 actual-detach adaptation 与 Probe/J；camera 只用于 evaluation。
+9. 冻结参数跑 5 seeds并生成 spectator/third-view evaluation 视频。
 10. 真机按 empty 0.25×→0.5×→1×→throw-only 软垫→3–5 次 regrasp 执行。
 
 ## 每次 trial 输出
@@ -250,9 +271,9 @@ finger capture geometry，不再围绕 close time 做 sweep。
 - cube pose/quaternion、linear/angular velocity；
 - forward flight-only rotation、非目标 rotation、pre/post hand-object pose change；
 - Probe posterior、J scores、selected candidate；
-- ballistic prediction、camera residual、实际 command delta；
+- ballistic prediction、实际 command delta，以及 optional camera ablation residual；
 - joint/Cartesian limits、collision 与附件 clearance；
-- spectator、third-view 视频和 failure stage。
+- spectator、third-view evaluation 视频和 failure stage。
 
 不新增 hash、seal、sidecar 或发布审计流程。
 
@@ -260,7 +281,7 @@ finger capture geometry，不再围绕 close time 做 sweep。
 
 本轮 goal 只在以下条件同时成立时完成：
 
-1. J4 换 branch、J5 正值工作区和 J6 camera-down 解通过连续 joint/collision/attachment-clearance gate；
+1. J4 换 branch、J5 正值工作区和 J6 camera-under geometry 通过连续 joint/collision/attachment gate；
 2. sim 冻结配置达到主任务 3/5 success；
 3. contact loss、forward rotation、closed-loop action change 和 stable recapture均有直接证据；
 4. GitHub fresh clone 包含真实 runner、配置、文档和复现命令；
