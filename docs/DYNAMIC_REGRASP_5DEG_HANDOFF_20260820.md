@@ -130,6 +130,8 @@ offset 或 ballistic intercept，不提高 arm reference。
 - Probe posterior、J ranking、selected candidate；
 - third-view 原始视频与人工标签：detach、明显 pose change、left/right/bilateral contact、stable hold；
 - controller error code 与 measured arm tracking delay。
+timeline 中途出现 C60/SDK error 时，runner 先 stop，并仍保存已发送 command 对应的 partial
+`signals.csv`、`summary.json` 与录像，然后以非零状态退出。
 
 ## 仿真复现
 

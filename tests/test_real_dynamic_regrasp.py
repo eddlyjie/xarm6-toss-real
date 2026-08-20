@@ -192,13 +192,14 @@ def test_real_runner_executes_detach_relative_sequence_without_hardware():
             self.now += max(0.0, duration_s)
 
     class FakeRobot:
-        def __init__(self, initial_q):
+        def __init__(self, initial_q, fail_after_arm_commands=None):
             self.q = np.asarray(initial_q, dtype=float)
             self.gripper = 370.0
             self.gripper_commands = []
             self.arm_commands = []
             self.position_mode_entered = False
             self.gripper_reads = 0
+            self.fail_after_arm_commands = fail_after_arm_commands
 
         def reported_joint_signals(self):
             return {
@@ -224,6 +225,10 @@ def test_real_runner_executes_detach_relative_sequence_without_hardware():
             return self.gripper
 
         def servo_j(self, joint_rad):
+            if len(self.arm_commands) == self.fail_after_arm_commands:
+                raise RuntimeError(
+                    "C60: Linear speed exceeded limit in servo_j mode"
+                )
             self.q = np.asarray(joint_rad, dtype=float)
             self.arm_commands.append(self.q.copy())
 
@@ -267,6 +272,7 @@ def test_real_runner_executes_detach_relative_sequence_without_hardware():
 
     assert robot.gripper_commands == [520.0, 441.0, 370.0]
     assert len(robot.arm_commands) == len(samples) == len(records)
+    assert execution["error"] is None
     assert robot.position_mode_entered is True
     assert execution["detach_event"]["source"] == "calibrated_g1_position"
     assert execution["detach_event"]["time_s"] >= (
@@ -278,6 +284,28 @@ def test_real_runner_executes_detach_relative_sequence_without_hardware():
     assert execution["first_catch_update"] is not None
     assert any(record["catch_active"] for record in records)
     assert execution["timing"]["maximum_control_period_s"] <= 0.0200001
+
+    failed_robot = FakeRobot(
+        samples[0]["joint_position_rad"], fail_after_arm_commands=34
+    )
+    runner.time = FakeClock()
+    partial_records, failed_execution = runner.execute_timeline(
+        failed_robot,
+        samples,
+        selected,
+        controller,
+        FakeKinematics(),
+        speed_scale=1.0,
+        operate_g1=True,
+        enable_catch=True,
+    )
+
+    assert len(partial_records) == 34
+    assert failed_execution["error"] == {
+        "type": "RuntimeError",
+        "message": "C60: Linear speed exceeded limit in servo_j mode",
+    }
+    assert failed_robot.position_mode_entered is True
 
 
 def test_plan_payload_uses_the_supplied_controller_config():

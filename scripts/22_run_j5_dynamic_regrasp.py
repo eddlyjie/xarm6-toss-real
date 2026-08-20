@@ -261,6 +261,7 @@ def execute_timeline(
     pending_event_label = ""
 
     robot.enter_servo_mode()
+    execution_error = None
     start_host_s = time.monotonic()
     try:
         for sample in samples:
@@ -412,6 +413,11 @@ def execute_timeline(
             )
             pending_event_label = ""
         time.sleep(0.5 if enable_catch else 0.08)
+    except Exception as error:
+        execution_error = {
+            "type": type(error).__name__,
+            "message": str(error),
+        }
     finally:
         robot.enter_position_mode()
 
@@ -421,7 +427,13 @@ def execute_timeline(
         "mean_control_period_s": None if not periods.size else float(np.mean(periods)),
         "maximum_control_period_s": None if not periods.size else float(np.max(periods)),
         "maximum_servo_lateness_s": float(
-            np.max(record_times - [sample["time_s"] for sample in samples])
+            np.max(
+                record_times
+                - [
+                    sample["time_s"]
+                    for sample in samples[: len(records)]
+                ]
+            )
         ),
         "g1_read_count": len(g1_read_durations),
         "mean_g1_read_duration_s": (
@@ -437,6 +449,7 @@ def execute_timeline(
     }
     return records, {
         "trajectory_start_host_s": start_host_s,
+        "error": execution_error,
         "timing": timing,
         "g1_events": g1_events,
         "detach_event": None if detach_event is None else detach_event.as_dict(),
@@ -575,6 +588,8 @@ def main() -> int:
                     operate_g1=operate_g1,
                     enable_catch=enable_catch,
                 )
+                if execution["error"] is not None:
+                    robot.stop()
             finally:
                 if camera_recorder is not None:
                     camera_recorder.stop()
@@ -591,6 +606,7 @@ def main() -> int:
         )
     summary = {
         **payload,
+        "status": "failed" if execution["error"] is not None else "completed",
         "robot_commands_sent": len(records),
         "condition": condition,
         "robot_setup": robot_setup,
@@ -603,6 +619,11 @@ def main() -> int:
         json.dumps(summary, indent=2) + "\n", encoding="utf-8"
     )
     print(f"saved dynamic-regrasp run: {output_dir}")
+    if execution["error"] is not None:
+        raise RuntimeError(
+            f"timeline failed with {execution['error']['type']}; "
+            f"partial log saved at {output_dir}"
+        )
     return 0
 
 
