@@ -1,8 +1,133 @@
+# xArm6 stock-G1 0/20/30/40° ballistic stable regrasp v6
+
+更新日期：2026-08-21
+
+> 本节是当前唯一生效的 goal。真机硬件条件冻结为现有 xArm6、原装 G1 双橡胶软垫和当前相机安装状态；不增加 insert、roller、flipper、低摩擦覆盖层或其他机械改装。下方 v5/v4/v3 只作历史证据。
+
+## 最终交付
+
+针对同一只约 35–40 mm 的轻量规则 3D 打印 cube，建立原装 G1 条件下可控的前翻 dynamic regrasp：
+
+~~~text
+固定抓取 + Probe posterior + requested rotation
+→ target-conditioned J 选择 throw/release/brake/catch action
+→ J4/J6 保持静态，J2/J3/J5 协调上抛和前翻
+→ G1 actual position + actual q/dq 判断真实离手
+→ Detach model 预测真实 Δt/Δv/Δω
+→ 传播 cube 平移弹道与 torque-free orientation
+→ 根据目标角度选择下降段 intercept 和 G1 close lead
+→ 同一原装 G1 双侧重新抓稳并保持 ≥0.5 s
+~~~
+
+paper-facing target family 改为 `0° / 20° / 30° / 40°`。每个 target 必须在同一 trial 中同时完成真实离手、目标轴旋转、同手 recapture 和稳定保持。throw-only 只允许作为一次软垫 commissioning/诊断，不计入任何 target 的成功结果，也不能替代 stable regrasp。
+
+## 固定硬件与真机约束
+
+- Robot：现有 UFACTORY xArm6；控制周期 20 ms；约 80 ms tracking lag。
+- Gripper：原装 G1、原装双橡胶软垫，`370→520→370`、speed 5000；首次运动约 22.64 ms，完整行程约 102.79 ms，physical detach delay 约 25–44 ms。
+- Cube：边长约 35–40 mm、轻量低填充 3D 打印件；固定抓点允许硬编码。
+- Grasp action：允许在不改变硬件的前提下沿非 closing-axis 方向使用约 4–6 mm 可重复 offset；closing-axis offset 若被 G1 自动居中，不作为方法变量。
+- Wrist branch：J4 保持约 165°静态反腕 branch，J6 保持约 −1.5°静态；J2/J3/J5 提供 upward/outward velocity 与 forward rotation。
+- Camera：global/third-view 用于录像、离线角度和真机结果标注；wrist camera 按真机当前安装状态建模并做碰撞检查。camera 不进入高速主 policy。
+- 禁止要求真机更换软垫、增加 release insert、改变夹爪结构或超过机械臂现有限制。
+
+~~~text
+max joint speed               1.74483445 rad/s
+max joint acceleration        13.0573925 rad/s²
+max joint step                0.0348967 rad
+max qdot change/command       0.261148 rad/s
+minimum joint margin          0.15 rad，目标 ≥0.25 rad
+linear speed limit factor     1.6
+~~~
+
+任何 reference sample 超过 joint、Cartesian、effort、self-collision、camera/cable clearance gate 都失败；不得依赖 clipping、sim-only object-state write 或理想瞬时开爪形成结果。
+
+## 当前证据边界
+
+- `v47`：标准 G1、同一 trial，strict flight 0.173 s、signed forward rotation 5.055°、axis alignment 0.984、双侧稳定接回；冻结 nominal repeat 为 5/5。这是当前最大稳定旋转 baseline。
+- `v62_r90_two_stage_055`：标准 G1、无 insert，strict flight 0.394 s、signed forward rotation 11.530°、axis alignment 0.974；没有 catch，只证明高能量 reference 能产生更长飞行和更大角度。
+- 真机 `0.636/0.720 s` baseline：操作者确认同夹爪 recatch，视觉上接近 rapid release–recatch，尚无可靠旋转角度和 learned closed-loop 证据。
+- 上述结果必须分别报告。当前尚无 `>5.055° + same-trial stable recatch` 结果。
+
+## 物理先验与最小闭环
+
+规则 cube 在短时无接触飞行中的控制先验为：
+
+~~~text
+p(t) = p_detach + v_detach t + 0.5 g t²
+R(t) = R_detach Exp([ω_detach]× t)
+~~~
+
+规则 cube 的三个主惯量接近，短飞行内 `ω_detach` 可近似常量。重力平移与质量无关；低填充造成的惯量、摩擦和释放差异进入 Probe posterior 与 Detach residual，无需把质量当作精确已知先验。
+
+真实离手时：
+
+1. 根据 G1 actual position threshold 或 measured-delay fallback 得到 `t_detach`；
+2. 冻结 actual arm `q/dq`，用 xArm6 FK/Jacobian 和固定 `T_hand_cube` 得到 rigid-grasp release prior；
+3. Detach model 预测标准 G1 橡胶接触造成的 `[Δt, Δp, ΔR, Δv, Δω]`；
+4. 对多个下降段 `t_catch` 传播 `p(t), R(t)`，并检查 IK、joint margin、collision 和 G1 closing lead；
+5. J 根据 requested angle、predicted pose error、catch probability、Probe uncertainty 和动作代价选择 executable candidate；
+6. selected candidate 必须真实改变 arm reference、release lead、brake/retract、catch time 或 G1 close time中的至少一项。
+
+## 开发顺序
+
+### A. 先整合高能量 throw 与 catch
+
+- 以 `v62` 的标准 G1 11.53° reference 为起点，接入 v47 已验证的 detach observer、ballistic prior、catch servo 和双侧 stable-hold 判定；
+- physical detach 后立即制动 J5，并让 J2/J3 将手向下/侧向撤离；约 80 ms tracking lag 必须在 reference 中前馈补偿；
+- release 后的手不能继续以接近 cube 的速度追随上升；catch candidate 位于下降段；
+- 第一门槛固定为 `8–12° + same-trial bilateral stable recatch`；达到前停止扩大 throw-only 角度。
+
+### B. 在原装 G1 内扩大角度
+
+- 提高 release height，并把 catch height 放在 release height 下方，利用工作空间得到约 0.35–0.50 s 可控飞行；
+- 调整 G1 command lead，使 25–44 ms physical detach 落在 J2/J3/J5 forward omega 高值区；
+- 尝试在 G1 opening contact window 内维持受限的 forward angular acceleration，利用惯性载荷形成可重复接触顺序；
+- 搜索非 closing-axis 的 4–6 mm 抓取 offset，要求 throw 前稳定且同一真机抓点可复现；
+- detach 后先撤手，再根据目标角度进入下降段 intercept；飞行时间和 catch timing共同形成角度梯度。
+
+### C. 形成 0/20/30/40° stable ladder
+
+- 0°：flight-only absolute rotation ≤5°，同手稳定接回；
+- 20°：actual signed rotation `20°±7°`；
+- 30°：actual signed rotation `30°±8°`；
+- 40°：actual signed rotation `40°±10°`；
+- 20/30/40°均要求 axis alignment ≥0.85、strict all-link contact loss、无飞行中提前 recontact、bilateral stable hold ≥0.5 s；
+- target response 必须单调，20/30/40°相邻 nominal angle 至少相差 7°；
+- 同一 target 的 throw-only 与另一次 catch 结果不得拼接。
+
+### D. Probe/J 与真机交接
+
+- Probe 只需估计 held/slip、有效动力学范围和 detach uncertainty；不得把轻 cube 的噪声 residual 包装成精确称重；
+- J 使用 actual-detach prediction 选择 target-conditioned action，至少一次消融证明关闭 Detach adaptation 或 target conditioning 会改变命中率/角度误差；
+- sim先冻结20°和30°skill，各运行5个dynamics seeds，至少3/5 same-trial stable success；40°保存全部seed结果并报告真实成功率；
+- 真机顺序：0.25×→0.5×→1× empty；最多一次软垫 throw-only 检查离手方向；随后运行20° regrasp，最多3–5次，目标至少2次完整成功；
+- 20°真机成功且无C60、碰撞、线缆或落点问题后才尝试30°；40°是真机stretch；
+- 每次保存 commanded/actual q/dq、G1 position与event timestamp、detach state、selected J candidate、global-camera原速视频和stable-hold标签。
+
+## Completion definition
+
+本轮 goal 只在以下条件同时成立时完成：
+
+1. 标准 G1、无任何机械改装的 sim 首先得到 `8–12° + same-trial stable recatch`，证明高能量throw与catch已经整合；
+2. sim nominal分别得到20°、30°、40° same-trial stable regrasp，并满足各自角度误差、axis alignment、strict flight和≥0.5 s stable hold要求；
+3. 0/20/30/40° target选择不同的executable action并形成单调响应，Probe/J与Detach prediction实际改变command；
+4. 冻结20°和30°skill各达到至少3/5 stable success；40°全部seed如实报告；
+5. GitHub fresh clone包含真机runner、冻结配置、原装G1说明、软垫commissioning命令、global-camera录像说明和对应sim视频；
+6. 真机至少2次完成约20°目标的真实contact loss、可见前翻、同手recapture和≥0.5 s stable hold；
+7. 真机若只能达到更低角度，paper claim按真机证据缩小，sim结果单独标记 `sim_validated_real_unverified`。
+
+开发过程中，任何新增结果只有在同一 trial 同时旋转并稳定接住时才提升“可交付版本”的角度。单独提高throw-only角度只作为诊断数据，不发布为新的真机regrasp版本。
+
+---
+
+## 以下为 v5/v4/v3 历史记录
+
 # xArm6 0–90° pose-conditioned release-mediated regrasp v5
 
 更新日期：2026-08-21
 
-> 本节是当前唯一生效的 goal。下方 v4/v3 只作历史证据；其中 5°、12°、20° 等旧完成门槛全部失效。
+> 历史记录：本节不再作为当前完成条件；仅用于追溯 release-transfer、0/30/60/90°旧目标和 passive-insert 探索。
 
 ## Paper-facing objective
 

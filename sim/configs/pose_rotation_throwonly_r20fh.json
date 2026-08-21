@@ -1,6 +1,6 @@
 {
   "schema": "xarm6_pose_rotation_throwonly_v1",
-  "name": "pose_rotation_throwonly_r30",
+  "name": "pose_rotation_throwonly_r20fh",
   "physics_dt_s": 0.001,
   "control_period_s": 0.02,
   "measured_real_arm_tracking_delay_s": 0.08,
@@ -48,73 +48,73 @@
     "joint6_role": "static_camera_housing_underneath_only"
   },
   "kinematic_design": {
-    "requested_rotation_deg": 30.0,
-    "velocity_scale": 0.55,
+    "requested_rotation_deg": 20.0,
+    "velocity_scale": 1.0,
     "reference_peak_time_s": 0.548,
-    "detach_plateau_duration_s": 0.08,
-    "contact_phase_brake_advance_s": 0.0,
+    "detach_plateau_duration_s": 0.02,
+    "contact_phase_brake_advance_s": 0.06,
     "release_joint_velocity_rad_s": [
       0.0,
-      -0.2409202391421905,
-      -0.9548606527625,
+      -0.419,
+      -1.495,
       0.0,
-      0.9548606527625,
+      1.744,
       0.0
     ],
-    "kinematic_evaluation_state": "reference_peak",
+    "kinematic_evaluation_state": "measured_v62_actual_detach_q",
     "joint_position_offset_rad": [
       0.0,
-      0.0,
-      0.0,
+      -0.2,
+      -0.2,
       0.0,
       0.0,
       0.0
     ],
     "predicted_peak_tcp_position_m": [
-      0.5444573641989021,
-      0.10312063286787068,
-      0.37091129489110325
+      0.5316565795908982,
+      0.10189197245811366,
+      0.5447607563684594
     ],
     "predicted_peak_tcp_velocity_m_s": [
-      0.07284356892274974,
-      0.022717135374641678,
-      0.8696306047909159
+      -0.3736014160801826,
+      0.013422934856489873,
+      1.433767042738332
     ],
-    "predicted_peak_tcp_speed_m_s": 0.8729717306774873,
+    "predicted_peak_tcp_speed_m_s": 1.4817037916263498,
     "predicted_tumble_axis_world": [
-      0.35754290727788285,
-      -0.933896712412716,
+      0.43675353113547033,
+      -0.8995812098085962,
       0.0
     ],
     "predicted_cube_com_velocity_m_s": [
-      -0.04900641211985919,
-      0.018972566629794248,
-      1.1327732964975747
+      -0.586441036734653,
+      0.026464759752666323,
+      1.8782918644543605
     ],
-    "predicted_hand_axis_omega_rad_s": 2.084023499161995,
+    "predicted_hand_axis_omega_rad_s": 3.4366704204507874,
     "measured_g1_angular_retention_prior": 0.3921103083502193,
-    "predicted_cube_axis_omega_rad_s": 0.8171670968655129,
-    "predicted_flight_time_for_target_s": 0.6407487252077543,
+    "predicted_cube_axis_omega_rad_s": 1.3475538982610362,
+    "predicted_flight_time_for_target_s": 0.259036652151221,
     "reference_limit_evidence": {
       "joint_hard_bounds_pass": true,
       "handoff_joint_margin_pass": true,
       "minimum_joint_margin_rad": 0.2602067342093566,
       "per_joint_minimum_margin_rad": [
         3.0789134761801984,
-        1.8609241340484894,
-        0.620170754306625,
+        1.65988819,
+        0.7823610000000001,
         0.2602067342093566,
-        1.4413216862402334,
+        1.4299660935897929,
         3.115412714809878
       ],
       "joint_speed_pass": true,
-      "max_joint_speed_rad_s": 0.9548606527625,
+      "max_joint_speed_rad_s": 1.744,
       "joint_acceleration_pass": true,
-      "max_joint_acceleration_rad_s2": 7.113711863080625,
+      "max_joint_acceleration_rad_s2": 12.992800000000006,
       "joint_step_pass": true,
-      "max_joint_step_rad": 0.01909721305525025,
+      "max_joint_step_rad": 0.03488000000000002,
       "qdot_change_pass": true,
-      "max_qdot_change_rad_s": 0.1422742372616126,
+      "max_qdot_change_rad_s": 0.2598560000000003,
       "effort_pass": true,
       "per_joint_peak_effort_nm": null,
       "joint_mechanical_limits_pass": true
@@ -126,8 +126,8 @@
       "duration_s": 0.38,
       "start_joint_rad": [
         0.061086523819801536,
-        0.1710422666954443,
-        -0.4485496177625427,
+        -0.0289577333045557,
+        -0.6485496177625427,
         2.8797932657906435,
         1.4398966328953218,
         -0.026179938779914945
@@ -150,10 +150,10 @@
       ],
       "end_joint_rad": [
         0.060919,
-        -0.006798583260046665,
-        -0.428190754306625,
+        -0.194333,
+        -0.5903809999999999,
         2.8797932657906435,
-        1.493075754306625,
+        1.4378360000000001,
         -0.026179938779914945
       ],
       "end_joint_velocity_rad_s": [
@@ -178,10 +178,10 @@
       "duration_s": 0.14,
       "start_joint_rad": [
         0.060919,
-        -0.006798583260046665,
-        -0.428190754306625,
+        -0.194333,
+        -0.5903809999999999,
         2.8797932657906435,
-        1.493075754306625,
+        1.4378360000000001,
         -0.026179938779914945
       ],
       "start_joint_velocity_rad_s": [
@@ -194,54 +194,54 @@
       ],
       "start_joint_acceleration_rad_s2": [
         0.0,
-        -1.7208588510156462,
-        -6.820433234017856,
+        -2.9928571428571424,
+        -10.678571428571429,
         0.0,
-        6.820433234017856,
+        12.457142857142856,
         0.0
       ],
       "end_joint_rad": [
         0.060919,
-        -0.023663,
-        -0.495031,
+        -0.223663,
+        -0.695031,
         2.8797932657906435,
         1.559916,
         -0.026179938779914945
       ],
       "end_joint_velocity_rad_s": [
         0.0,
-        -0.2409202391421905,
-        -0.9548606527625,
+        -0.419,
+        -1.495,
         0.0,
-        0.9548606527625,
+        1.744,
         0.0
       ],
       "end_joint_acceleration_rad_s2": [
         0.0,
-        -1.7208588510156462,
-        -6.820433234017856,
+        -2.9928571428571424,
+        -10.678571428571429,
         0.0,
-        6.820433234017856,
+        12.457142857142856,
         0.0
       ]
     },
     {
       "phase": "detach_plateau",
-      "duration_s": 0.08,
+      "duration_s": 0.02,
       "start_joint_rad": [
         0.060919,
-        -0.023663,
-        -0.495031,
+        -0.223663,
+        -0.695031,
         2.8797932657906435,
         1.559916,
         -0.026179938779914945
       ],
       "start_joint_velocity_rad_s": [
         0.0,
-        -0.2409202391421905,
-        -0.9548606527625,
+        -0.419,
+        -1.495,
         0.0,
-        0.9548606527625,
+        1.744,
         0.0
       ],
       "start_joint_acceleration_rad_s2": [
@@ -254,18 +254,18 @@
       ],
       "end_joint_rad": [
         0.060919,
-        -0.04293661913137524,
-        -0.571419852221,
+        -0.232043,
+        -0.724931,
         2.8797932657906435,
-        1.636304852221,
+        1.594796,
         -0.026179938779914945
       ],
       "end_joint_velocity_rad_s": [
         0.0,
-        -0.2409202391421905,
-        -0.9548606527625,
+        -0.419,
+        -1.495,
         0.0,
-        0.9548606527625,
+        1.744,
         0.0
       ],
       "end_joint_acceleration_rad_s2": [
@@ -282,50 +282,50 @@
       "duration_s": 0.2,
       "start_joint_rad": [
         0.060919,
-        -0.04293661913137524,
-        -0.571419852221,
+        -0.232043,
+        -0.724931,
         2.8797932657906435,
-        1.636304852221,
+        1.594796,
         -0.026179938779914945
       ],
       "start_joint_velocity_rad_s": [
         0.0,
-        -0.2409202391421905,
-        -0.9548606527625,
+        -0.419,
+        -1.495,
         0.0,
-        0.9548606527625,
+        1.744,
         0.0
       ],
       "start_joint_acceleration_rad_s2": [
         -0.0,
-        1.7948557816093191,
-        7.113711863080625,
+        3.1215499999999996,
+        11.137749999999999,
         -0.0,
-        -7.113711863080625,
+        -12.992799999999999,
         -0.0
       ],
       "end_joint_rad": [
         0.060919,
-        -0.055223551327626956,
-        -0.6201177455118875,
+        -0.25341199999999997,
+        -0.801176,
         2.8797932657906435,
-        1.6850027455118874,
+        1.68374,
         -0.026179938779914945
       ],
       "end_joint_velocity_rad_s": [
         -0.0,
-        0.11805091717967334,
-        0.467881719853625,
+        0.20531,
+        0.73255,
         -0.0,
-        -0.467881719853625,
+        -0.85456,
         -0.0
       ],
       "end_joint_acceleration_rad_s2": [
         -0.0,
-        1.7948557816093191,
-        7.113711863080625,
+        3.1215499999999996,
+        11.137749999999999,
         -0.0,
-        -7.113711863080625,
+        -12.992799999999999,
         -0.0
       ]
     },
@@ -334,34 +334,34 @@
       "duration_s": 0.12,
       "start_joint_rad": [
         0.060919,
-        -0.055223551327626956,
-        -0.6201177455118875,
+        -0.25341199999999997,
+        -0.801176,
         2.8797932657906435,
-        1.6850027455118874,
+        1.68374,
         -0.026179938779914945
       ],
       "start_joint_velocity_rad_s": [
         -0.0,
-        0.11805091717967334,
-        0.467881719853625,
+        0.20531,
+        0.73255,
         -0.0,
-        -0.467881719853625,
+        -0.85456,
         -0.0
       ],
       "start_joint_acceleration_rad_s2": [
         0.0,
-        -0.9837576431639445,
-        -3.8990143321135418,
+        -1.7109166666666666,
+        -6.104583333333334,
         0.0,
-        3.8990143321135418,
+        7.121333333333333,
         0.0
       ],
       "end_joint_rad": [
         0.060919,
-        -0.04814049629684655,
-        -0.59204484232067,
+        -0.24109339999999996,
+        -0.757223,
         2.8797932657906435,
-        1.65692984232067,
+        1.6324664,
         -0.026179938779914945
       ],
       "end_joint_velocity_rad_s": [
@@ -374,10 +374,10 @@
       ],
       "end_joint_acceleration_rad_s2": [
         0.0,
-        -0.9837576431639445,
-        -3.8990143321135418,
+        -1.7109166666666666,
+        -6.104583333333334,
         0.0,
-        3.8990143321135418,
+        7.121333333333333,
         0.0
       ]
     }
@@ -412,17 +412,17 @@
     ]
   },
   "validation_targets": {
-    "requested_rotation_deg": 30.0,
+    "requested_rotation_deg": 20.0,
     "maximum_rotation_error_deg": 12.0,
     "minimum_continuous_free_flight_s": 0.12,
     "minimum_relative_separation_m": 0.025,
     "minimum_axis_alignment": 0.85
   },
   "lineage": {
-    "goal": "goal.md v5",
+    "goal": "goal.md v6",
     "release_transfer_prior": "docs/media/j5_forward_rotation/release_transfer_v49.json",
     "peak_pose_source": "v35_1p6_no_wrist_camera_oriented_ground actual detach",
     "generator": "sim/tools/build_pose_rotation_ladder.py",
-    "coordination": "20 ms brake advance only for r90_brake20"
+    "coordination": "extra-high joint-limit fast stock-G1 20-degree reference"
   }
 }

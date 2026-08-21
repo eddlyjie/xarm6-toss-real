@@ -34,6 +34,7 @@ REFERENCE_PEAK_TIME_S = (
 PREPOSITION_DURATION_S = 0.380
 BURST_DURATION_S = 0.140
 DETACH_PLATEAU_DURATION_S = 0.080
+CONTACT_ALIGNED_DETACH_PLATEAU_DURATION_S = 0.060
 BRAKE_DURATION_S = 0.200
 REVERSE_VELOCITY_SCALE = -0.49
 REVERSE_STOP_DURATION_S = 0.120
@@ -49,10 +50,47 @@ MAX_RELEASE_QD_RAD_S = np.asarray(
     [0.0, -0.4380367984403463, -1.73611027775, 0.0, 1.73611027775, 0.0],
     dtype=float,
 )
+# At the measured v62 detach pose this keeps forward hand omega near
+# 3.28 rad/s while cancelling the cube-COM outward velocity induced by
+# omega cross the 137.6 mm hand-to-cube offset.  J4/J6 remain static.
+CATCHABLE_RELEASE_QD_RAD_S = np.asarray(
+    [0.0, -0.897343, -1.395868, 0.0, 1.096753, 0.0],
+    dtype=float,
+)
+FAST_CATCHABLE_RELEASE_QD_RAD_S = np.asarray(
+    [0.0, -0.419, -1.495, 0.0, 1.744, 0.0],
+    dtype=float,
+)
+RESIDUAL_COMPENSATED_RELEASE_QD_RAD_S = np.asarray(
+    [0.0, -0.942, -1.7448, 0.0, -0.174, 0.0],
+    dtype=float,
+)
+TRACKING_COMPENSATED_RELEASE_QD_RAD_S = np.asarray(
+    [0.0, 0.0, -1.605, 0.0, 1.7448, 0.0],
+    dtype=float,
+)
+# Sim's controller hand body is not the URDF FK terminal frame.  Use the
+# measured v62 world-frame hand-body-to-cube offset at detach for the COM
+# velocity model; the wrist branch and grasp are frozen for this search.
+MEASURED_CUBE_OFFSET_WORLD_M = np.asarray(
+    [0.11830688, 0.04275623, 0.05539122], dtype=float
+)
+MEASURED_V62_DETACH_Q_RAD = np.asarray(
+    [0.06064348, 0.00463218, -0.48111078, 2.87927103, 1.55711591, -0.02615020],
+    dtype=float,
+)
+HIGH_RELEASE_JOINT_OFFSET_RAD = np.asarray(
+    [0.0, -0.11, -0.11, 0.0, 0.0, 0.0],
+    dtype=float,
+)
+TWENTY_DEG_RELEASE_JOINT_OFFSET_RAD = np.asarray(
+    [0.0, -0.20, -0.20, 0.0, 0.0, 0.0], dtype=float
+)
 SKILLS = (
-    ("r30", 30.0, 0.55),
-    ("r60", 60.0, 0.78),
-    ("r90", 90.0, 1.00),
+    ("r30", 30.0, 0.55, DETACH_PLATEAU_DURATION_S),
+    ("r60", 60.0, 0.78, DETACH_PLATEAU_DURATION_S),
+    ("r90", 90.0, 1.00, DETACH_PLATEAU_DURATION_S),
+    ("r90_brake20", 90.0, 1.00, CONTACT_ALIGNED_DETACH_PLATEAU_DURATION_S),
 )
 
 
@@ -82,12 +120,25 @@ def build_candidate(
     label: str,
     requested_rotation_deg: float,
     velocity_scale: float,
+    detach_plateau_duration_s: float = DETACH_PLATEAU_DURATION_S,
+    release_qd_override: np.ndarray | None = None,
+    joint_position_offset_rad: np.ndarray | None = None,
 ) -> tuple[Path, dict[str, object]]:
-    start_q = np.deg2rad(base.START_DEG)
-    release_qd = velocity_scale * MAX_RELEASE_QD_RAD_S
+    joint_position_offset = (
+        np.zeros(6, dtype=float)
+        if joint_position_offset_rad is None
+        else np.asarray(joint_position_offset_rad, dtype=float)
+    )
+    start_q = np.deg2rad(base.START_DEG) + joint_position_offset
+    peak_q = PEAK_Q_RAD + joint_position_offset
+    release_qd = (
+        velocity_scale * MAX_RELEASE_QD_RAD_S
+        if release_qd_override is None
+        else np.asarray(release_qd_override, dtype=float)
+    )
     burst_acceleration = release_qd / BURST_DURATION_S
-    preburst_q = PEAK_Q_RAD - 0.5 * release_qd * BURST_DURATION_S
-    plateau_end_q = PEAK_Q_RAD + release_qd * DETACH_PLATEAU_DURATION_S
+    preburst_q = peak_q - 0.5 * release_qd * BURST_DURATION_S
+    plateau_end_q = peak_q + release_qd * detach_plateau_duration_s
     brake_end_qd = REVERSE_VELOCITY_SCALE * release_qd
     brake_acceleration = (
         brake_end_qd - release_qd
@@ -106,12 +157,12 @@ def build_candidate(
         ),
         QuinticJointSegment(
             "late_burst", BURST_DURATION_S,
-            tuple(preburst_q), tuple(zeros), tuple(PEAK_Q_RAD), tuple(release_qd),
+            tuple(preburst_q), tuple(zeros), tuple(peak_q), tuple(release_qd),
             tuple(burst_acceleration), tuple(burst_acceleration),
         ),
         QuinticJointSegment(
-            "detach_plateau", DETACH_PLATEAU_DURATION_S,
-            tuple(PEAK_Q_RAD), tuple(release_qd), tuple(plateau_end_q), tuple(release_qd),
+            "detach_plateau", detach_plateau_duration_s,
+            tuple(peak_q), tuple(release_qd), tuple(plateau_end_q), tuple(release_qd),
             tuple(zeros), tuple(zeros),
         ),
         QuinticJointSegment(
@@ -132,14 +183,22 @@ def build_candidate(
     peak_sample = min(
         samples, key=lambda sample: abs(sample.time_s - REFERENCE_PEAK_TIME_S)
     )
-    peak_q = np.asarray(peak_sample.joint_position_rad, dtype=float)
+    reference_peak_q = np.asarray(peak_sample.joint_position_rad, dtype=float)
     peak_dq = np.asarray(peak_sample.joint_velocity_rad_s, dtype=float)
-    transform = kinematics.forward(peak_q)
+    design_q = (
+        reference_peak_q
+        if release_qd_override is None
+        else MEASURED_V62_DETACH_Q_RAD + joint_position_offset
+    )
+    transform = kinematics.forward(design_q)
     axis = base.tumble_axis(transform)
-    twist = kinematics.jacobian(peak_q) @ peak_dq
+    twist = kinematics.jacobian(design_q) @ peak_dq
     axis_omega = float(np.dot(twist[3:], axis))
     tcp_speed = float(np.linalg.norm(twist[:3]))
     expected_cube_omega = MEASURED_ANGULAR_RETENTION * axis_omega
+    predicted_cube_com_velocity = (
+        twist[:3] + np.cross(twist[3:], MEASURED_CUBE_OFFSET_WORLD_M)
+    )
     expected_flight_for_target = math.radians(requested_rotation_deg) / expected_cube_omega
 
     _, config = base.build_candidate(kinematics, "1p6", 1.6, 0.75, -0.25)
@@ -152,11 +211,22 @@ def build_candidate(
         "requested_rotation_deg": requested_rotation_deg,
         "velocity_scale": velocity_scale,
         "reference_peak_time_s": REFERENCE_PEAK_TIME_S,
+        "detach_plateau_duration_s": detach_plateau_duration_s,
+        "contact_phase_brake_advance_s": DETACH_PLATEAU_DURATION_S - detach_plateau_duration_s,
         "release_joint_velocity_rad_s": base.vector(release_qd),
+        "kinematic_evaluation_state": (
+            "reference_peak"
+            if release_qd_override is None
+            else "measured_v62_actual_detach_q"
+        ),
+        "joint_position_offset_rad": base.vector(joint_position_offset),
         "predicted_peak_tcp_position_m": base.vector(transform[:3, 3]),
         "predicted_peak_tcp_velocity_m_s": base.vector(twist[:3]),
         "predicted_peak_tcp_speed_m_s": tcp_speed,
         "predicted_tumble_axis_world": base.vector(axis),
+        "predicted_cube_com_velocity_m_s": base.vector(
+            predicted_cube_com_velocity
+        ),
         "predicted_hand_axis_omega_rad_s": axis_omega,
         "measured_g1_angular_retention_prior": MEASURED_ANGULAR_RETENTION,
         "predicted_cube_axis_omega_rad_s": expected_cube_omega,
@@ -184,6 +254,7 @@ def build_candidate(
         "release_transfer_prior": "docs/media/j5_forward_rotation/release_transfer_v49.json",
         "peak_pose_source": "v35_1p6_no_wrist_camera_oriented_ground actual detach",
         "generator": "sim/tools/build_pose_rotation_ladder.py",
+        "coordination": "20 ms brake advance only for r90_brake20",
     }
     return base.OUTPUT_DIR / f"pose_rotation_throwonly_{label}.json", config
 
@@ -200,6 +271,98 @@ def main() -> int:
             f"flight_prior={design['predicted_flight_time_for_target_s']:.3f}, "
             f"limits_pass={design['reference_limit_evidence']['joint_mechanical_limits_pass']}"
         )
+    path, config = build_candidate(
+        kinematics,
+        "r10c",
+        10.0,
+        1.0,
+        CONTACT_ALIGNED_DETACH_PLATEAU_DURATION_S,
+        CATCHABLE_RELEASE_QD_RAD_S,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = "low-outward stock-G1 catchable reference"
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r10ch",
+        10.0,
+        1.0,
+        CONTACT_ALIGNED_DETACH_PLATEAU_DURATION_S,
+        CATCHABLE_RELEASE_QD_RAD_S,
+        HIGH_RELEASE_JOINT_OFFSET_RAD,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "118 mm higher low-outward stock-G1 catchable reference"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r10cf",
+        10.0,
+        1.0,
+        CONTACT_ALIGNED_DETACH_PLATEAU_DURATION_S,
+        FAST_CATCHABLE_RELEASE_QD_RAD_S,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "joint-limit fast low-outward stock-G1 catchable reference"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r10cfh",
+        10.0,
+        1.0,
+        CONTACT_ALIGNED_DETACH_PLATEAU_DURATION_S,
+        FAST_CATCHABLE_RELEASE_QD_RAD_S,
+        HIGH_RELEASE_JOINT_OFFSET_RAD,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "118 mm higher joint-limit fast stock-G1 catchable reference"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r20fh",
+        20.0,
+        1.0,
+        0.020,
+        FAST_CATCHABLE_RELEASE_QD_RAD_S,
+        TWENTY_DEG_RELEASE_JOINT_OFFSET_RAD,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "extra-high joint-limit fast stock-G1 20-degree reference"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r10cx",
+        10.0,
+        1.0,
+        CONTACT_ALIGNED_DETACH_PLATEAU_DURATION_S,
+        RESIDUAL_COMPENSATED_RELEASE_QD_RAD_S,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "native-residual-compensated low-outward stock-G1 reference"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r10cy",
+        10.0,
+        1.0,
+        CONTACT_ALIGNED_DETACH_PLATEAU_DURATION_S,
+        TRACKING_COMPENSATED_RELEASE_QD_RAD_S,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "three-native-run tracking-compensated stock-G1 reference"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     return 0
 
 

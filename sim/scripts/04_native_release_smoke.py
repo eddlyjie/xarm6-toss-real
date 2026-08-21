@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 import sys
 
@@ -47,6 +48,379 @@ parser.add_argument(
     type=float,
     default=0.0,
     help="Fixed cube rotation about hand-local Y at the one-time placement.",
+)
+parser.add_argument(
+    "--cube-friction-combine-mode",
+    choices=("average", "min", "multiply", "max"),
+    default="max",
+    help="PhysX material combine mode; insert studies use multiply.",
+)
+parser.add_argument(
+    "--release-insert-side",
+    choices=("none", "left", "right", "both"),
+    default="none",
+    help="Attach a passive rolling-release insert to one or both G1 fingers.",
+)
+parser.add_argument(
+    "--release-insert-shape",
+    choices=(
+        "dome", "ridge_x", "ramp_x", "roller_x", "d_roller_x",
+        "spinner_y", "flipper_y",
+    ),
+    default="dome",
+    help="Use a fixed insert, roller, spin disk, or eccentric release flipper.",
+)
+parser.add_argument(
+    "--release-d-roller-chord-m",
+    type=float,
+    default=0.002,
+    help="Flat-face offset from the D-roller rotation axis toward the cube.",
+)
+parser.add_argument(
+    "--release-insert-ramp-deg",
+    type=float,
+    default=10.0,
+    help="Ramp rotation about finger-local X; sign controls tumble direction.",
+)
+parser.add_argument(
+    "--release-insert-ramp-height-m",
+    type=float,
+    default=0.020,
+    help="Ramp extent along finger-local Z.",
+)
+parser.add_argument(
+    "--release-insert-radius-m",
+    type=float,
+    default=0.002,
+    help="Radius of the passive fingertip release ridge.",
+)
+parser.add_argument(
+    "--release-flipper-pivot-sign",
+    type=int,
+    choices=(-1, 1),
+    default=1,
+    help="Select the -Z or +Z end pivot for the eccentric Y-axis flipper.",
+)
+parser.add_argument(
+    "--release-insert-length-m",
+    type=float,
+    default=0.024,
+    help="Cylinder length along the finger-local X axis.",
+)
+parser.add_argument(
+    "--release-insert-finger-x-m",
+    type=float,
+    default=0.0,
+    help="Insert center along finger-local X; use an edge patch for tumble leverage.",
+)
+parser.add_argument(
+    "--release-insert-finger-z-m",
+    type=float,
+    default=0.030,
+    help="Ridge center along the selected finger-local Z axis.",
+)
+parser.add_argument(
+    "--release-insert-static-friction",
+    type=float,
+    default=1.3,
+)
+parser.add_argument(
+    "--release-insert-dynamic-friction",
+    type=float,
+    default=0.9,
+)
+parser.add_argument(
+    "--release-roller-one-way",
+    action="store_true",
+    help="Lock negative roller rotation while allowing positive release rolling.",
+)
+parser.add_argument(
+    "--release-roller-open-triggered-clutch",
+    action="store_true",
+    help="Lock the roller while held and disengage at measured G1 opening onset.",
+)
+parser.add_argument(
+    "--release-roller-cam-travel-rad",
+    type=float,
+    default=0.0,
+    help="G1-coupled D-roller travel after physical opening starts; zero is free-wheel.",
+)
+parser.add_argument(
+    "--release-roller-cam-direction",
+    type=int,
+    choices=(-1, 1),
+    default=-1,
+    help="Signed D-roller rotation direction for the G1-coupled release cam.",
+)
+parser.add_argument(
+    "--release-roller-cam-lead-s",
+    type=float,
+    default=0.0,
+    help="Lead before physical G1 opening for a triggered preloaded spin insert.",
+)
+parser.add_argument(
+    "--release-roller-cam-delay-s",
+    type=float,
+    default=0.0,
+    help="Delay after physical G1 opening before the spin insert starts.",
+)
+parser.add_argument(
+    "--release-roller-cam-freewheel-after-transition",
+    action="store_true",
+    help="Disengage the preloaded spinner drive after its kick completes.",
+)
+parser.add_argument(
+    "--release-roller-cam-transition-s",
+    type=float,
+    default=0.040,
+    help="Time for the G1-driven passive cam to complete its roller travel.",
+)
+parser.add_argument(
+    "--release-roller-cam-effort-limit-nm",
+    type=float,
+    default=0.020,
+    help="Torque cap representing force available through the printable G1 cam.",
+)
+parser.add_argument(
+    "--release-roller-cam-direct-effort",
+    action="store_true",
+    help="Apply a constant-torque spring pulse instead of an implicit position drive.",
+)
+parser.add_argument(
+    "--release-roller-cam-stiffness-nm-rad",
+    type=float,
+    default=0.50,
+)
+parser.add_argument(
+    "--release-roller-cam-damping-nm-s-rad",
+    type=float,
+    default=0.01,
+)
+parser.add_argument(
+    "--release-retract-pad-right",
+    action="store_true",
+    help="Add a G1-coupled right flat pad that retracts before left-roller detach.",
+)
+parser.add_argument(
+    "--release-retract-pad-axis",
+    choices=("X", "Y", "Z"),
+    default="Y",
+    help="Pad travel axis; X/Z probe a passive tangential flick tab.",
+)
+parser.add_argument(
+    "--release-retract-pad-outward-angle-deg",
+    type=float,
+    default=0.0,
+    help="For X travel, angle the negative stroke toward right-finger retract -Y.",
+)
+parser.add_argument(
+    "--release-retract-pad-thickness-m",
+    type=float,
+    default=0.008,
+)
+parser.add_argument(
+    "--release-retract-pad-height-m",
+    type=float,
+    default=0.020,
+)
+parser.add_argument(
+    "--release-retract-pad-static-friction",
+    type=float,
+    default=None,
+    help="Override the right flick-pad friction independently of the left support.",
+)
+parser.add_argument(
+    "--release-retract-pad-dynamic-friction",
+    type=float,
+    default=None,
+)
+parser.add_argument(
+    "--release-retract-pad-length-m",
+    type=float,
+    default=None,
+)
+parser.add_argument(
+    "--release-retract-pad-finger-x-m",
+    type=float,
+    default=None,
+)
+parser.add_argument(
+    "--release-retract-pad-finger-y-m",
+    type=float,
+    default=None,
+)
+parser.add_argument(
+    "--release-retract-pad-finger-z-m",
+    type=float,
+    default=None,
+)
+parser.add_argument(
+    "--release-retract-pad-travel-m",
+    type=float,
+    default=0.010,
+)
+parser.add_argument(
+    "--release-retract-pad-delay-s",
+    type=float,
+    default=0.0,
+    help="Delay right-pad retraction until the G1-coupled roller kick completes.",
+)
+parser.add_argument(
+    "--release-retract-pad-transition-s",
+    type=float,
+    default=0.040,
+)
+parser.add_argument(
+    "--release-retract-pad-return-transition-s",
+    type=float,
+    default=None,
+)
+parser.add_argument(
+    "--release-retract-pad-hold-s",
+    type=float,
+    default=0.0,
+)
+parser.add_argument(
+    "--release-retract-pad-radial-clear-m",
+    type=float,
+    default=0.0,
+)
+parser.add_argument(
+    "--release-retract-pad-radial-clear-delay-s",
+    type=float,
+    default=0.005,
+)
+parser.add_argument(
+    "--release-retract-pad-radial-clear-transition-s",
+    type=float,
+    default=0.002,
+)
+parser.add_argument(
+    "--release-retract-pad-radial-support",
+    action="store_true",
+    help=(
+        "Use the radial carriage as a separate grasp support so the tangential "
+        "striker can fire only after the support unloads."
+    ),
+)
+parser.add_argument(
+    "--release-radial-support-length-m",
+    type=float,
+    default=0.012,
+)
+parser.add_argument(
+    "--release-radial-support-thickness-m",
+    type=float,
+    default=0.004,
+)
+parser.add_argument(
+    "--release-radial-support-height-m",
+    type=float,
+    default=0.020,
+)
+parser.add_argument(
+    "--release-radial-support-finger-x-m",
+    type=float,
+    default=0.0,
+)
+parser.add_argument(
+    "--release-radial-support-finger-y-m",
+    type=float,
+    default=0.0260032,
+)
+parser.add_argument(
+    "--release-radial-support-finger-z-m",
+    type=float,
+    default=0.030,
+)
+parser.add_argument(
+    "--release-radial-support-static-friction",
+    type=float,
+    default=None,
+)
+parser.add_argument(
+    "--release-radial-support-dynamic-friction",
+    type=float,
+    default=None,
+)
+parser.add_argument(
+    "--release-retract-pad-effort-limit-n",
+    type=float,
+    default=10.0,
+)
+parser.add_argument(
+    "--release-roller-radial-retract-m",
+    type=float,
+    default=0.0,
+    help="Outward travel of the left D-roller prismatic carriage.",
+)
+parser.add_argument(
+    "--release-roller-radial-retract-delay-s",
+    type=float,
+    default=0.025,
+    help="Delay from measured G1 motion start to left carriage retraction.",
+)
+parser.add_argument(
+    "--release-roller-radial-retract-transition-s",
+    type=float,
+    default=0.015,
+)
+parser.add_argument(
+    "--release-roller-radial-retract-effort-limit-n",
+    type=float,
+    default=10.0,
+)
+parser.add_argument(
+    "--release-roller-radial-retract-stiffness-n-m",
+    type=float,
+    default=2000.0,
+)
+parser.add_argument(
+    "--release-roller-radial-retract-damping-n-s-m",
+    type=float,
+    default=10.0,
+)
+parser.add_argument(
+    "--release-roller-radial-retract-kinematic",
+    action="store_true",
+    help="Capability probe for a stiff G1 cam that imposes carriage q/dq.",
+)
+parser.add_argument(
+    "--release-retract-pad-force-limited",
+    action="store_true",
+    help="Keep radial clearance imposed but drive the striker through its force cap.",
+)
+parser.add_argument(
+    "--release-retract-pad-freewheel-after-transition",
+    action="store_true",
+    help="Disengage the force-limited striker after its commanded kick completes.",
+)
+parser.add_argument(
+    "--release-retract-pad-direct-effort",
+    action="store_true",
+    help="Drive the spring tab with a constant force pulse instead of a position target.",
+)
+parser.add_argument(
+    "--release-retract-pad-direct-effort-direction",
+    type=int,
+    choices=(-1, 1),
+    default=-1,
+    help="Signed prismatic force direction for the direct-effort spring tab.",
+)
+parser.add_argument(
+    "--release-retract-pad-one-way",
+    action="store_true",
+    help="Model a passive ratchet that prevents the spring tab from rebounding.",
+)
+parser.add_argument(
+    "--release-retract-pad-stiffness-n-m",
+    type=float,
+    default=2000.0,
+)
+parser.add_argument(
+    "--release-retract-pad-damping-n-s-m",
+    type=float,
+    default=10.0,
 )
 parser.add_argument("--held-drive-rad", type=float, default=0.37)
 parser.add_argument("--held-gripper-effort-limit-n", type=float, default=None)
@@ -200,6 +574,12 @@ parser.add_argument(
     help="Temporary intercept bias for a collision-free pre-catch waypoint.",
 )
 parser.add_argument(
+    "--catch-preposition-start-time-s",
+    type=float,
+    default=None,
+    help="Episode time at which the temporary pre-catch bias becomes active.",
+)
+parser.add_argument(
     "--catch-preposition-end-time-s",
     type=float,
     default=None,
@@ -210,6 +590,18 @@ parser.add_argument(
     type=float,
     default=None,
     help="Fixed episode time for the ballistic catch intercept.",
+)
+parser.add_argument(
+    "--catch-preintercept-time-s",
+    type=float,
+    default=None,
+    help="Early safe ballistic intercept used before the intercept switch time.",
+)
+parser.add_argument(
+    "--catch-intercept-switch-time-s",
+    type=float,
+    default=None,
+    help="Episode time at which catch targeting switches to --catch-intercept-time-s.",
 )
 parser.add_argument(
     "--detach-delay-prior-s",
@@ -303,8 +695,12 @@ import torch
 import isaaclab.sim as sim_utils
 from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import Articulation, ArticulationCfg, RigidObject, RigidObjectCfg
+from isaaclab.sim.spawners.meshes import MeshCylinderCfg
+from isaaclab.sim.spawners.meshes.meshes import _spawn_mesh_geom_from_mesh
+from pxr import Gf, Sdf, UsdGeom, UsdPhysics
 from isaaclab.sensors import Camera, CameraCfg, ContactSensor, ContactSensorCfg
 from isaaclab.utils.math import convert_quat, quat_apply, quat_apply_inverse, quat_mul
+import trimesh
 
 
 sys.path.insert(0, str(XARM_ROOT / "src"))
@@ -321,6 +717,10 @@ from xarm6_toss.probe_j import (  # noqa: E402
     estimate_probe_posterior,
     probe_joint_offset_rad,
     select_catch_candidate,
+)
+from xarm6_toss.release_insert import (  # noqa: E402
+    d_roller_mesh,
+    strike_return_command,
 )
 from xarm6_toss.flight import (  # noqa: E402
     continuous_free_flight_evidence,
@@ -354,9 +754,61 @@ RIGHT_FINGER_PRIM = (
     GRIPPER_PRIM + "/right_outer_knuckle/right_finger"
 )
 
+ROLLER_JOINT_NAME = "release_roller_joint"
+ROLLER_JOINT_PRIM = "/World/XArm6/Physics/release_roller_joint"
+RIGHT_ROLLER_JOINT_NAME = "right_release_roller_joint"
+RIGHT_ROLLER_JOINT_PRIM = "/World/XArm6/Physics/right_release_roller_joint"
+ROLLER_INSERT_SHAPES = ("roller_x", "d_roller_x", "spinner_y", "flipper_y")
+RETRACT_JOINT_NAME = "right_release_retract_joint"
+RETRACT_JOINT_PRIM = "/World/XArm6/Physics/right_release_retract_joint"
+RETRACT_PAD_RADIAL_JOINT_NAME = "right_release_pad_radial_joint"
+RETRACT_PAD_RADIAL_JOINT_PRIM = "/World/XArm6/Physics/right_release_pad_radial_joint"
+RETRACT_PAD_CARRIAGE_PRIM = "/World/XArm6/ReleaseMechanism/RightPadCarriage"
+ROLLER_RETRACT_JOINT_NAME = "left_roller_retract_joint"
+ROLLER_RETRACT_JOINT_PRIM = "/World/XArm6/Physics/left_roller_retract_joint"
+RIGHT_ROLLER_RETRACT_JOINT_NAME = "right_roller_retract_joint"
+RIGHT_ROLLER_RETRACT_JOINT_PRIM = "/World/XArm6/Physics/right_roller_retract_joint"
+ROLLER_CARRIAGE_PRIM = "/World/XArm6/ReleaseMechanism/LeftRollerCarriage"
+RIGHT_ROLLER_CARRIAGE_PRIM = "/World/XArm6/ReleaseMechanism/RightRollerCarriage"
 LINK6_PRIM = LINK_EEF_PRIM.rsplit("/link_eef", 1)[0]
 LINK5_PRIM = LINK6_PRIM.rsplit("/link6", 1)[0]
 LINK4_PRIM = LINK5_PRIM.rsplit("/link5", 1)[0]
+
+
+def inverse_usd_quaternion(orientation_xyzw: list[float]) -> Gf.Quatf:
+    """Map a spawned body orientation to its inverse joint-frame rotation."""
+    x, y, z, w = orientation_xyzw
+    return Gf.Quatf(float(w), float(-x), float(-y), float(-z))
+
+
+def root_relative_pose_from_parent(
+    parent_prim_path: str,
+    local_translation_m: list[float] | tuple[float, float, float],
+    local_orientation_xyzw: list[float] | tuple[float, float, float, float],
+) -> tuple[tuple[float, float, float], tuple[float, float, float, float]]:
+    """Compose a finger-local pose without nesting a rigid body below the finger."""
+    stage = sim_utils.get_current_stage()
+    cache = UsdGeom.XformCache()
+    parent_world = cache.GetLocalToWorldTransform(
+        stage.GetPrimAtPath(parent_prim_path)
+    )
+    root_world = cache.GetLocalToWorldTransform(stage.GetPrimAtPath("/World/XArm6"))
+    x, y, z, w = local_orientation_xyzw
+    local_transform = Gf.Transform()
+    local_transform.SetTranslation(Gf.Vec3d(*local_translation_m))
+    local_transform.SetRotation(
+        Gf.Rotation(Gf.Quatd(float(w), Gf.Vec3d(float(x), float(y), float(z))))
+    )
+    root_relative = local_transform.GetMatrix() * parent_world * root_world.GetInverse()
+    translation = root_relative.ExtractTranslation()
+    rotation = root_relative.ExtractRotationQuat()
+    imaginary = rotation.GetImaginary()
+    return (
+        tuple(float(value) for value in translation),
+        (float(imaginary[0]), float(imaginary[1]), float(imaginary[2]), float(rotation.GetReal())),
+    )
+
+
 ROBOT_CONTACT_PRIMS = {
     "left_finger": LEFT_FINGER_PRIM,
     "right_finger": RIGHT_FINGER_PRIM,
@@ -445,6 +897,39 @@ def robot_cfg(usd_path: Path, held_drive_rad: float) -> ArticulationCfg:
                     name: held_drive_rad
                     for name in GRIPPER_PASSIVE_JOINTS
                 },
+                **(
+                    {
+                        name: 0.0
+                        for name in (
+                            (ROLLER_JOINT_NAME, RIGHT_ROLLER_JOINT_NAME)
+                            if args_cli.release_insert_side == "both"
+                            else (ROLLER_JOINT_NAME,)
+                        )
+                    }
+                    if args_cli.release_insert_side != "none"
+                    and args_cli.release_insert_shape in ROLLER_INSERT_SHAPES
+                    else {}
+                ),
+                **(
+                    {RETRACT_JOINT_NAME: 0.0} if args_cli.release_retract_pad_right else {}
+                ),
+                **(
+                    {RETRACT_PAD_RADIAL_JOINT_NAME: 0.0}
+                    if args_cli.release_retract_pad_radial_clear_m > 0.0
+                    else {}
+                ),
+                **(
+                    {
+                        name: 0.0
+                        for name in (
+                            (ROLLER_RETRACT_JOINT_NAME, RIGHT_ROLLER_RETRACT_JOINT_NAME)
+                            if args_cli.release_insert_side == "both"
+                            else (ROLLER_RETRACT_JOINT_NAME,)
+                        )
+                    }
+                    if args_cli.release_roller_radial_retract_m > 0.0
+                    else {}
+                ),
             },
         ),
         actuators={
@@ -481,6 +966,91 @@ def robot_cfg(usd_path: Path, held_drive_rad: float) -> ArticulationCfg:
                 stiffness=0.0,
                 damping=0.0,
             ),
+            **(
+                {
+                    "release_roller": ImplicitActuatorCfg(
+                        joint_names_expr=list(
+                            (
+                                ROLLER_JOINT_NAME,
+                                RIGHT_ROLLER_JOINT_NAME,
+                            )
+                            if args_cli.release_insert_side == "both"
+                            else (ROLLER_JOINT_NAME,)
+                        ),
+                        effort_limit_sim=(
+                            args_cli.release_roller_cam_effort_limit_nm
+                            if args_cli.release_roller_cam_travel_rad > 0.0
+                            else 0.20
+                        ),
+                        velocity_limit_sim=50.0,
+                        stiffness=(
+                            args_cli.release_roller_cam_stiffness_nm_rad
+                            if args_cli.release_roller_cam_travel_rad > 0.0
+                            else 0.0
+                        ),
+                        damping=(
+                            args_cli.release_roller_cam_damping_nm_s_rad
+                            if args_cli.release_roller_cam_travel_rad > 0.0
+                            else 0.0
+                        ),
+                    )
+                }
+                if (
+                    args_cli.release_insert_side != "none"
+                    and args_cli.release_insert_shape in ROLLER_INSERT_SHAPES
+                )
+                else {}
+            ),
+            **(
+                {
+                    "release_retract_pad": ImplicitActuatorCfg(
+                        joint_names_expr=[RETRACT_JOINT_NAME],
+                        effort_limit_sim=args_cli.release_retract_pad_effort_limit_n,
+                        velocity_limit_sim=1.0,
+                        stiffness=args_cli.release_retract_pad_stiffness_n_m,
+                        damping=args_cli.release_retract_pad_damping_n_s_m,
+                    )
+                }
+                if args_cli.release_retract_pad_right else {}
+            ),
+            **(
+                {
+                    "release_retract_pad_radial": ImplicitActuatorCfg(
+                        joint_names_expr=[RETRACT_PAD_RADIAL_JOINT_NAME],
+                        effort_limit_sim=args_cli.release_retract_pad_effort_limit_n,
+                        velocity_limit_sim=2.0,
+                        stiffness=args_cli.release_retract_pad_stiffness_n_m,
+                        damping=args_cli.release_retract_pad_damping_n_s_m,
+                    )
+                }
+                if (
+                    args_cli.release_retract_pad_right
+                    and args_cli.release_retract_pad_radial_clear_m > 0.0
+                )
+                else {}
+            ),
+            **(
+                {
+                    "release_roller_retract": ImplicitActuatorCfg(
+                        joint_names_expr=list(
+                            (ROLLER_RETRACT_JOINT_NAME, RIGHT_ROLLER_RETRACT_JOINT_NAME)
+                            if args_cli.release_insert_side == "both"
+                            else (ROLLER_RETRACT_JOINT_NAME,)
+                        ),
+                        effort_limit_sim=(
+                            args_cli.release_roller_radial_retract_effort_limit_n
+                        ),
+                        velocity_limit_sim=1.0,
+                        stiffness=(
+                            args_cli.release_roller_radial_retract_stiffness_n_m
+                        ),
+                        damping=(
+                            args_cli.release_roller_radial_retract_damping_n_s_m
+                        ),
+                    )
+                }
+                if args_cli.release_roller_radial_retract_m > 0.0 else {}
+            ),
         },
     )
 
@@ -514,7 +1084,7 @@ def cube_cfg(
                     cube_physics.get("dynamic_friction", 0.9)
                 ),
                 restitution=0.02,
-                friction_combine_mode="max",
+                friction_combine_mode=args_cli.cube_friction_combine_mode,
                 restitution_combine_mode="min",
             ),
             visual_material=sim_utils.PreviewSurfaceCfg(
@@ -540,6 +1110,589 @@ def spawn_cube_rotation_marker(size_m: float) -> None:
         marker,
         translation=(0.5 * size_m + 0.00075, 0.009, 0.009),
     )
+
+
+def release_insert_geometry() -> dict[str, object] | None:
+    if args_cli.release_insert_side == "none":
+        return None
+    is_left = args_cli.release_insert_side != "right"
+    parent_prim = LEFT_FINGER_PRIM if is_left else RIGHT_FINGER_PRIM
+    # The received STL inner surfaces are y=-26.003 mm on the left and
+    # y=+26.003 mm on the right. The X offset controls tumble leverage.
+    local_translation_m = (
+        args_cli.release_insert_finger_x_m,
+        -0.0260032 if is_left else 0.0260032,
+        args_cli.release_insert_finger_z_m,
+    )
+    shape = args_cli.release_insert_shape
+    ramp_angle_rad = (
+        math.radians(args_cli.release_insert_ramp_deg)
+        if shape == "ramp_x"
+        else 0.0
+    )
+    orientation_xyzw = (
+        (1.0, 0.0, 0.0, 0.0)
+        if shape == "d_roller_x" and not is_left
+        else (
+            math.sin(0.5 * ramp_angle_rad),
+            0.0,
+            0.0,
+            math.cos(0.5 * ramp_angle_rad),
+        )
+    )
+    return {
+        "side": args_cli.release_insert_side,
+        "prim_path": (
+            f"/World/XArm6/ReleaseMechanism/{'Left' if is_left else 'Right'}Roller"
+            if shape in ROLLER_INSERT_SHAPES
+            else f"{parent_prim}/ReleaseInsert"
+        ),
+        "shape": shape,
+        "parent_prim_path": parent_prim,
+        "joint_prim_path": ROLLER_JOINT_PRIM if shape in ROLLER_INSERT_SHAPES else None,
+        "mirror_prim_path": (
+            "/World/XArm6/ReleaseMechanism/RightRoller"
+            if args_cli.release_insert_side == "both" and shape in ROLLER_INSERT_SHAPES
+            else (f"{RIGHT_FINGER_PRIM}/ReleaseInsert" if args_cli.release_insert_side == "both" else None)
+        ),
+        "mirror_parent_prim_path": (
+            RIGHT_FINGER_PRIM if args_cli.release_insert_side == "both" else None
+        ),
+        "mirror_joint_prim_path": (
+            RIGHT_ROLLER_JOINT_PRIM
+            if args_cli.release_insert_side == "both" and shape in ROLLER_INSERT_SHAPES
+            else None
+        ),
+        "one_way_negative_lock": (
+            bool(args_cli.release_roller_one_way) if shape in ROLLER_INSERT_SHAPES else None
+        ),
+        "open_triggered_clutch": (
+            bool(args_cli.release_roller_open_triggered_clutch)
+            if shape in ROLLER_INSERT_SHAPES else None
+        ),
+        "axis": (
+            "Y" if shape in ("spinner_y", "flipper_y")
+            else None if shape == "dome"
+            else "X"
+        ),
+        "radius_m": args_cli.release_insert_radius_m,
+        "flipper_pivot_sign": (
+            args_cli.release_flipper_pivot_sign
+            if shape == "flipper_y" else None
+        ),
+        "d_chord_m": args_cli.release_d_roller_chord_m if shape == "d_roller_x" else None,
+        "length_m": args_cli.release_insert_length_m,
+        "finger_x_m": args_cli.release_insert_finger_x_m,
+        "ramp_angle_deg": args_cli.release_insert_ramp_deg if shape == "ramp_x" else None,
+        "ramp_height_m": args_cli.release_insert_ramp_height_m if shape == "ramp_x" else None,
+        "local_translation_m": list(local_translation_m),
+        "local_orientation_xyzw": list(orientation_xyzw),
+        "mirror_local_orientation_xyzw": (
+            [1.0, 0.0, 0.0, 0.0]
+            if shape == "d_roller_x" else list(orientation_xyzw)
+        ),
+        "cam_travel_rad": args_cli.release_roller_cam_travel_rad,
+        "cam_direction": args_cli.release_roller_cam_direction,
+        "cam_lead_s": args_cli.release_roller_cam_lead_s,
+        "cam_delay_s": args_cli.release_roller_cam_delay_s,
+        "cam_freewheel_after_transition": args_cli.release_roller_cam_freewheel_after_transition,
+        "cam_direct_effort": args_cli.release_roller_cam_direct_effort,
+        "cam_transition_s": args_cli.release_roller_cam_transition_s,
+        "cam_effort_limit_nm": args_cli.release_roller_cam_effort_limit_nm,
+        "static_friction": args_cli.release_insert_static_friction,
+        "dynamic_friction": args_cli.release_insert_dynamic_friction,
+    }
+
+
+def spawn_release_insert() -> dict[str, object] | None:
+    geometry = release_insert_geometry()
+    if geometry is None:
+        return None
+    collision_props = sim_utils.CollisionPropertiesCfg(
+        contact_offset=0.0002,
+        rest_offset=0.0,
+    )
+    physics_material = sim_utils.RigidBodyMaterialCfg(
+        static_friction=float(geometry["static_friction"]),
+        dynamic_friction=float(geometry["dynamic_friction"]),
+        restitution=0.02,
+        friction_combine_mode=args_cli.cube_friction_combine_mode,
+        restitution_combine_mode="min",
+    )
+    visual_material = sim_utils.PreviewSurfaceCfg(
+        diffuse_color=(0.05, 0.65, 0.95),
+        roughness=0.45,
+    )
+    if geometry["shape"] == "dome":
+        insert = sim_utils.SphereCfg(
+            radius=float(geometry["radius_m"]),
+            collision_props=collision_props,
+            physics_material=physics_material,
+            visual_material=visual_material,
+        )
+    elif geometry["shape"] in ROLLER_INSERT_SHAPES:
+        roller_rigid_props = sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=True,
+            angular_damping=0.0001,
+            max_angular_velocity=100.0,
+        )
+        roller_mass_props = sim_utils.MassPropertiesCfg(mass=0.002)
+        if geometry["shape"] == "flipper_y":
+            insert = sim_utils.CuboidCfg(
+                size=(
+                    0.004,
+                    float(geometry["length_m"]),
+                    2.0 * float(geometry["radius_m"]),
+                ),
+                rigid_props=roller_rigid_props,
+                mass_props=roller_mass_props,
+                collision_props=collision_props,
+                physics_material=physics_material,
+                visual_material=visual_material,
+            )
+        else:
+            insert_cfg = dict(
+                radius=float(geometry["radius_m"]),
+                height=float(geometry["length_m"]),
+                axis=str(geometry["axis"]),
+                rigid_props=roller_rigid_props,
+                mass_props=roller_mass_props,
+                collision_props=collision_props,
+                physics_material=physics_material,
+                visual_material=visual_material,
+            )
+            insert = (
+                MeshCylinderCfg(**insert_cfg)
+                if geometry["shape"] == "d_roller_x"
+                else sim_utils.CylinderCfg(**insert_cfg)
+            )
+    elif geometry["shape"] == "ramp_x":
+        insert = sim_utils.CuboidCfg(
+            size=(
+                float(geometry["length_m"]),
+                2.0 * float(geometry["radius_m"]),
+                float(geometry["ramp_height_m"]),
+            ),
+            collision_props=collision_props,
+            physics_material=physics_material,
+            visual_material=visual_material,
+        )
+    else:  # ridge_x
+        insert = sim_utils.CylinderCfg(
+            radius=float(geometry["radius_m"]),
+            height=float(geometry["length_m"]),
+            axis="X",
+            collision_props=collision_props,
+            physics_material=physics_material,
+            visual_material=visual_material,
+        )
+    spawn_translation = tuple(geometry["local_translation_m"])
+    spawn_orientation = tuple(geometry["local_orientation_xyzw"])
+    if geometry["shape"] in ROLLER_INSERT_SHAPES:
+        spawn_translation, spawn_orientation = root_relative_pose_from_parent(
+            str(geometry["parent_prim_path"]),
+            geometry["local_translation_m"],
+            geometry["local_orientation_xyzw"],
+        )
+    if geometry["shape"] == "d_roller_x":
+        vertices, faces = d_roller_mesh(
+            float(geometry["radius_m"]),
+            float(geometry["d_chord_m"]),
+            float(geometry["length_m"]),
+        )
+        mesh = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
+        _spawn_mesh_geom_from_mesh(
+            str(geometry["prim_path"]), insert, mesh,
+            translation=spawn_translation,
+            orientation=spawn_orientation,
+        )
+    else:
+        insert.func(
+            str(geometry["prim_path"]), insert,
+            translation=spawn_translation,
+            orientation=spawn_orientation,
+        )
+    if geometry["shape"] in ROLLER_INSERT_SHAPES:
+        stage = sim_utils.get_current_stage()
+        radial_retract = args_cli.release_roller_radial_retract_m > 0.0
+        if radial_retract:
+            carriage = sim_utils.CuboidCfg(
+                size=(0.002, 0.002, 0.002),
+                rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                    disable_gravity=True,
+                    max_linear_velocity=1.0,
+                ),
+                mass_props=sim_utils.MassPropertiesCfg(mass=0.001),
+                visual_material=sim_utils.PreviewSurfaceCfg(
+                    diffuse_color=(0.15, 0.15, 0.15),
+                    roughness=0.8,
+                ),
+            )
+            carriage.func(
+                ROLLER_CARRIAGE_PRIM,
+                carriage,
+                translation=spawn_translation,
+                orientation=spawn_orientation,
+            )
+            retract_joint = UsdPhysics.PrismaticJoint.Define(
+                stage, ROLLER_RETRACT_JOINT_PRIM
+            )
+            retract_joint.CreateBody0Rel().SetTargets(
+                [Sdf.Path(str(geometry["parent_prim_path"]))]
+            )
+            retract_joint.CreateBody1Rel().SetTargets(
+                [Sdf.Path(ROLLER_CARRIAGE_PRIM)]
+            )
+            retract_joint.CreateAxisAttr("Y")
+            retract_joint.CreateLocalPos0Attr(
+                Gf.Vec3f(*geometry["local_translation_m"])
+            )
+            retract_joint.CreateLocalRot0Attr(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+            retract_joint.CreateLocalPos1Attr(Gf.Vec3f(0.0, 0.0, 0.0))
+            retract_joint.CreateLocalRot1Attr(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+            retract_joint.CreateLowerLimitAttr(0.0)
+            retract_joint.CreateUpperLimitAttr(0.0)
+        joint = UsdPhysics.RevoluteJoint.Define(
+            stage, str(geometry["joint_prim_path"])
+        )
+        joint.CreateBody0Rel().SetTargets(
+            [
+                Sdf.Path(ROLLER_CARRIAGE_PRIM)
+                if radial_retract
+                else Sdf.Path(str(geometry["parent_prim_path"]))
+            ]
+        )
+        joint.CreateBody1Rel().SetTargets(
+            [Sdf.Path(str(geometry["prim_path"]))]
+        )
+        joint.CreateAxisAttr(str(geometry["axis"]))
+        pivot_offset = (
+            (
+                0.0,
+                0.0,
+                float(geometry["flipper_pivot_sign"]) * float(geometry["radius_m"]),
+            )
+            if geometry["shape"] == "flipper_y" else (0.0, 0.0, 0.0)
+        )
+        joint.CreateLocalPos0Attr(
+            Gf.Vec3f(*pivot_offset)
+            if radial_retract
+            else Gf.Vec3f(*(
+                geometry["local_translation_m"][index] + pivot_offset[index]
+                for index in range(3)
+            ))
+        )
+        joint.CreateLocalRot0Attr(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+        joint.CreateLocalPos1Attr(Gf.Vec3f(*pivot_offset))
+        joint.CreateLocalRot1Attr(
+            inverse_usd_quaternion(geometry["local_orientation_xyzw"])
+        )
+        if geometry["one_way_negative_lock"]:
+            joint.CreateLowerLimitAttr(0.0)
+        elif geometry["open_triggered_clutch"]:
+            joint.CreateLowerLimitAttr(0.0)
+            joint.CreateUpperLimitAttr(0.0)
+    if geometry["side"] == "both":
+        mirror_translation = (
+            args_cli.release_insert_finger_x_m,
+            0.0260032,
+            args_cli.release_insert_finger_z_m,
+        )
+        mirror_spawn_translation, mirror_spawn_orientation = root_relative_pose_from_parent(
+            str(geometry["mirror_parent_prim_path"]),
+            mirror_translation,
+            geometry["mirror_local_orientation_xyzw"],
+        )
+        if geometry["shape"] == "d_roller_x":
+            _spawn_mesh_geom_from_mesh(
+                str(geometry["mirror_prim_path"]), insert, mesh,
+                translation=mirror_spawn_translation,
+                orientation=mirror_spawn_orientation,
+            )
+        else:
+            insert.func(
+                str(geometry["mirror_prim_path"]), insert,
+                translation=mirror_spawn_translation,
+                orientation=mirror_spawn_orientation,
+            )
+        if radial_retract:
+            carriage.func(
+                RIGHT_ROLLER_CARRIAGE_PRIM,
+                carriage,
+                translation=mirror_spawn_translation,
+                orientation=mirror_spawn_orientation,
+            )
+            right_retract_joint = UsdPhysics.PrismaticJoint.Define(
+                stage, RIGHT_ROLLER_RETRACT_JOINT_PRIM
+            )
+            right_retract_joint.CreateBody0Rel().SetTargets(
+                [Sdf.Path(str(geometry["mirror_parent_prim_path"]))]
+            )
+            right_retract_joint.CreateBody1Rel().SetTargets(
+                [Sdf.Path(RIGHT_ROLLER_CARRIAGE_PRIM)]
+            )
+            right_retract_joint.CreateAxisAttr("Y")
+            right_retract_joint.CreateLocalPos0Attr(
+                Gf.Vec3f(*mirror_translation)
+            )
+            right_retract_joint.CreateLocalRot0Attr(
+                Gf.Quatf(1.0, 0.0, 0.0, 0.0)
+            )
+            right_retract_joint.CreateLocalPos1Attr(Gf.Vec3f(0.0, 0.0, 0.0))
+            right_retract_joint.CreateLocalRot1Attr(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+            right_retract_joint.CreateLowerLimitAttr(0.0)
+            right_retract_joint.CreateUpperLimitAttr(0.0)
+        if geometry["shape"] in ROLLER_INSERT_SHAPES:
+            stage = sim_utils.get_current_stage()
+            mirror_joint = UsdPhysics.RevoluteJoint.Define(
+                stage, str(geometry["mirror_joint_prim_path"])
+            )
+            mirror_joint.CreateBody0Rel().SetTargets(
+                [
+                    Sdf.Path(RIGHT_ROLLER_CARRIAGE_PRIM)
+                    if radial_retract
+                    else Sdf.Path(str(geometry["mirror_parent_prim_path"]))
+                ]
+            )
+            mirror_joint.CreateBody1Rel().SetTargets(
+                [Sdf.Path(str(geometry["mirror_prim_path"]))]
+            )
+            mirror_joint.CreateAxisAttr(str(geometry["axis"]))
+            mirror_joint.CreateLocalPos0Attr(
+                Gf.Vec3f(*pivot_offset)
+                if radial_retract
+                else Gf.Vec3f(*(
+                    mirror_translation[index] + pivot_offset[index]
+                    for index in range(3)
+                ))
+            )
+            mirror_joint.CreateLocalRot0Attr(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+            mirror_joint.CreateLocalPos1Attr(Gf.Vec3f(*pivot_offset))
+            mirror_joint.CreateLocalRot1Attr(
+                inverse_usd_quaternion(geometry["mirror_local_orientation_xyzw"])
+            )
+            if geometry["one_way_negative_lock"]:
+                mirror_joint.CreateLowerLimitAttr(0.0)
+            elif geometry["open_triggered_clutch"]:
+                mirror_joint.CreateLowerLimitAttr(0.0)
+                mirror_joint.CreateUpperLimitAttr(0.0)
+    return geometry
+
+
+def release_retract_pad_geometry() -> dict[str, object] | None:
+    if not args_cli.release_retract_pad_right:
+        return None
+    pad_x = args_cli.release_insert_finger_x_m if args_cli.release_retract_pad_finger_x_m is None else args_cli.release_retract_pad_finger_x_m
+    pad_y = 0.0260032 if args_cli.release_retract_pad_finger_y_m is None else args_cli.release_retract_pad_finger_y_m
+    pad_z = args_cli.release_insert_finger_z_m if args_cli.release_retract_pad_finger_z_m is None else args_cli.release_retract_pad_finger_z_m
+    pad_length = args_cli.release_insert_length_m if args_cli.release_retract_pad_length_m is None else args_cli.release_retract_pad_length_m
+    translation = (
+        pad_x,
+        pad_y,
+        pad_z,
+    )
+    return {
+        "prim_path": "/World/XArm6/ReleaseMechanism/RightRetractPad",
+        "parent_prim_path": RIGHT_FINGER_PRIM,
+        "joint_prim_path": RETRACT_JOINT_PRIM,
+        "axis": args_cli.release_retract_pad_axis,
+        "outward_angle_deg": args_cli.release_retract_pad_outward_angle_deg,
+        "local_translation_m": list(translation),
+        "size_m": [
+            pad_length,
+            args_cli.release_retract_pad_thickness_m,
+            args_cli.release_retract_pad_height_m,
+        ],
+        "travel_m": args_cli.release_retract_pad_travel_m,
+        "delay_s": args_cli.release_retract_pad_delay_s,
+        "transition_s": args_cli.release_retract_pad_transition_s,
+        "return_transition_s": args_cli.release_retract_pad_return_transition_s,
+        "hold_s": args_cli.release_retract_pad_hold_s,
+        "radial_clear_m": args_cli.release_retract_pad_radial_clear_m,
+        "radial_clear_delay_s": args_cli.release_retract_pad_radial_clear_delay_s,
+        "radial_clear_transition_s": (
+            args_cli.release_retract_pad_radial_clear_transition_s
+        ),
+        "radial_support": bool(args_cli.release_retract_pad_radial_support),
+        "radial_support_prim_path": RETRACT_PAD_CARRIAGE_PRIM,
+        "radial_support_local_translation_m": [
+            args_cli.release_radial_support_finger_x_m,
+            args_cli.release_radial_support_finger_y_m,
+            args_cli.release_radial_support_finger_z_m,
+        ],
+        "radial_support_size_m": [
+            args_cli.release_radial_support_length_m,
+            args_cli.release_radial_support_thickness_m,
+            args_cli.release_radial_support_height_m,
+        ],
+        "force_limited": bool(
+            args_cli.release_retract_pad_force_limited
+        ),
+        "direct_effort": bool(args_cli.release_retract_pad_direct_effort),
+        "direct_effort_direction": (
+            args_cli.release_retract_pad_direct_effort_direction
+        ),
+        "one_way": bool(args_cli.release_retract_pad_one_way),
+        "freewheel_after_transition": bool(
+            args_cli.release_retract_pad_freewheel_after_transition
+        ),
+        "effort_limit_n": args_cli.release_retract_pad_effort_limit_n,
+        "radial_support_static_friction": (
+            args_cli.release_insert_static_friction
+            if args_cli.release_radial_support_static_friction is None
+            else args_cli.release_radial_support_static_friction
+        ),
+        "radial_support_dynamic_friction": (
+            args_cli.release_insert_dynamic_friction
+            if args_cli.release_radial_support_dynamic_friction is None
+            else args_cli.release_radial_support_dynamic_friction
+        ),
+        "static_friction": (
+            args_cli.release_insert_static_friction
+            if args_cli.release_retract_pad_static_friction is None
+            else args_cli.release_retract_pad_static_friction
+        ),
+        "dynamic_friction": (
+            args_cli.release_insert_dynamic_friction
+            if args_cli.release_retract_pad_dynamic_friction is None
+            else args_cli.release_retract_pad_dynamic_friction
+        ),
+    }
+
+
+def spawn_release_retract_pad() -> dict[str, object] | None:
+    geometry = release_retract_pad_geometry()
+    if geometry is None:
+        return None
+    pad = sim_utils.CuboidCfg(
+        size=tuple(geometry["size_m"]),
+        rigid_props=sim_utils.RigidBodyPropertiesCfg(
+            disable_gravity=True,
+            max_linear_velocity=1.0,
+        ),
+        mass_props=sim_utils.MassPropertiesCfg(mass=0.004),
+        collision_props=sim_utils.CollisionPropertiesCfg(
+            contact_offset=0.0002,
+            rest_offset=0.0,
+        ),
+        physics_material=sim_utils.RigidBodyMaterialCfg(
+            static_friction=float(geometry["static_friction"]),
+            dynamic_friction=float(geometry["dynamic_friction"]),
+            restitution=0.02,
+            friction_combine_mode=args_cli.cube_friction_combine_mode,
+            restitution_combine_mode="min",
+        ),
+        visual_material=sim_utils.PreviewSurfaceCfg(
+            diffuse_color=(0.95, 0.65, 0.05),
+            roughness=0.45,
+        ),
+    )
+    spawn_translation, spawn_orientation = root_relative_pose_from_parent(
+        str(geometry["parent_prim_path"]),
+        geometry["local_translation_m"],
+        (0.0, 0.0, 0.0, 1.0),
+    )
+    radial_clear = float(geometry["radial_clear_m"]) > 0.0
+    radial_support = bool(geometry["radial_support"])
+    if radial_clear:
+        carriage_translation = spawn_translation
+        carriage_orientation = spawn_orientation
+        carriage_size = (0.002, 0.002, 0.002)
+        if radial_support:
+            carriage_translation, carriage_orientation = root_relative_pose_from_parent(
+                str(geometry["parent_prim_path"]),
+                geometry["radial_support_local_translation_m"],
+                (0.0, 0.0, 0.0, 1.0),
+            )
+            carriage_size = tuple(geometry["radial_support_size_m"])
+        carriage = sim_utils.CuboidCfg(
+            size=carriage_size,
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                disable_gravity=True,
+                max_linear_velocity=2.0,
+            ),
+            mass_props=sim_utils.MassPropertiesCfg(
+                mass=0.004 if radial_support else 0.001
+            ),
+            collision_props=(
+                sim_utils.CollisionPropertiesCfg(
+                    contact_offset=0.0002,
+                    rest_offset=0.0,
+                )
+                if radial_support else None
+            ),
+            physics_material=(
+                sim_utils.RigidBodyMaterialCfg(
+                    static_friction=float(geometry["radial_support_static_friction"]),
+                    dynamic_friction=float(geometry["radial_support_dynamic_friction"]),
+                    restitution=0.02,
+                    friction_combine_mode=args_cli.cube_friction_combine_mode,
+                    restitution_combine_mode="min",
+                )
+                if radial_support else None
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.15, 0.15, 0.15), roughness=0.8,
+            ),
+        )
+        carriage.func(
+            RETRACT_PAD_CARRIAGE_PRIM, carriage,
+            translation=carriage_translation, orientation=carriage_orientation,
+        )
+    pad.func(
+        str(geometry["prim_path"]),
+        pad,
+        translation=spawn_translation,
+        orientation=spawn_orientation,
+    )
+    stage = sim_utils.get_current_stage()
+    if radial_clear:
+        radial_joint = UsdPhysics.PrismaticJoint.Define(
+            stage, RETRACT_PAD_RADIAL_JOINT_PRIM
+        )
+        radial_joint.CreateBody0Rel().SetTargets([Sdf.Path(RIGHT_FINGER_PRIM)])
+        radial_joint.CreateBody1Rel().SetTargets(
+            [Sdf.Path(RETRACT_PAD_CARRIAGE_PRIM)]
+        )
+        radial_joint.CreateAxisAttr("Y")
+        radial_joint_translation = (
+            geometry["radial_support_local_translation_m"]
+            if radial_support else geometry["local_translation_m"]
+        )
+        radial_joint.CreateLocalPos0Attr(Gf.Vec3f(*radial_joint_translation))
+        radial_joint.CreateLocalRot0Attr(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+        radial_joint.CreateLocalPos1Attr(Gf.Vec3f(0.0, 0.0, 0.0))
+        radial_joint.CreateLocalRot1Attr(Gf.Quatf(1.0, 0.0, 0.0, 0.0))
+        radial_joint.CreateLowerLimitAttr(0.0)
+        radial_joint.CreateUpperLimitAttr(0.0)
+    joint = UsdPhysics.PrismaticJoint.Define(stage, RETRACT_JOINT_PRIM)
+    joint.CreateBody0Rel().SetTargets([
+        Sdf.Path(
+            RETRACT_PAD_CARRIAGE_PRIM
+            if radial_clear and not radial_support else RIGHT_FINGER_PRIM
+        )
+    ])
+    joint.CreateBody1Rel().SetTargets([Sdf.Path(str(geometry["prim_path"]))])
+    joint.CreateAxisAttr(str(geometry["axis"]))
+    outward_angle_rad = (
+        math.radians(float(geometry["outward_angle_deg"]))
+        if geometry["axis"] == "X" else 0.0
+    )
+    joint_frame_orientation = Gf.Quatf(
+        math.cos(0.5 * outward_angle_rad),
+        0.0, 0.0, math.sin(0.5 * outward_angle_rad),
+    )
+    joint.CreateLocalPos0Attr(
+        Gf.Vec3f(0.0, 0.0, 0.0)
+        if radial_clear and not radial_support
+        else Gf.Vec3f(*geometry["local_translation_m"])
+    )
+    joint.CreateLocalRot0Attr(joint_frame_orientation)
+    joint.CreateLocalPos1Attr(Gf.Vec3f(0.0, 0.0, 0.0))
+    joint.CreateLocalRot1Attr(joint_frame_orientation)
+    joint.CreateLowerLimitAttr(0.0)
+    joint.CreateUpperLimitAttr(0.0)
+    return geometry
 
 
 def load_reference(config_path: Path):
@@ -570,7 +1723,318 @@ def step_assets(
     cube: RigidObject,
     contact_sensors: dict[str, ContactSensor],
     cameras: tuple[Camera, ...],
+    roller_clutch_locked: bool = True,
+    roller_cam_target_rad: float = 0.0,
+    retract_pad_target_m: float = 0.0,
+    retract_pad_velocity_m_s: float = 0.0,
+    retract_pad_radial_target_m: float = 0.0,
+    retract_pad_radial_velocity_m_s: float = 0.0,
+    roller_retract_target_m: float = 0.0,
 ) -> None:
+    if (
+        args_cli.release_insert_side != "none"
+        and args_cli.release_insert_shape in ROLLER_INSERT_SHAPES
+        and (
+            args_cli.release_roller_one_way
+            or args_cli.release_roller_open_triggered_clutch
+        )
+    ):
+        roller_joint_ids, _ = robot.find_joints(
+            "|".join(
+                (ROLLER_JOINT_NAME, RIGHT_ROLLER_JOINT_NAME)
+                if args_cli.release_insert_side == "both"
+                else (ROLLER_JOINT_NAME,)
+            )
+        )
+        if args_cli.release_roller_one_way:
+            roller_velocity = robot.data.joint_vel.torch[:, roller_joint_ids]
+            clutch_effort = torch.clamp(
+                -0.02 * roller_velocity, min=0.0, max=0.05
+            )
+        else:
+            if not roller_clutch_locked:
+                stage = sim_utils.get_current_stage()
+                joint_paths = (
+                    (ROLLER_JOINT_PRIM, RIGHT_ROLLER_JOINT_PRIM)
+                    if args_cli.release_insert_side == "both"
+                    else (ROLLER_JOINT_PRIM,)
+                )
+                for joint_path in joint_paths:
+                    roller_joint = UsdPhysics.RevoluteJoint.Get(stage, joint_path)
+                    roller_joint.GetLowerLimitAttr().Set(-1.0e6)
+                    roller_joint.GetUpperLimitAttr().Set(1.0e6)
+            clutch_effort = torch.zeros(
+                (1, len(roller_joint_ids)), device=robot.device
+            )
+        if args_cli.release_roller_cam_travel_rad > 0.0:
+            roller_target = torch.full(
+                (1, len(roller_joint_ids)),
+                roller_cam_target_rad,
+                device=robot.device,
+            )
+            cam_complete = (
+                abs(roller_cam_target_rad)
+                >= args_cli.release_roller_cam_travel_rad - 1.0e-9
+            )
+            if args_cli.release_roller_cam_direct_effort:
+                robot.write_joint_stiffness_to_sim_index(
+                    stiffness=0.0, joint_ids=roller_joint_ids
+                )
+                robot.write_joint_damping_to_sim_index(
+                    damping=0.0, joint_ids=roller_joint_ids
+                )
+                pulse_active = not roller_clutch_locked and not (
+                    args_cli.release_roller_cam_freewheel_after_transition
+                    and cam_complete
+                )
+                cam_effort = torch.full_like(
+                    roller_target,
+                    args_cli.release_roller_cam_direction
+                    * args_cli.release_roller_cam_effort_limit_nm
+                    if pulse_active else 0.0,
+                )
+                robot.set_joint_effort_target_index(
+                    target=cam_effort, joint_ids=roller_joint_ids
+                )
+            else:
+                robot.set_joint_position_target_index(
+                    target=roller_target, joint_ids=roller_joint_ids
+                )
+            if (
+                not args_cli.release_roller_cam_direct_effort
+                and
+                args_cli.release_roller_radial_retract_kinematic
+                and not (
+                    args_cli.release_roller_cam_freewheel_after_transition
+                    and cam_complete
+                )
+            ):
+                robot.write_joint_position_to_sim_index(
+                    position=roller_target,
+                    joint_ids=roller_joint_ids,
+                )
+                imposed_velocity_rad_s = (
+                    args_cli.release_roller_cam_direction
+                    * args_cli.release_roller_cam_travel_rad
+                    / args_cli.release_roller_cam_transition_s
+                    if 0.0 < abs(roller_cam_target_rad)
+                    < args_cli.release_roller_cam_travel_rad
+                    else 0.0
+                )
+                robot.write_joint_velocity_to_sim_index(
+                    velocity=torch.full_like(
+                        roller_target, imposed_velocity_rad_s
+                    ),
+                    joint_ids=roller_joint_ids,
+                )
+            if (
+                args_cli.release_roller_cam_freewheel_after_transition
+                and cam_complete
+            ):
+                robot.write_joint_stiffness_to_sim_index(
+                    stiffness=0.0, joint_ids=roller_joint_ids
+                )
+                robot.write_joint_damping_to_sim_index(
+                    damping=0.0, joint_ids=roller_joint_ids
+                )
+                robot.set_joint_effort_target_index(
+                    target=clutch_effort, joint_ids=roller_joint_ids
+                )
+        else:
+            robot.set_joint_effort_target_index(
+                target=clutch_effort, joint_ids=roller_joint_ids
+            )
+    if args_cli.release_retract_pad_right:
+        retract_joint_ids, _ = robot.find_joints(RETRACT_JOINT_NAME)
+        if not roller_clutch_locked:
+            stage = sim_utils.get_current_stage()
+            retract_joint = UsdPhysics.PrismaticJoint.Get(
+                stage, RETRACT_JOINT_PRIM
+            )
+            retract_joint.GetLowerLimitAttr().Set(
+                -args_cli.release_retract_pad_travel_m
+            )
+            retract_joint.GetUpperLimitAttr().Set(
+                args_cli.release_retract_pad_travel_m
+                if args_cli.release_retract_pad_force_limited
+                else 0.0
+            )
+        if args_cli.release_retract_pad_one_way and not roller_clutch_locked:
+            current_retract_q = float(
+                robot.data.joint_pos.torch[0, retract_joint_ids[0]].item()
+            )
+            retract_joint.GetUpperLimitAttr().Set(
+                min(0.0, current_retract_q)
+            )
+        retract_target = torch.full(
+            (1, len(retract_joint_ids)),
+            (
+                -retract_pad_target_m
+                if args_cli.release_retract_pad_force_limited
+                else retract_pad_target_m
+            ),
+            device=robot.device,
+        )
+        if args_cli.release_retract_pad_direct_effort:
+            robot.write_joint_stiffness_to_sim_index(
+                stiffness=0.0, joint_ids=retract_joint_ids
+            )
+            robot.write_joint_damping_to_sim_index(
+                damping=0.0, joint_ids=retract_joint_ids
+            )
+            rebound_brake_active = (
+                args_cli.release_retract_pad_one_way
+                and float(
+                    robot.data.joint_vel.torch[0, retract_joint_ids[0]].item()
+                ) > 0.0
+            )
+            direct_force = torch.full_like(
+                retract_target,
+                -args_cli.release_retract_pad_effort_limit_n
+                if rebound_brake_active else (
+                    args_cli.release_retract_pad_direct_effort_direction
+                    * args_cli.release_retract_pad_effort_limit_n
+                    if retract_pad_velocity_m_s < -1.0e-9 else 0.0
+                ),
+            )
+            robot.set_joint_effort_target_index(
+                target=direct_force, joint_ids=retract_joint_ids
+            )
+        else:
+            robot.set_joint_position_target_index(
+                target=retract_target,
+                joint_ids=retract_joint_ids,
+            )
+        strike_complete = (
+            abs(retract_pad_target_m)
+            >= args_cli.release_retract_pad_travel_m - 1.0e-9
+            and abs(retract_pad_velocity_m_s) <= 1.0e-9
+        )
+        if (
+            args_cli.release_retract_pad_force_limited
+            and args_cli.release_retract_pad_freewheel_after_transition
+            and strike_complete
+        ):
+            retract_joint.GetUpperLimitAttr().Set(
+                args_cli.release_retract_pad_travel_m
+            )
+            robot.write_joint_stiffness_to_sim_index(
+                stiffness=0.0, joint_ids=retract_joint_ids
+            )
+            robot.write_joint_damping_to_sim_index(
+                damping=0.0, joint_ids=retract_joint_ids
+            )
+            if not args_cli.release_retract_pad_one_way:
+                robot.set_joint_effort_target_index(
+                    target=torch.zeros_like(retract_target),
+                    joint_ids=retract_joint_ids,
+                )
+        elif (
+            args_cli.release_roller_radial_retract_kinematic
+            and not args_cli.release_retract_pad_force_limited
+        ):
+            robot.write_joint_position_to_sim_index(
+                position=retract_target,
+                joint_ids=retract_joint_ids,
+            )
+            robot.write_joint_velocity_to_sim_index(
+                velocity=torch.full_like(
+                    retract_target, retract_pad_velocity_m_s
+                ),
+                joint_ids=retract_joint_ids,
+            )
+    if args_cli.release_retract_pad_radial_clear_m > 0.0:
+        radial_joint_ids, _ = robot.find_joints(RETRACT_PAD_RADIAL_JOINT_NAME)
+        if retract_pad_radial_target_m < 0.0:
+            stage = sim_utils.get_current_stage()
+            radial_joint = UsdPhysics.PrismaticJoint.Get(
+                stage, RETRACT_PAD_RADIAL_JOINT_PRIM
+            )
+            radial_joint.GetLowerLimitAttr().Set(
+                -args_cli.release_retract_pad_radial_clear_m
+            )
+            radial_joint.GetUpperLimitAttr().Set(0.0)
+        radial_target = torch.full(
+            (1, len(radial_joint_ids)),
+            retract_pad_radial_target_m,
+            device=robot.device,
+        )
+        robot.set_joint_position_target_index(
+            target=radial_target,
+            joint_ids=radial_joint_ids,
+        )
+        if args_cli.release_roller_radial_retract_kinematic:
+            robot.write_joint_position_to_sim_index(
+                position=radial_target,
+                joint_ids=radial_joint_ids,
+            )
+            robot.write_joint_velocity_to_sim_index(
+                velocity=torch.full_like(
+                    radial_target, retract_pad_radial_velocity_m_s
+                ),
+                joint_ids=radial_joint_ids,
+            )
+    if args_cli.release_roller_radial_retract_m > 0.0:
+        roller_retract_names = (
+            (ROLLER_RETRACT_JOINT_NAME, RIGHT_ROLLER_RETRACT_JOINT_NAME)
+            if args_cli.release_insert_side == "both"
+            else (ROLLER_RETRACT_JOINT_NAME,)
+        )
+        roller_retract_ids, matched_retract_names = robot.find_joints(
+            "|".join(roller_retract_names)
+        )
+        if roller_retract_target_m > 0.0:
+            stage = sim_utils.get_current_stage()
+            roller_retract_joint = UsdPhysics.PrismaticJoint.Get(
+                stage, ROLLER_RETRACT_JOINT_PRIM
+            )
+            roller_retract_joint.GetLowerLimitAttr().Set(0.0)
+            roller_retract_joint.GetUpperLimitAttr().Set(
+                args_cli.release_roller_radial_retract_m
+            )
+            if args_cli.release_insert_side == "both":
+                right_retract_joint = UsdPhysics.PrismaticJoint.Get(
+                    stage, RIGHT_ROLLER_RETRACT_JOINT_PRIM
+                )
+                right_retract_joint.GetLowerLimitAttr().Set(
+                    -args_cli.release_roller_radial_retract_m
+                )
+                right_retract_joint.GetUpperLimitAttr().Set(0.0)
+        retract_signs = [
+            -1.0 if name == RIGHT_ROLLER_RETRACT_JOINT_NAME else 1.0
+            for name in matched_retract_names
+        ]
+        roller_retract_target = torch.tensor(
+            [[sign * roller_retract_target_m for sign in retract_signs]],
+            dtype=torch.float32,
+            device=robot.device,
+        )
+        robot.set_joint_position_target_index(
+            target=roller_retract_target,
+            joint_ids=roller_retract_ids,
+        )
+        if args_cli.release_roller_radial_retract_kinematic:
+            robot.write_joint_position_to_sim_index(
+                position=roller_retract_target,
+                joint_ids=roller_retract_ids,
+            )
+            imposed_velocity_m_s = (
+                args_cli.release_roller_radial_retract_m
+                / args_cli.release_roller_radial_retract_transition_s
+                if (
+                    0.0 < roller_retract_target_m < args_cli.release_roller_radial_retract_m
+                )
+                else 0.0
+            )
+            roller_retract_velocity = torch.tensor(
+                [[sign * imposed_velocity_m_s for sign in retract_signs]],
+                dtype=torch.float32,
+                device=robot.device,
+            )
+            robot.write_joint_velocity_to_sim_index(
+                velocity=roller_retract_velocity,
+                joint_ids=roller_retract_ids,
+            )
     robot.write_data_to_sim()
     cube.write_data_to_sim()
     sim.step(render=bool(cameras))
@@ -849,6 +2313,10 @@ def record_state(
     cube: RigidObject,
     arm_ids: list[int],
     drive_id: int,
+    roller_joint_id: int | None,
+    retract_joint_id: int | None,
+    roller_retract_joint_id: int | None,
+    release_body_ids: dict[str, int],
     gripper_body_id: int,
     finger_body_ids: list[int],
     contact_sensors: dict[str, ContactSensor],
@@ -962,6 +2430,69 @@ def record_state(
         "gripper_drive_rad": float(
             robot.data.joint_pos.torch[0, drive_id].item()
         ),
+        "release_roller_joint_position_rad": (
+            None
+            if roller_joint_id is None
+            else float(robot.data.joint_pos.torch[0, roller_joint_id].item())
+        ),
+        "release_roller_joint_velocity_rad_s": (
+            None
+            if roller_joint_id is None
+            else float(robot.data.joint_vel.torch[0, roller_joint_id].item())
+        ),
+        "release_roller_joint_effort_nm": (
+            None
+            if roller_joint_id is None
+            else float(robot.data.applied_torque.torch[0, roller_joint_id].item())
+        ),
+        "release_retract_joint_position_m": (
+            None
+            if retract_joint_id is None
+            else float(robot.data.joint_pos.torch[0, retract_joint_id].item())
+        ),
+        "release_retract_joint_velocity_m_s": (
+            None
+            if retract_joint_id is None
+            else float(robot.data.joint_vel.torch[0, retract_joint_id].item())
+        ),
+        "release_retract_joint_effort_n": (
+            None
+            if retract_joint_id is None
+            else float(
+                robot.data.applied_torque.torch[0, retract_joint_id].item()
+            )
+        ),
+        "release_roller_retract_joint_position_m": (
+            None
+            if roller_retract_joint_id is None
+            else float(
+                robot.data.joint_pos.torch[0, roller_retract_joint_id].item()
+            )
+        ),
+        "release_roller_retract_joint_velocity_m_s": (
+            None
+            if roller_retract_joint_id is None
+            else float(
+                robot.data.joint_vel.torch[0, roller_retract_joint_id].item()
+            )
+        ),
+        "release_roller_retract_joint_effort_n": (
+            None if roller_retract_joint_id is None else float(
+                robot.data.applied_torque.torch[0, roller_retract_joint_id].item()
+            )
+        ),
+        "release_mechanism_body_positions_w_m": {
+            name: [float(value) for value in robot.data.body_link_pos_w.torch[0, body_id].tolist()]
+            for name, body_id in release_body_ids.items()
+        },
+        "release_mechanism_body_quaternions_wxyz": {
+            name: [
+                float(value) for value in convert_quat(
+                    robot.data.body_link_quat_w.torch[0, body_id], to="wxyz"
+                ).tolist()
+            ]
+            for name, body_id in release_body_ids.items()
+        },
         "robot_cube_contact_forces_n": contact_forces,
         "wrist_camera_proxy_clearance_m": wrist_clearance_m,
         "ground_clearance_m": ground_clearance_m,
@@ -1345,12 +2876,111 @@ def summarize(
         "actual_max_joint_acceleration_rad_s2": actual_limit_evidence["max_joint_acceleration_rad_s2"],
         "cube_offset_hand_m": list(args_cli.cube_offset_hand_m),
         "cube_rotation_hand_y_deg": args_cli.cube_rotation_hand_y_deg,
+        "release_insert_geometry": release_insert_geometry(),
+        "release_retract_pad_geometry": release_retract_pad_geometry(),
     }
 
 
 def main() -> int:
     if not args_cli.usd.is_file():
         raise FileNotFoundError(args_cli.usd)
+    if args_cli.release_insert_side != "none":
+        if (
+            args_cli.release_insert_side == "both"
+            and args_cli.release_insert_shape not in ROLLER_INSERT_SHAPES
+        ):
+            raise ValueError("dual inserts are supported for roller shapes")
+        max_release_insert_radius_m = (
+            0.015
+            if args_cli.release_insert_shape in ("spinner_y", "flipper_y")
+            else 0.006
+        )
+        if not 0.0005 <= args_cli.release_insert_radius_m <= max_release_insert_radius_m:
+            raise ValueError(
+                f"release insert radius must lie in [0.5, {1e3 * max_release_insert_radius_m:g}] mm"
+            )
+        if (
+            args_cli.release_insert_shape == "d_roller_x"
+            and not 0.0 <= args_cli.release_d_roller_chord_m < args_cli.release_insert_radius_m
+        ):
+            raise ValueError("D-roller chord must satisfy 0 <= chord < radius")
+        if not 0.006 <= args_cli.release_insert_length_m <= 0.032:
+            raise ValueError("release insert length must lie in [6, 32] mm")
+        if not -0.016 <= args_cli.release_insert_finger_x_m <= 0.016:
+            raise ValueError("release insert finger-local X must lie in [-16, 16] mm")
+        if args_cli.release_insert_shape == "ramp_x":
+            if not 0.005 <= args_cli.release_insert_ramp_height_m <= 0.035:
+                raise ValueError("release ramp height must lie in [5, 35] mm")
+            if not 1.0 <= abs(args_cli.release_insert_ramp_deg) <= 30.0:
+                raise ValueError(
+                    "release ramp angle magnitude must lie in [1, 30] degrees"
+                )
+        if not 0.006 <= args_cli.release_insert_finger_z_m <= 0.060:
+            raise ValueError("release insert finger-local Z must lie in [6, 60] mm")
+        if not (
+            0.0
+            <= args_cli.release_insert_dynamic_friction
+            <= args_cli.release_insert_static_friction
+        ):
+            raise ValueError(
+                "release insert friction must satisfy 0 <= dynamic <= static"
+            )
+        if args_cli.release_insert_static_friction > 2.0:
+            raise ValueError("release insert static friction must not exceed 2.0")
+        if args_cli.release_roller_cam_travel_rad > 0.0:
+            if args_cli.release_insert_shape not in (
+                "d_roller_x", "spinner_y", "flipper_y"
+            ):
+                raise ValueError(
+                    "G1 cam coupling requires a D roller, spin disk, or flipper"
+                )
+            if not args_cli.release_roller_open_triggered_clutch:
+                raise ValueError("G1 cam coupling requires the open-triggered clutch")
+            if args_cli.release_roller_cam_lead_s < 0.0:
+                raise ValueError("G1 cam lead must be nonnegative")
+            if args_cli.release_roller_cam_delay_s < 0.0:
+                raise ValueError("G1 cam delay must be nonnegative")
+            if args_cli.release_roller_cam_transition_s <= 0.0:
+                raise ValueError("G1 cam transition must be positive")
+            if args_cli.release_roller_cam_effort_limit_nm <= 0.0:
+                raise ValueError("G1 cam effort limit must be positive")
+        if args_cli.release_retract_pad_right:
+            if (
+                args_cli.release_insert_side != "left"
+                or args_cli.release_insert_shape not in (
+                    "d_roller_x", "spinner_y", "flipper_y"
+                )
+            ):
+                raise ValueError("right retract pad requires one left release wheel")
+            if not args_cli.release_roller_open_triggered_clutch:
+                raise ValueError("right retract pad requires the open-triggered clutch")
+            if args_cli.release_retract_pad_travel_m <= 0.0:
+                raise ValueError("right retract pad travel must be positive")
+            if args_cli.release_retract_pad_delay_s < 0.0:
+                raise ValueError("right retract pad delay must be nonnegative")
+            if args_cli.release_retract_pad_transition_s <= 0.0:
+                raise ValueError("right retract pad transition must be positive")
+            if args_cli.release_retract_pad_effort_limit_n <= 0.0:
+                raise ValueError("right retract pad effort limit must be positive")
+            if (
+                args_cli.release_retract_pad_radial_support
+                and args_cli.release_retract_pad_radial_clear_m <= 0.0
+            ):
+                raise ValueError(
+                    "separate radial support requires positive radial clear travel"
+                )
+        if args_cli.release_roller_radial_retract_m > 0.0:
+            if (
+                args_cli.release_insert_side not in ("left", "both")
+                or args_cli.release_insert_shape not in (
+                    "d_roller_x", "spinner_y", "flipper_y"
+                )
+            ):
+                raise ValueError("radial retract requires one or two release wheels")
+            if args_cli.release_roller_radial_retract_delay_s < 0.0:
+                raise ValueError("roller retract delay must be nonnegative")
+            if args_cli.release_roller_radial_retract_transition_s <= 0.0:
+                raise ValueError("roller retract transition must be positive")
     probe_j_config = (
         None if args_cli.probe_j_config is None
         else json.loads(args_cli.probe_j_config.read_text(encoding="utf-8"))
@@ -1408,12 +3038,45 @@ def main() -> int:
     ) == (args_cli.catch_preposition_end_time_s is None)
     if not preposition_pair_complete:
         raise ValueError("catch preposition bias and end time must be paired")
+    if (
+        args_cli.catch_preposition_start_time_s is not None
+        and args_cli.catch_preposition_bias_m is None
+    ):
+        raise ValueError("catch preposition start time requires a bias and end time")
     if args_cli.catch_preposition_end_time_s is not None and (
         args_cli.catch_servo_start_time_s is None
         or args_cli.catch_preposition_end_time_s
         <= args_cli.catch_servo_start_time_s
     ):
         raise ValueError("catch preposition must end after catch servo starts")
+    if args_cli.catch_preposition_start_time_s is not None and (
+        args_cli.catch_preposition_start_time_s
+        < args_cli.catch_servo_start_time_s
+        or args_cli.catch_preposition_start_time_s
+        >= args_cli.catch_preposition_end_time_s
+    ):
+        raise ValueError("catch preposition start must lie within the servo window")
+    preintercept_pair_complete = (
+        args_cli.catch_preintercept_time_s is None
+    ) == (args_cli.catch_intercept_switch_time_s is None)
+    if not preintercept_pair_complete:
+        raise ValueError("catch preintercept and switch time must be paired")
+    if args_cli.catch_preintercept_time_s is not None and (
+        args_cli.catch_intercept_time_s is None
+        or args_cli.catch_servo_start_time_s is None
+    ):
+        raise ValueError("two-stage catch intercept requires catch servo and final intercept")
+    if args_cli.catch_intercept_switch_time_s is not None and (
+        args_cli.catch_intercept_switch_time_s
+        <= args_cli.catch_servo_start_time_s
+        or args_cli.catch_intercept_switch_time_s
+        >= args_cli.catch_intercept_time_s
+        or args_cli.catch_preintercept_time_s
+        <= args_cli.catch_intercept_switch_time_s
+    ):
+        raise ValueError(
+            "catch intercept switch must follow servo start and precede both intercepts"
+        )
     duration = (
         float(reference[-1].time_s) + args_cli.arm_tracking_delay_s
         + args_cli.post_release_s
@@ -1491,6 +3154,26 @@ def main() -> int:
         ),
     )
     robot = Articulation(robot_cfg(args_cli.usd, args_cli.held_drive_rad))
+    insert_geometry = spawn_release_insert()
+    retract_pad_geometry = spawn_release_retract_pad()
+    robot_contact_prims = dict(ROBOT_CONTACT_PRIMS)
+    if retract_pad_geometry is not None:
+        robot_contact_prims["release_retract_pad_right"] = str(retract_pad_geometry["prim_path"])
+        if retract_pad_geometry["radial_support"]:
+            robot_contact_prims["release_radial_support_right"] = str(
+                retract_pad_geometry["radial_support_prim_path"]
+            )
+    if (
+        insert_geometry is not None
+        and insert_geometry["shape"] in ROLLER_INSERT_SHAPES
+    ):
+        robot_contact_prims["release_roller_left"] = str(
+            insert_geometry["prim_path"]
+        )
+        if insert_geometry["side"] == "both":
+            robot_contact_prims["release_roller_right"] = str(
+                insert_geometry["mirror_prim_path"]
+            )
     cube = RigidObject(
         cube_cfg(
             args_cli.cube_size_m,
@@ -1574,7 +3257,7 @@ def main() -> int:
         for camera in (global_camera, wrist_camera, spectator_camera)
         if camera is not None
     )
-    for prim_path in ROBOT_CONTACT_PRIMS.values():
+    for prim_path in robot_contact_prims.values():
         sim_utils.activate_contact_sensors(prim_path)
     contact_sensors = {
         name: ContactSensor(
@@ -1585,12 +3268,66 @@ def main() -> int:
                 filter_prim_paths_expr=["/World/Cube"],
             )
         )
-        for name, prim_path in ROBOT_CONTACT_PRIMS.items()
+        for name, prim_path in robot_contact_prims.items()
     }
     sim.reset()
 
     arm_ids, _ = robot.find_joints("joint[1-6]")
     drive_ids, _ = robot.find_joints("drive_joint")
+    roller_joint_ids, _ = (
+        robot.find_joints(
+            "|".join(
+                (ROLLER_JOINT_NAME, RIGHT_ROLLER_JOINT_NAME)
+                if args_cli.release_insert_side == "both"
+                else (ROLLER_JOINT_NAME,)
+            )
+        )
+        if insert_geometry is not None
+        and insert_geometry["shape"] in ROLLER_INSERT_SHAPES
+        else ([], [])
+    )
+    roller_joint_id = roller_joint_ids[0] if roller_joint_ids else None
+    retract_joint_ids, _ = (
+        robot.find_joints(RETRACT_JOINT_NAME)
+        if retract_pad_geometry is not None
+        else ([], [])
+    )
+    retract_joint_id = retract_joint_ids[0] if retract_joint_ids else None
+    roller_retract_joint_ids, _ = (
+        robot.find_joints(ROLLER_RETRACT_JOINT_NAME)
+        if args_cli.release_roller_radial_retract_m > 0.0
+        else ([], [])
+    )
+    roller_retract_joint_id = roller_retract_joint_ids[0] if roller_retract_joint_ids else None
+    release_body_patterns: list[str] = []
+    if (
+        insert_geometry is not None
+        and insert_geometry["shape"] in ROLLER_INSERT_SHAPES
+    ):
+        release_body_patterns.extend(
+            ["LeftRoller", "LeftRollerCarriage"]
+        )
+        if args_cli.release_insert_side == "both":
+            release_body_patterns.extend(
+                ["RightRoller", "RightRollerCarriage"]
+            )
+    if retract_pad_geometry is not None:
+        release_body_patterns.extend(
+            ["RightPadCarriage", "RightRetractPad"]
+        )
+    release_body_ids: dict[str, int] = {}
+    if release_body_patterns:
+        release_body_index_list, release_body_names = robot.find_bodies(
+            "|".join(release_body_patterns)
+        )
+        release_body_ids = {
+            name: body_id
+            for name, body_id in zip(
+                release_body_names, release_body_index_list
+            )
+        }
+    if insert_geometry is not None:
+        print(f"release_mechanism_bodies={release_body_ids}")
     gripper_joint_ids, _ = robot.find_joints(
         "drive_joint|" + "|".join(GRIPPER_PASSIVE_JOINTS)
     )
@@ -1706,6 +3443,10 @@ def main() -> int:
                 cube,
                 arm_ids,
                 drive_id,
+                roller_joint_id,
+                retract_joint_id,
+                roller_retract_joint_id,
+                release_body_ids,
                 gripper_body_id,
                 finger_body_ids,
                 contact_sensors,
@@ -2144,9 +3885,15 @@ def main() -> int:
                     else {"state_source": state_source}
                 )
             prediction_horizon_s = args_cli.catch_prediction_horizon_s
-            if args_cli.catch_intercept_time_s is not None:
+            active_catch_intercept_time_s = args_cli.catch_intercept_time_s
+            if (
+                args_cli.catch_intercept_switch_time_s is not None
+                and time_s < args_cli.catch_intercept_switch_time_s
+            ):
+                active_catch_intercept_time_s = args_cli.catch_preintercept_time_s
+            if active_catch_intercept_time_s is not None:
                 prediction_horizon_s = max(
-                    0.0, args_cli.catch_intercept_time_s - time_s
+                    0.0, active_catch_intercept_time_s - time_s
                 )
             state_position_current = cube_position
             state_velocity_current = cube_velocity
@@ -2231,6 +3978,10 @@ def main() -> int:
             active_catch_position_bias_m = args_cli.catch_position_bias_m
             if (
                 args_cli.catch_preposition_end_time_s is not None
+                and (
+                    args_cli.catch_preposition_start_time_s is None
+                    or time_s >= args_cli.catch_preposition_start_time_s
+                )
                 and time_s < args_cli.catch_preposition_end_time_s
             ):
                 active_catch_position_bias_m = args_cli.catch_preposition_bias_m
@@ -2388,6 +4139,11 @@ def main() -> int:
                 args_cli.gripper_open_command_time_s
                 + args_cli.release_drive_start_delay_s
             )
+        roller_cam_start_s = (
+            physical_open_start_s
+            - args_cli.release_roller_cam_lead_s
+            + args_cli.release_roller_cam_delay_s
+        )
         release_dynamics_start_s = physical_open_start_s
         if (
             not args_cli.release_dynamics_before_transition
@@ -2488,7 +4244,75 @@ def main() -> int:
             joint_ids=drive_ids,
         )
         update_wrist_camera_pose(robot, gripper_body_id, wrist_camera)
-        step_assets(sim, robot, cube, contact_sensors, cameras)
+        retract_pad_target_m = 0.0
+        retract_pad_velocity_m_s = 0.0
+        if args_cli.release_retract_pad_right:
+            (
+                retract_pad_target_m,
+                retract_pad_velocity_m_s,
+            ) = strike_return_command(
+                time_s - physical_open_start_s - args_cli.release_retract_pad_delay_s,
+                args_cli.release_retract_pad_travel_m,
+                args_cli.release_retract_pad_transition_s,
+                args_cli.release_retract_pad_return_transition_s,
+                args_cli.release_retract_pad_hold_s,
+            )
+        retract_pad_radial_target_m = 0.0
+        retract_pad_radial_velocity_m_s = 0.0
+        if args_cli.release_retract_pad_radial_clear_m > 0.0:
+            radial_elapsed_s = (
+                time_s - physical_open_start_s
+                - args_cli.release_retract_pad_radial_clear_delay_s
+            )
+            radial_progress = min(
+                1.0,
+                max(0.0, radial_elapsed_s)
+                / args_cli.release_retract_pad_radial_clear_transition_s,
+            )
+            retract_pad_radial_target_m = (
+                -args_cli.release_retract_pad_radial_clear_m * radial_progress
+            )
+            if 0.0 < radial_progress < 1.0:
+                retract_pad_radial_velocity_m_s = (
+                    -args_cli.release_retract_pad_radial_clear_m
+                    / args_cli.release_retract_pad_radial_clear_transition_s
+                )
+        step_assets(
+            sim,
+            robot,
+            cube,
+            contact_sensors,
+            cameras,
+            roller_clutch_locked=time_s < roller_cam_start_s,
+            roller_cam_target_rad=(
+                args_cli.release_roller_cam_direction
+                * args_cli.release_roller_cam_travel_rad
+                * min(
+                    1.0,
+                    max(0.0, time_s - roller_cam_start_s)
+                    / args_cli.release_roller_cam_transition_s,
+                )
+                if args_cli.release_roller_cam_travel_rad > 0.0 else 0.0
+            ),
+            retract_pad_target_m=retract_pad_target_m,
+            retract_pad_velocity_m_s=retract_pad_velocity_m_s,
+            retract_pad_radial_target_m=retract_pad_radial_target_m,
+            retract_pad_radial_velocity_m_s=(
+                retract_pad_radial_velocity_m_s
+            ),
+            roller_retract_target_m=(
+                args_cli.release_roller_radial_retract_m
+                * min(
+                    1.0,
+                    max(
+                        0.0,
+                        time_s - physical_open_start_s
+                        - args_cli.release_roller_radial_retract_delay_s,
+                    ) / args_cli.release_roller_radial_retract_transition_s,
+                )
+                if args_cli.release_roller_radial_retract_m > 0.0 else 0.0
+            ),
+        )
         current_drive_rad = float(
             robot.data.joint_pos.torch[0, drive_id].item()
         )
@@ -2554,6 +4378,10 @@ def main() -> int:
                 cube,
                 arm_ids,
                 drive_id,
+                roller_joint_id,
+                retract_joint_id,
+                roller_retract_joint_id,
+                release_body_ids,
                 gripper_body_id,
                 finger_body_ids,
                 contact_sensors,
@@ -2579,6 +4407,7 @@ def main() -> int:
     summary.update(
         cube_static_friction=config["cube_physics"].get("static_friction", 1.2),
         cube_dynamic_friction=config["cube_physics"].get("dynamic_friction", 0.9),
+        cube_friction_combine_mode=args_cli.cube_friction_combine_mode,
     )
     if probe_j_evidence is None:
         summary.update(
@@ -2709,7 +4538,14 @@ def main() -> int:
             if args_cli.catch_preposition_bias_m is None
             else list(args_cli.catch_preposition_bias_m)
         ),
+        catch_preposition_start_time_s=(
+            args_cli.catch_preposition_start_time_s
+        ),
         catch_preposition_end_time_s=args_cli.catch_preposition_end_time_s,
+        catch_preintercept_time_s=args_cli.catch_preintercept_time_s,
+        catch_intercept_switch_time_s=(
+            args_cli.catch_intercept_switch_time_s
+        ),
         free_flight_before_close_s=(
             None
             if detach_time_s is None

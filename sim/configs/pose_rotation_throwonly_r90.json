@@ -51,12 +51,23 @@
     "requested_rotation_deg": 90.0,
     "velocity_scale": 1.0,
     "reference_peak_time_s": 0.548,
+    "detach_plateau_duration_s": 0.08,
+    "contact_phase_brake_advance_s": 0.0,
     "release_joint_velocity_rad_s": [
       0.0,
       -0.4380367984403463,
       -1.73611027775,
       0.0,
       1.73611027775,
+      0.0
+    ],
+    "kinematic_evaluation_state": "reference_peak",
+    "joint_position_offset_rad": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
       0.0
     ],
     "predicted_peak_tcp_position_m": [
@@ -74,6 +85,11 @@
       0.3636306354066303,
       -0.93154321477523,
       0.0
+    ],
+    "predicted_cube_com_velocity_m_s": [
+      -0.1359567389537448,
+      0.030898310040464793,
+      2.0586869119165385
     ],
     "predicted_hand_axis_omega_rad_s": 3.782494572480229,
     "measured_g1_angular_retention_prior": 0.3921103083502193,
@@ -406,6 +422,7 @@
     "goal": "goal.md v5",
     "release_transfer_prior": "docs/media/j5_forward_rotation/release_transfer_v49.json",
     "peak_pose_source": "v35_1p6_no_wrist_camera_oriented_ground actual detach",
-    "generator": "sim/tools/build_pose_rotation_ladder.py"
+    "generator": "sim/tools/build_pose_rotation_ladder.py",
+    "coordination": "20 ms brake advance only for r90_brake20"
   }
 }

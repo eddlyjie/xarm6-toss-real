@@ -558,6 +558,8 @@ def continuous_free_flight_evidence(
         hand_rotation = _rotation_from_wxyz(
             first_record["hand_quaternion_wxyz"], "hand_quaternion_wxyz"
         )
+        # Gripper-local Z is the longitudinal direction of the two G1 fingers.
+        # Crossing it with world Z gives the visible forward-tumble axis.
         finger_direction_world = hand_rotation @ np.asarray([0.0, 0.0, 1.0])
         tumble_axis_world = np.cross(
             finger_direction_world, np.asarray([0.0, 0.0, 1.0])
