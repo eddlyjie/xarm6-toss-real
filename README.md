@@ -21,12 +21,26 @@ Isaac reproduction:
 bash sim/scripts/15_run_stock_g1_10deg_regrasp.sh
 ```
 
-Status remains `sim_validated_real_unverified`. The 10-degree reference has
-not yet been exported as a cube-enabled real timeline. The existing
-`scripts/22_run_j5_dynamic_regrasp.py` hardware runner remains the 5-degree
-closed-loop candidate. Use the 10-degree reference for empty-arm preview and
-return actual tracking plus G1 detach timing before freezing its cube timeline.
-The frozen sim runner assumes the wrist-camera hardware is removed.
+Dedicated real-hardware plan/runner:
+
+```bash
+python scripts/23_run_stock_g1_10deg_regrasp.py
+```
+
+The command above is plan-only. It loads the 10-degree dynamic-regrasp
+timeline and controller, not the throw-only profile. Hardware stages use the
+same entrypoint with `--execute-empty-arm --speed-scale 0.25`, then 0.5 and
+1.0, followed by `--execute-empty-g1 --speed-scale 1.0`. A cube run requires
+both a passing paired-Probe summary and a calibrated detach result:
+
+```bash
+python scripts/23_run_stock_g1_10deg_regrasp.py --execute-cube \
+  --probe-comparison <probe-summary.json> \
+  --detach-result <detach-result.json>
+```
+
+Status remains `sim_validated_real_unverified`. The frozen sim and real
+candidate assume the wrist-camera hardware, mount, and cable are removed.
 
 ## 2026-08-21 standard-G1 11.5-degree throw-only checkpoint
 

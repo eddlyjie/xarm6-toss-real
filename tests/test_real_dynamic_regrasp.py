@@ -618,3 +618,41 @@ def test_standard_g1_throwonly_timeline_stays_in_real_command_envelope():
     assert timeline["reference_limit_evidence"]["joint_mechanical_limits_pass"]
     assert timeline["reference_limit_evidence"]["max_joint_speed_rad_s"] <= 1.74483445
     assert controller["g1_real"]["release_command_time_s"] == 0.62
+
+
+def test_stock_g1_10deg_profile_is_executable_regrasp_not_throwonly():
+    spec = importlib.util.spec_from_file_location(
+        "xarm6_real_runner_10deg",
+        ROOT / "scripts" / "22_run_j5_dynamic_regrasp.py",
+    )
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+    timeline = runner.load_json(
+        ROOT / "real_handoff" / "stock_g1_10deg_regrasp_timeline.json"
+    )
+    controller = runner.load_json(
+        ROOT / "real_handoff" / "stock_g1_10deg_regrasp_controller.json"
+    )
+    selected, evidence = runner.select_control_profile(controller, None)
+    offsets = runner.selected_controller_offsets(controller, selected)
+
+    assert controller.get("execution_mode", "dynamic_regrasp") == (
+        "dynamic_regrasp"
+    )
+    assert selected["name"] == "stock_g1_10deg_stable"
+    assert evidence["selection_mode"] == (
+        "probe_gate_plus_fixed_sim_validated_profile"
+    )
+    assert abs(offsets["catch_servo"] - 0.020) < 1.0e-12
+    assert abs(offsets["preclose"] - 0.180) < 1.0e-12
+    assert abs(offsets["final_close"] - 0.260) < 1.0e-12
+    assert abs(offsets["intercept"] - 0.340) < 1.0e-12
+    assert abs(offsets["control_end"] - 0.380) < 1.0e-12
+    assert timeline["samples"][-1]["time_s"] >= 1.40
+    assert timeline["reference_limit_evidence"]["joint_mechanical_limits_pass"]
+    assert controller["g1_real"]["release_command_time_s"] == 0.62
+    assert controller["sim_evidence"]["catch_stable"] is True
+    assert abs(
+        controller["sim_evidence"]["signed_forward_rotation_deg"]
+        - 9.840416328251768
+    ) < 1.0e-12

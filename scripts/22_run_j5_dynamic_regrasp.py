@@ -86,13 +86,16 @@ def detach_threshold(path: Path | None) -> tuple[float | None, dict[str, object]
 
 def select_candidate(
     probe_comparison: Path | None,
+    *,
+    probe_j_path: Path = PROBE_J_PATH,
+    nominal_candidate: str = NOMINAL_CANDIDATE,
 ) -> tuple[dict, dict[str, object]]:
-    config = load_json(PROBE_J_PATH)
+    config = load_json(probe_j_path)
     if probe_comparison is None:
         selected = next(
             item
             for item in config["catch_candidates"]
-            if item["name"] == NOMINAL_CANDIDATE
+            if item["name"] == nominal_candidate
         )
         return selected, {
             "status": "no_real_probe_plan_only",
@@ -100,7 +103,7 @@ def select_candidate(
             "gate_passed": None,
         }
     selected, evidence = load_real_probe_selection(
-        probe_comparison, PROBE_J_PATH
+        probe_comparison, probe_j_path
     )
     return dict(selected), {"status": "real_paired_probe", **evidence}
 
@@ -133,7 +136,44 @@ def select_control_profile(
                 "gate_passed": None,
             },
         )
-    return select_candidate(probe_comparison)
+    probe_j_path = Path(
+        controller_config.get("probe_j_config", PROBE_J_PATH)
+    )
+    if not probe_j_path.is_absolute():
+        probe_j_path = ROOT / probe_j_path
+    nominal_candidate = controller_config.get("probe_j", {}).get(
+        "selected_nominal_candidate", NOMINAL_CANDIDATE
+    )
+    probe_selected, evidence = select_candidate(
+        probe_comparison,
+        probe_j_path=probe_j_path,
+        nominal_candidate=str(nominal_candidate),
+    )
+    fixed_profile = controller_config.get("fixed_control_profile")
+    if fixed_profile is None:
+        return probe_selected, evidence
+    evidence = {
+        **evidence,
+        "probe_ranked_candidate": evidence["selected_candidate"],
+        "selected_candidate": fixed_profile["name"],
+        "selection_mode": "probe_gate_plus_fixed_sim_validated_profile",
+    }
+    return dict(fixed_profile), evidence
+
+
+def selected_controller_offsets(
+    controller_config: dict,
+    selected: dict,
+) -> dict[str, float | None]:
+    nominal_detach_time_s = controller_config.get(
+        "nominal_sim_detach_time_s"
+    )
+    if nominal_detach_time_s is None:
+        return controller_offsets(selected["controller"])
+    return controller_offsets(
+        selected["controller"],
+        nominal_detach_time_s=float(nominal_detach_time_s),
+    )
 
 
 def plan_payload(
@@ -149,7 +189,7 @@ def plan_payload(
     samples = resample_timeline(
         timeline["samples"], speed_scale=speed_scale
     )
-    offsets = controller_offsets(selected["controller"])
+    offsets = selected_controller_offsets(controller_config, selected)
     positions = controller_config["g1_real"]
     throw_only = controller_config.get("execution_mode") == "throw_only"
     return {
@@ -277,7 +317,9 @@ def execute_timeline(
     release_command_time_s = float(g1["release_command_time_s"]) / speed_scale
     offsets = {
         key: None if value is None else value / speed_scale
-        for key, value in controller_offsets(selected["controller"]).items()
+        for key, value in selected_controller_offsets(
+            controller_config, selected
+        ).items()
     }
     observer = G1PositionDetachObserver(
         command_time_s=release_command_time_s,

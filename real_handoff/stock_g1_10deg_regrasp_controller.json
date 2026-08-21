@@ -1,0 +1,132 @@
+{
+  "schema": "xarm6_stock_g1_10deg_regrasp_controller_v1",
+  "status": "sim_validated_real_unverified",
+  "source_summary": "docs/media/stock_g1_10deg_v86/summary.json",
+  "reference_timeline": "real_handoff/stock_g1_10deg_regrasp_timeline.json",
+  "probe_j_config": "sim/configs/probe_j_j5_dynamic_regrasp_v2.json",
+  "robot": {
+    "control_period_s": 0.02,
+    "measured_tracking_delay_s": 0.08,
+    "linear_speed_limit_factor": 1.6,
+    "active_throw_joints_one_based": [
+      2,
+      3,
+      5
+    ],
+    "fixed_throw_joints_one_based": [
+      1,
+      4,
+      6
+    ],
+    "reference_peak_speed_rad_s": 1.7440000000000015,
+    "reference_peak_acceleration_rad_s2": 12.992800000000006,
+    "minimum_joint_margin_rad": 0.2602067342093566
+  },
+  "wrist_branch": {
+    "joint4_static_deg": 165.0,
+    "joint6_static_deg": -1.5,
+    "wrist_camera_hardware_removed": true,
+    "camera_required_for_control": false
+  },
+  "grasp_offset_gripper_base_link_m": [
+    0.004000254,
+    0.0,
+    0.13743645
+  ],
+  "grasp_offset_source": "v47 fixed grasp ported through the received xarm6_with_gripper_g1 URDF; not the sim hand-local placement offset",
+  "g1_real": {
+    "firmware_speed": 5000,
+    "held_position": 370,
+    "partial_open_position": 520,
+    "preclose_position_initial_mapping": 441,
+    "final_close_position": 370,
+    "release_command_time_s": 0.62,
+    "preclose_from_observed_detach_s": 0.18,
+    "final_close_from_observed_detach_s": 0.26,
+    "sim_drive_mapping_note": "sim 0.48/0.65 rad are actuator proxies; never send them as G1 real positions",
+    "real_close_note": "G1 final target remains 370 at speed 5000; sim 0.65 only reproduced rapid position-controlled closure under a 4 N contact cap"
+  },
+  "detach_observer": {
+    "inputs": [
+      "g1_actual_position",
+      "actual_arm_q",
+      "actual_arm_dq"
+    ],
+    "event": "G1 actual position crosses the camera-calibrated position at physical detach",
+    "on_event": "freeze actual q/dq and FK of the fixed hand-to-cube grasp offset",
+    "fallback_delay_s_range": [
+      0.025,
+      0.044
+    ],
+    "position_poll_start_after_release_s": 0.02,
+    "position_poll_period_s": 0.005,
+    "fallback_delay_s": 0.035,
+    "calibrated_position_timeout_s": 0.044,
+    "sim_drive_delta_threshold_rad": 0.0001,
+    "sim_opening_effort_threshold_nm": 0.05,
+    "real_threshold_source": "real_cube_demo/scripts/10_measure_detach.py gravity_corrected_release_gripper_position",
+    "real_g1_motor_current_available": false
+  },
+  "ballistic_catch": {
+    "gravity_m_s2": 9.81,
+    "catch_servo_from_observed_detach_s": 0.02,
+    "intercept_from_observed_detach_s": 0.34,
+    "control_end_from_observed_detach_s": 0.38,
+    "maximum_joint_speed_rad_s": 1.74483445,
+    "maximum_joint_acceleration_rad_s2": 13.0573925,
+    "locked_joints_one_based": [
+      4,
+      5,
+      6
+    ],
+    "camera_updates_enabled": false
+  },
+  "probe_j": {
+    "required": true,
+    "selected_nominal_candidate": "dynamic_5deg_g1_observer",
+    "nominal_dynamic_J": 0.6799399420434311,
+    "nominal_fallback_J": 0.8450407739488448,
+    "fallback_candidate": "stable_1p4deg_fallback",
+    "gate": "held_probability >= 0.90 and slip_probability <= 0.50",
+    "selection_role": "paired Probe gates cube execution; the frozen 10-degree profile supplies detach-relative catch timing"
+  },
+  "sim_evidence": {
+    "source_trial": "v86_fast_early_avoid",
+    "signed_forward_rotation_deg": 9.840416328251768,
+    "strict_free_flight_s": 0.3320000000000003,
+    "axis_alignment": 0.9939441059892239,
+    "first_bilateral_contact_time_s": 1.0050000000000006,
+    "bilateral_contact_fraction": 1.0,
+    "catch_stable": true,
+    "reference_joint_mechanical_limits_pass": true,
+    "real_verified": false
+  },
+  "camera": {
+    "third_view": "recording and offline pose-change verification only",
+    "wrist": "not installed for this camera-removed branch",
+    "spectator": "simulation video only"
+  },
+  "profile_name": "stock_g1_10deg_stable_regrasp",
+  "execution_mode": "dynamic_regrasp",
+  "nominal_sim_detach_time_s": 0.66,
+  "fixed_control_profile": {
+    "name": "stock_g1_10deg_stable",
+    "controller": {
+      "catch_servo_start_time_s": 0.68,
+      "catch_preclose_time_s": 0.84,
+      "catch_preclose_drive_rad": 0.48,
+      "catch_close_time_s": 0.92,
+      "vision_control_end_time_s": 1.04,
+      "catch_intercept_time_s": 1.0,
+      "catch_lateral_only": false,
+      "catch_hold_throw_joints": false,
+      "catch_lock_wrist": true,
+      "catch_position_bias_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "catch_drive_rad": 0.65
+    }
+  }
+}
