@@ -1,0 +1,33 @@
+{
+  "schema": "xarm6_standard_g1_throwonly_checkpoint_v1",
+  "source_output": "outputs/pose_rotation/v62_r90_two_stage_055",
+  "status": "sim_validated_real_unverified",
+  "release_mechanism": "standard_g1_no_insert",
+  "cube_side_length_m": 0.035,
+  "cube_mass_kg": 0.025,
+  "release_command_time_s": 0.62,
+  "sim_detach_time_s": 0.6600000000000009,
+  "expected_real_detach_window_s": [0.645, 0.664],
+  "continuous_free_flight_duration_s": 0.39399999999999424,
+  "continuous_free_flight_max_separation_m": 0.47121935684582467,
+  "free_flight_signed_tumble_rotation_deg": 11.52959069907775,
+  "tumble_axis_alignment": 0.973743249690684,
+  "prethrow_stable": true,
+  "joint_mechanical_limits_pass": true,
+  "commanded_max_joint_speed_rad_s": 1.7361103296279907,
+  "commanded_max_joint_acceleration_rad_s2": 12.934022903442383,
+  "wrist_camera_hardware_removed": true,
+  "release_transfer": {
+    "cube_preopen_axis_omega_rad_s": 2.9581997375223246,
+    "cube_detach_axis_omega_rad_s": 0.5476594189458629,
+    "hand_detach_axis_omega_rad_s": 3.3121301256442766,
+    "cube_axis_angular_retention_from_preopen": 0.18513267106316544,
+    "cube_axis_angular_transfer_from_hand_at_detach": 0.16534960830964696
+  },
+  "evidence_boundary": [
+    "This checkpoint is throw-only; it does not contain a recatch.",
+    "The 11.53 degree value is a nominal simulated result, not a real-robot prediction.",
+    "No roller, flipper, retract pad, or simulation-only object-state write was used.",
+    "The real trial must use a soft mat and global-camera recording."
+  ]
+}

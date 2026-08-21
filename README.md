@@ -1,5 +1,26 @@
 # xArm6 fixed-cube toss/catch
 
+## 2026-08-21 standard-G1 11.5-degree throw-only checkpoint
+
+A real soft-mat trial entry now freezes native sim `v62` without any
+roller, flipper, or release insert. The nominal sim result has 0.394 s strict
+free flight, 11.530 degrees forward rotation, and 0.974 axis alignment. The
+reference peaks at 1.7361 rad/s and 12.9340 rad/s2, inside the received 1x real
+command envelope.
+
+This is `sim_validated_real_unverified` throw-only: it never commands a catch
+and does not predict 11.5 degrees on hardware. It does not replace the v47
+stable-regrasp candidate or the successful 0.636/0.720 s real micro-toss.
+
+```bash
+python scripts/22_run_j5_dynamic_regrasp.py \
+  --timeline real_handoff/standard_g1_throwonly_11p5deg_timeline.json \
+  --controller real_handoff/standard_g1_throwonly_11p5deg_controller.json
+```
+
+See `docs/REAL_THROWONLY_11P5_HANDOFF_20260821.md` for the empty-arm ladder and
+the one permitted soft-mat cube command.
+
 ## 2026-08-20 deployable 5° dynamic regrasp
 
 当前推荐真机接手的是 `v47`：paired Probe posterior 经过 J 选择

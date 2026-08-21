@@ -105,6 +105,37 @@ def select_candidate(
     return dict(selected), {"status": "real_paired_probe", **evidence}
 
 
+def select_control_profile(
+    controller_config: dict,
+    probe_comparison: Path | None,
+) -> tuple[dict, dict[str, object]]:
+    """Select Probe/J only for a recatch profile.
+
+    A frozen throw-only checkpoint has no catch decision and must not be
+    reported as if Probe/J changed its command.
+    """
+    if controller_config.get("execution_mode") == "throw_only":
+        name = str(controller_config["profile_name"])
+        return (
+            {
+                "name": name,
+                "controller": {
+                    "catch_servo_start_time_s": None,
+                    "catch_preclose_time_s": None,
+                    "catch_close_time_s": None,
+                    "catch_intercept_time_s": None,
+                    "vision_control_end_time_s": None,
+                },
+            },
+            {
+                "status": "not_used_for_throw_only",
+                "selected_candidate": name,
+                "gate_passed": None,
+            },
+        )
+    return select_candidate(probe_comparison)
+
+
 def plan_payload(
     timeline: dict,
     selected: dict,
@@ -120,6 +151,7 @@ def plan_payload(
     )
     offsets = controller_offsets(selected["controller"])
     positions = controller_config["g1_real"]
+    throw_only = controller_config.get("execution_mode") == "throw_only"
     return {
         "schema": "xarm6_j5_dynamic_regrasp_real_plan_v1",
         "robot_commands_sent": 0,
@@ -155,8 +187,12 @@ def plan_payload(
         "g1_positions": {
             "held": positions["held_position"],
             "partial_open": positions["partial_open_position"],
-            "preclose": positions["preclose_position_initial_mapping"],
-            "final_close": positions["final_close_position"],
+            "preclose": (
+                None if throw_only else positions["preclose_position_initial_mapping"]
+            ),
+            "final_close": (
+                None if throw_only else positions["final_close_position"]
+            ),
         },
         "grasp_offset": {
             "frame": "xarm_gripper_base_link",
@@ -320,12 +356,13 @@ def execute_timeline(
                             grasp_offset,
                             time_s=event.time_s,
                         )
-                        intercept_time_s = (
-                            event.time_s + float(offsets["intercept"])
-                        )
-                        intercept_position = ballistic_position(
-                            release_state, intercept_time_s
-                        )
+                        if enable_catch:
+                            intercept_time_s = (
+                                event.time_s + float(offsets["intercept"])
+                            )
+                            intercept_position = ballistic_position(
+                                release_state, intercept_time_s
+                            )
                         g1_events.append(
                             {"name": "detach_observed", **event.as_dict()}
                         )
@@ -520,8 +557,11 @@ def main() -> int:
         )
     timeline = load_json(args.timeline)
     controller_config = load_json(args.controller)
-    selected, probe_evidence = select_candidate(args.probe_comparison)
+    selected, probe_evidence = select_control_profile(
+        controller_config, args.probe_comparison
+    )
     threshold, calibration = detach_threshold(args.detach_result)
+    execution_mode = controller_config.get("execution_mode", "dynamic_regrasp")
     payload = plan_payload(
         timeline,
         selected,
@@ -543,6 +583,12 @@ def main() -> int:
     if not execute_requested:
         print("plan only; no robot connection or command was sent")
         return 0
+    if execution_mode == "throw_only" and (
+        args.execute_empty_g1 or args.execute_cube
+    ):
+        raise RuntimeError(
+            "throw-only controller permits only empty-arm or soft-mat throw-only execution"
+        )
     if args.execute_cube and not probe_evidence.get("gate_passed", False):
         raise RuntimeError("real paired Probe gate did not pass")
     if args.execute_cube and threshold is None:

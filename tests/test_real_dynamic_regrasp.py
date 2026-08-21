@@ -574,3 +574,47 @@ def test_runner_sets_and_verifies_proven_linear_speed_factor():
         "linear_speed_limit_factor_required": 1.6,
         "linear_speed_limit_factor_verified": 1.6,
     }
+
+
+def test_standard_g1_throwonly_profile_is_separate_from_probe_j_recatch():
+    spec = importlib.util.spec_from_file_location(
+        "xarm6_real_runner_throwonly",
+        ROOT / "scripts" / "22_run_j5_dynamic_regrasp.py",
+    )
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+    controller = runner.load_json(
+        ROOT
+        / "real_handoff"
+        / "standard_g1_throwonly_11p5deg_controller.json"
+    )
+    selected, evidence = runner.select_control_profile(controller, None)
+
+    assert selected["name"] == "standard_g1_throwonly_11p5deg"
+    assert all(value is None for value in selected["controller"].values())
+    assert evidence["status"] == "not_used_for_throw_only"
+    assert controller["sim_evidence"]["release_mechanism"] == (
+        "standard_g1_no_insert"
+    )
+    assert controller["real_trial"]["recatch_enabled"] is False
+
+
+def test_standard_g1_throwonly_timeline_stays_in_real_command_envelope():
+    timeline = json.loads(
+        (
+            ROOT
+            / "real_handoff"
+            / "standard_g1_throwonly_11p5deg_timeline.json"
+        ).read_text()
+    )
+    controller = json.loads(
+        (
+            ROOT
+            / "real_handoff"
+            / "standard_g1_throwonly_11p5deg_controller.json"
+        ).read_text()
+    )
+    assert timeline["execution_mode"] == "throw_only"
+    assert timeline["reference_limit_evidence"]["joint_mechanical_limits_pass"]
+    assert timeline["reference_limit_evidence"]["max_joint_speed_rad_s"] <= 1.74483445
+    assert controller["g1_real"]["release_command_time_s"] == 0.62

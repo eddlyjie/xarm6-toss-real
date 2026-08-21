@@ -1,0 +1,73 @@
+{
+  "schema": "xarm6_standard_g1_throwonly_real_controller_v1",
+  "profile_name": "standard_g1_throwonly_11p5deg",
+  "execution_mode": "throw_only",
+  "status": "sim_validated_real_unverified",
+  "source_evidence": "docs/media/j5_forward_rotation/standard_g1_throwonly_v62.json",
+  "reference_timeline": "real_handoff/standard_g1_throwonly_11p5deg_timeline.json",
+  "robot": {
+    "control_period_s": 0.02,
+    "measured_tracking_delay_s": 0.08,
+    "linear_speed_limit_factor": 1.6,
+    "active_throw_joints_one_based": [2, 3, 5],
+    "fixed_throw_joints_one_based": [1, 4, 6],
+    "reference_peak_speed_rad_s": 1.7361103296279907,
+    "reference_peak_acceleration_rad_s2": 12.934022903442383,
+    "minimum_joint_margin_rad": 0.2602067342093566
+  },
+  "wrist_branch": {
+    "joint4_static_deg": 165.0,
+    "joint6_static_deg": -1.5,
+    "wrist_camera_hardware_removed": true,
+    "camera_required_for_control": false
+  },
+  "grasp_offset_gripper_base_link_m": [
+    0.004000254,
+    0.0,
+    0.13743645
+  ],
+  "g1_real": {
+    "firmware_speed": 5000,
+    "held_position": 370,
+    "partial_open_position": 520,
+    "preclose_position_initial_mapping": 441,
+    "final_close_position": 370,
+    "release_command_time_s": 0.62
+  },
+  "detach_observer": {
+    "inputs": ["g1_actual_position", "actual_arm_q", "actual_arm_dq"],
+    "position_poll_start_after_release_s": 0.02,
+    "position_poll_period_s": 0.005,
+    "fallback_delay_s": 0.035,
+    "calibrated_position_timeout_s": 0.044
+  },
+  "ballistic_catch": {
+    "gravity_m_s2": 9.81,
+    "maximum_joint_speed_rad_s": 1.74483445,
+    "maximum_joint_acceleration_rad_s2": 13.0573925,
+    "camera_updates_enabled": false,
+    "catch_enabled": false
+  },
+  "probe_j": {
+    "used_for_control": false,
+    "reason": "throw-only checkpoint has no catch decision"
+  },
+  "sim_evidence": {
+    "release_mechanism": "standard_g1_no_insert",
+    "continuous_free_flight_duration_s": 0.39399999999999424,
+    "free_flight_signed_tumble_rotation_deg": 11.52959069907775,
+    "tumble_axis_alignment": 0.973743249690684,
+    "joint_mechanical_limits_pass": true
+  },
+  "camera": {
+    "global": "recording and offline pose-change verification only",
+    "wrist": "not installed for this camera-removed branch"
+  },
+  "real_trial": {
+    "allowed_conditions": ["empty_arm", "throw_only"],
+    "cube_trial_speed_scale": 1.0,
+    "soft_mat_required": true,
+    "recatch_enabled": false,
+    "expected_detach_window_s": [0.645, 0.664]
+  }
+}
