@@ -44,10 +44,15 @@ linear speed limit factor     1.6
 
 ## 当前证据边界
 
-- `v47`：标准 G1、同一 trial，strict flight 0.173 s、signed forward rotation 5.055°、axis alignment 0.984、双侧稳定接回；冻结 nominal repeat 为 5/5。这是当前最大稳定旋转 baseline。
-- `v62_r90_two_stage_055`：标准 G1、无 insert，strict flight 0.394 s、signed forward rotation 11.530°、axis alignment 0.974；没有 catch，只证明高能量 reference 能产生更长飞行和更大角度。
+- `v86_fast_early_avoid`：标准 G1、同一 trial，strict flight 0.332 s、signed forward rotation 9.840°、axis alignment 0.994、双侧稳定接回并保持；`v87` 完全复现。冻结入口为 `sim/scripts/15_run_stock_g1_10deg_regrasp.sh`。
+- `v96_detach_minus10ms`：在冻结动作内把 G1 command/detach 前移 10 ms，strict flight 0.342 s、signed rotation 9.927°、cube detach omega 0.606 rad/s、双侧稳定接回。
+- `v100_grasp_rot_plus10`：小抓取姿态修正后 strict flight 0.341 s、signed rotation 9.963°、cube detach omega 0.617 rad/s、双侧稳定接回。这是当前最大同一 trial stable regrasp；相对 v96 增益只有 0.036°，不能外推到 20°。
+- `v92_r10cfh_direct_110`：strict flight 0.426 s、signed rotation 12.602°，随后先触地且没有 catch；它是当前 release height 下的 ground-limited throw boundary。
+- `v108_early_burst_plateau`：release height 0.487 m、apex 0.570 m、actual hand omega 3.335 rad/s，最终双侧接回；gripper base 在 apex 区提前 recontact，strict rotation 只有 5.104°，因此不提升可交付角度。
+- `v110/v117/v118/v119`：高 release 的延后下降段候选得到 9.91–10.19° strict rotation，但都先撞 gripper base、没有双侧稳定接回。J4/J6 静态的 J1/J2/J3/J5 catch mask 已验证机械限制，仍受固定腕部 catch workspace 的 x–z 耦合限制。
+- `v103/v104/v105/v120` 表明降低 G1 effort、增加预开量或把 friction 从 1.2/0.9 降到 0.8/0.6 均未提高稳定离手角速度；这些支路停止继续 sweep。
 - 真机 `0.636/0.720 s` baseline：操作者确认同夹爪 recatch，视觉上接近 rapid release–recatch，尚无可靠旋转角度和 learned closed-loop 证据。
-- 上述结果必须分别报告。当前尚无 `>5.055° + same-trial stable recatch` 结果。
+- 上述 stable、throw-only、ground/base recontact 结果必须分别报告。当前 `8–12° + same-trial bilateral stable recatch` 第一门槛已完成；20°、30°、40°及对应 Probe/J 多 seed gate 仍未完成。
 
 ## 物理先验与最小闭环
 
@@ -72,6 +77,8 @@ R(t) = R_detach Exp([ω_detach]× t)
 ## 开发顺序
 
 ### A. 先整合高能量 throw 与 catch
+
+状态：已由 `v86/v87/v96/v100` 完成 8–12°第一门槛；后续结果只有在同一 trial 同时提高旋转并稳定接住时才替换冻结版本。
 
 - 以 `v62` 的标准 G1 11.53° reference 为起点，接入 v47 已验证的 detach observer、ballistic prior、catch servo 和双侧 stable-hold 判定；
 - physical detach 后立即制动 J5，并让 J2/J3 将手向下/侧向撤离；约 80 ms tracking lag 必须在 reference 中前馈补偿；

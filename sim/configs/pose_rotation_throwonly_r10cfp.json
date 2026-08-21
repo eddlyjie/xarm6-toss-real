@@ -1,0 +1,429 @@
+{
+  "schema": "xarm6_pose_rotation_throwonly_v1",
+  "name": "pose_rotation_throwonly_r10cfp",
+  "physics_dt_s": 0.001,
+  "control_period_s": 0.02,
+  "measured_real_arm_tracking_delay_s": 0.08,
+  "execution_envelope": "verified_1x_joint_command_envelope_empty_run_required",
+  "operator_approval_required_for_real_execution": true,
+  "limits": {
+    "joint_speed_rad_s": 1.74483445,
+    "joint_acceleration_rad_s2": 13.0573925,
+    "max_joint_step_rad": 0.0348967,
+    "max_qdot_change_rad_s": 0.261148,
+    "minimum_joint_margin_rad": 0.15
+  },
+  "cube_physics": {
+    "side_length_m_range": [
+      0.035,
+      0.04
+    ],
+    "mass_kg_range": [
+      0.02,
+      0.05
+    ],
+    "contact_offset_m": 0.0002,
+    "static_friction": 1.2,
+    "dynamic_friction": 0.9
+  },
+  "gripper_sim": {
+    "effort_limit_n": 4.0,
+    "stiffness_n_m": 60.0,
+    "damping_n_s_m": 5.0,
+    "max_depenetration_velocity_m_s": 0.5,
+    "contact_offset_m": 0.0002
+  },
+  "wrist_branch": {
+    "user_seed_joint_deg": [
+      3.5,
+      9.8,
+      -25.7,
+      165.0,
+      82.5,
+      -1.5
+    ],
+    "joint4_static_deg": 165.0,
+    "joint6_static_deg": -1.5,
+    "joint4_role": "static_left_right_branch_only",
+    "joint6_role": "static_camera_housing_underneath_only"
+  },
+  "kinematic_design": {
+    "requested_rotation_deg": 10.0,
+    "velocity_scale": 1.0,
+    "reference_peak_time_s": 0.548,
+    "detach_plateau_duration_s": 0.12,
+    "contact_phase_brake_advance_s": -0.039999999999999994,
+    "release_joint_velocity_rad_s": [
+      0.0,
+      -0.419,
+      -1.495,
+      0.0,
+      1.744,
+      0.0
+    ],
+    "kinematic_evaluation_state": "measured_v62_actual_detach_q",
+    "joint_position_offset_rad": [
+      0.0,
+      -0.11,
+      -0.11,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "predicted_peak_tcp_position_m": [
+      0.5468423530771279,
+      0.10281366299601286,
+      0.4474206707560167
+    ],
+    "predicted_peak_tcp_velocity_m_s": [
+      -0.11274945269634778,
+      0.029261446434551683,
+      1.4663927584119494
+    ],
+    "predicted_peak_tcp_speed_m_s": 1.4710120302885947,
+    "predicted_tumble_axis_world": [
+      0.3836034063485606,
+      -0.9234979299585793,
+      0.0
+    ],
+    "predicted_cube_com_velocity_m_s": [
+      -0.32294074519774585,
+      0.03232799959886456,
+      1.9129610370417973
+    ],
+    "predicted_hand_axis_omega_rad_s": 3.5140248267875838,
+    "measured_g1_angular_retention_prior": 0.3921103083502193,
+    "predicted_cube_axis_omega_rad_s": 1.3778853583820054,
+    "predicted_flight_time_for_target_s": 0.12666723260952553,
+    "reference_limit_evidence": {
+      "joint_hard_bounds_pass": true,
+      "handoff_joint_margin_pass": true,
+      "minimum_joint_margin_rad": 0.2602067342093566,
+      "per_joint_minimum_margin_rad": [
+        3.0789134761801984,
+        1.70798819,
+        0.6923609999999998,
+        0.2602067342093566,
+        1.255566093589793,
+        3.115412714809878
+      ],
+      "joint_speed_pass": true,
+      "max_joint_speed_rad_s": 1.744,
+      "joint_acceleration_pass": true,
+      "max_joint_acceleration_rad_s2": 12.992800000000006,
+      "joint_step_pass": true,
+      "max_joint_step_rad": 0.034880000000000244,
+      "qdot_change_pass": true,
+      "max_qdot_change_rad_s": 0.2598560000000003,
+      "effort_pass": true,
+      "per_joint_peak_effort_nm": null,
+      "joint_mechanical_limits_pass": true
+    },
+    "preposition_duration_s": 0.32
+  },
+  "reference_segments": [
+    {
+      "phase": "preposition",
+      "duration_s": 0.32,
+      "start_joint_rad": [
+        0.061086523819801536,
+        0.06104226669544431,
+        -0.5585496177625427,
+        2.8797932657906435,
+        1.4398966328953218,
+        -0.026179938779914945
+      ],
+      "start_joint_velocity_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "start_joint_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_joint_rad": [
+        0.060919,
+        -0.10433300000000001,
+        -0.500381,
+        2.8797932657906435,
+        1.4378360000000001,
+        -0.026179938779914945
+      ],
+      "end_joint_velocity_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_joint_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "phase": "late_burst",
+      "duration_s": 0.14,
+      "start_joint_rad": [
+        0.060919,
+        -0.10433300000000001,
+        -0.500381,
+        2.8797932657906435,
+        1.4378360000000001,
+        -0.026179938779914945
+      ],
+      "start_joint_velocity_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "start_joint_acceleration_rad_s2": [
+        0.0,
+        -2.9928571428571424,
+        -10.678571428571429,
+        0.0,
+        12.457142857142856,
+        0.0
+      ],
+      "end_joint_rad": [
+        0.060919,
+        -0.133663,
+        -0.605031,
+        2.8797932657906435,
+        1.559916,
+        -0.026179938779914945
+      ],
+      "end_joint_velocity_rad_s": [
+        0.0,
+        -0.419,
+        -1.495,
+        0.0,
+        1.744,
+        0.0
+      ],
+      "end_joint_acceleration_rad_s2": [
+        0.0,
+        -2.9928571428571424,
+        -10.678571428571429,
+        0.0,
+        12.457142857142856,
+        0.0
+      ]
+    },
+    {
+      "phase": "detach_plateau",
+      "duration_s": 0.12,
+      "start_joint_rad": [
+        0.060919,
+        -0.133663,
+        -0.605031,
+        2.8797932657906435,
+        1.559916,
+        -0.026179938779914945
+      ],
+      "start_joint_velocity_rad_s": [
+        0.0,
+        -0.419,
+        -1.495,
+        0.0,
+        1.744,
+        0.0
+      ],
+      "start_joint_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_joint_rad": [
+        0.060919,
+        -0.183943,
+        -0.784431,
+        2.8797932657906435,
+        1.769196,
+        -0.026179938779914945
+      ],
+      "end_joint_velocity_rad_s": [
+        0.0,
+        -0.419,
+        -1.495,
+        0.0,
+        1.744,
+        0.0
+      ],
+      "end_joint_acceleration_rad_s2": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "phase": "post_detach_brake",
+      "duration_s": 0.2,
+      "start_joint_rad": [
+        0.060919,
+        -0.183943,
+        -0.784431,
+        2.8797932657906435,
+        1.769196,
+        -0.026179938779914945
+      ],
+      "start_joint_velocity_rad_s": [
+        0.0,
+        -0.419,
+        -1.495,
+        0.0,
+        1.744,
+        0.0
+      ],
+      "start_joint_acceleration_rad_s2": [
+        -0.0,
+        3.1215499999999996,
+        11.137749999999999,
+        -0.0,
+        -12.992799999999999,
+        -0.0
+      ],
+      "end_joint_rad": [
+        0.060919,
+        -0.205312,
+        -0.860676,
+        2.8797932657906435,
+        1.85814,
+        -0.026179938779914945
+      ],
+      "end_joint_velocity_rad_s": [
+        -0.0,
+        0.20531,
+        0.73255,
+        -0.0,
+        -0.85456,
+        -0.0
+      ],
+      "end_joint_acceleration_rad_s2": [
+        -0.0,
+        3.1215499999999996,
+        11.137749999999999,
+        -0.0,
+        -12.992799999999999,
+        -0.0
+      ]
+    },
+    {
+      "phase": "reverse_stop",
+      "duration_s": 0.12,
+      "start_joint_rad": [
+        0.060919,
+        -0.205312,
+        -0.860676,
+        2.8797932657906435,
+        1.85814,
+        -0.026179938779914945
+      ],
+      "start_joint_velocity_rad_s": [
+        -0.0,
+        0.20531,
+        0.73255,
+        -0.0,
+        -0.85456,
+        -0.0
+      ],
+      "start_joint_acceleration_rad_s2": [
+        0.0,
+        -1.7109166666666666,
+        -6.104583333333334,
+        0.0,
+        7.121333333333333,
+        0.0
+      ],
+      "end_joint_rad": [
+        0.060919,
+        -0.19299339999999998,
+        -0.816723,
+        2.8797932657906435,
+        1.8068663999999999,
+        -0.026179938779914945
+      ],
+      "end_joint_velocity_rad_s": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "end_joint_acceleration_rad_s2": [
+        0.0,
+        -1.7109166666666666,
+        -6.104583333333334,
+        0.0,
+        7.121333333333333,
+        0.0
+      ]
+    }
+  ],
+  "gripper_events": [
+    {
+      "time_s": 0.58,
+      "name": "release_partial_open",
+      "real_position": 520.0
+    }
+  ],
+  "sim_gripper_events": [
+    {
+      "time_s": 0.58,
+      "name": "release_partial_open",
+      "drive_rad": 0.39
+    }
+  ],
+  "real_g1_events": [
+    {
+      "time_s": 0.58,
+      "name": "release_partial_open",
+      "position": 520.0
+    }
+  ],
+  "state_estimator": {
+    "mode": "actual_q_dq_release_prior_plus_ballistic_propagation",
+    "camera_required_for_control": false,
+    "detach_delay_range_s": [
+      0.025,
+      0.044
+    ]
+  },
+  "validation_targets": {
+    "requested_rotation_deg": 10.0,
+    "maximum_rotation_error_deg": 12.0,
+    "minimum_continuous_free_flight_s": 0.12,
+    "minimum_relative_separation_m": 0.025,
+    "minimum_axis_alignment": 0.85
+  },
+  "lineage": {
+    "goal": "goal.md v6",
+    "release_transfer_prior": "docs/media/j5_forward_rotation/release_transfer_v49.json",
+    "peak_pose_source": "v35_1p6_no_wrist_camera_oriented_ground actual detach",
+    "generator": "sim/tools/build_pose_rotation_ladder.py",
+    "coordination": "60 ms earlier burst with an extended constant-velocity release plateau"
+  }
+}

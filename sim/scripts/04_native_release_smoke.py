@@ -56,6 +56,18 @@ parser.add_argument(
     help="PhysX material combine mode; insert studies use multiply.",
 )
 parser.add_argument(
+    "--cube-static-friction",
+    type=float,
+    default=None,
+    help="Override config cube static friction for sensitivity/domain randomization.",
+)
+parser.add_argument(
+    "--cube-dynamic-friction",
+    type=float,
+    default=None,
+    help="Override config cube dynamic friction for sensitivity/domain randomization.",
+)
+parser.add_argument(
     "--release-insert-side",
     choices=("none", "left", "right", "both"),
     default="none",
@@ -515,6 +527,17 @@ parser.add_argument(
     "--catch-lock-wrist",
     action="store_true",
     help="Use joints 1-3 for catch translation and preserve the release wrist pose.",
+)
+parser.add_argument(
+    "--catch-j5-weight",
+    type=float,
+    default=1.0,
+    help="Weighted-pseudoinverse preference for J5 with --catch-allow-j5.",
+)
+parser.add_argument(
+    "--catch-allow-j5",
+    action="store_true",
+    help="With --catch-lock-wrist, use J1/J2/J3/J5 while preserving J4/J6.",
 )
 parser.add_argument(
     "--catch-lateral-only",
@@ -1079,9 +1102,13 @@ def cube_cfg(
             physics_material=sim_utils.RigidBodyMaterialCfg(
                 static_friction=float(
                     cube_physics.get("static_friction", 1.2)
+                    if args_cli.cube_static_friction is None
+                    else args_cli.cube_static_friction
                 ),
                 dynamic_friction=float(
                     cube_physics.get("dynamic_friction", 0.9)
+                    if args_cli.cube_dynamic_friction is None
+                    else args_cli.cube_dynamic_friction
                 ),
                 restitution=0.02,
                 friction_combine_mode=args_cli.cube_friction_combine_mode,
@@ -2864,6 +2891,8 @@ def summarize(
         ),
         "catch_gripper_stiffness": args_cli.catch_gripper_stiffness,
         "catch_lock_wrist": bool(args_cli.catch_lock_wrist),
+        "catch_allow_j5": bool(args_cli.catch_allow_j5),
+        "catch_j5_weight": float(args_cli.catch_j5_weight),
         "catch_lateral_only": bool(args_cli.catch_lateral_only),
         "catch_hold_throw_joints": bool(
             args_cli.catch_hold_throw_joints
@@ -3596,6 +3625,7 @@ def main() -> int:
     catch_arm_target = None
     catch_was_active = False
     catch_wrist_position = None
+    catch_fixed_joint_indices: list[int] = []
     camera_servo_suppressed_update_count = 0
     catch_control_update_count = 0
     catch_first_jacobian = None
@@ -3671,12 +3701,18 @@ def main() -> int:
                 if not args_cli.catch_preserve_nominal_momentum:
                     commanded_arm_position = robot.data.joint_pos.torch[0, arm_ids].clone()
                     commanded_arm_velocity = robot.data.joint_vel.torch[0, arm_ids].clone()
-                fixed_joint_start = 3 if args_cli.catch_lock_wrist else 6
-                if fixed_joint_start < 6:
+                catch_fixed_joint_indices = (
+                    [3, 5]
+                    if args_cli.catch_lock_wrist and args_cli.catch_allow_j5
+                    else [3, 4, 5]
+                    if args_cli.catch_lock_wrist
+                    else []
+                )
+                if catch_fixed_joint_indices:
                     catch_wrist_position = commanded_arm_position[
-                        fixed_joint_start:
+                        catch_fixed_joint_indices
                     ].clone()
-                    commanded_arm_velocity[fixed_joint_start:] = 0.0
+                    commanded_arm_velocity[catch_fixed_joint_indices] = 0.0
         catch_was_active = catch_active
 
         vision_control_end_time_s = args_cli.vision_control_end_time_s
@@ -4009,14 +4045,25 @@ def main() -> int:
             full_jacobian = robot.data.body_link_jacobian_w.torch[
                 0, gripper_body_id - 1, :3, arm_ids
             ]
-            controlled_joint_count = (
-                1 if args_cli.catch_lateral_only
-                else 3 if args_cli.catch_lock_wrist else 6
+            controlled_joint_indices = (
+                [0]
+                if args_cli.catch_lateral_only
+                else [0, 1, 2, 4]
+                if args_cli.catch_lock_wrist and args_cli.catch_allow_j5
+                else [0, 1, 2]
+                if args_cli.catch_lock_wrist
+                else [0, 1, 2, 3, 4, 5]
             )
-            jacobian = full_jacobian[:, :controlled_joint_count]
+            jacobian = full_jacobian[:, controlled_joint_indices]
             damping = 1.0e-3 * torch.eye(3, device=sim.device)
-            controlled_delta = jacobian.T @ torch.linalg.solve(
-                jacobian @ jacobian.T + damping,
+            joint_weights = torch.ones(jacobian.shape[1], device=sim.device)
+            if args_cli.catch_allow_j5 and 4 in controlled_joint_indices:
+                joint_weights[controlled_joint_indices.index(4)] = args_cli.catch_j5_weight
+            weighted_jacobian_transpose = (
+                joint_weights[:, None] * jacobian.T
+            )
+            controlled_delta = weighted_jacobian_transpose @ torch.linalg.solve(
+                jacobian @ weighted_jacobian_transpose + damping,
                 position_error,
             )
             controlled_delta = torch.clamp(
@@ -4037,7 +4084,7 @@ def main() -> int:
                 catch_first_position_error = position_error.detach().cpu().tolist()
                 catch_first_joint_delta = controlled_delta.detach().cpu().tolist()
             delta_joint = torch.zeros(6, device=sim.device)
-            delta_joint[:controlled_joint_count] = controlled_delta
+            delta_joint[controlled_joint_indices] = controlled_delta
             if args_cli.catch_lateral_only:
                 proposed_catch_arm_target = arm_target.clone()
                 proposed_catch_arm_target[0, 0] = (
@@ -4053,13 +4100,12 @@ def main() -> int:
                     commanded_arm_position + delta_joint
                 ).unsqueeze(0)
             if (
-                controlled_joint_count < 6
-                and not args_cli.catch_lateral_only
+                not args_cli.catch_lateral_only
                 and catch_wrist_position is not None
             ):
-                proposed_catch_arm_target[
-                    0, controlled_joint_count:
-                ] = catch_wrist_position
+                proposed_catch_arm_target[0, catch_fixed_joint_indices] = (
+                    catch_wrist_position
+                )
             if catch_active:
                 catch_arm_target = proposed_catch_arm_target
         if catch_active and catch_arm_target is not None:
@@ -4405,8 +4451,16 @@ def main() -> int:
 
     summary = summarize(records, placed_pose, reference_limit_evidence)
     summary.update(
-        cube_static_friction=config["cube_physics"].get("static_friction", 1.2),
-        cube_dynamic_friction=config["cube_physics"].get("dynamic_friction", 0.9),
+        cube_static_friction=(
+            config["cube_physics"].get("static_friction", 1.2)
+            if args_cli.cube_static_friction is None
+            else args_cli.cube_static_friction
+        ),
+        cube_dynamic_friction=(
+            config["cube_physics"].get("dynamic_friction", 0.9)
+            if args_cli.cube_dynamic_friction is None
+            else args_cli.cube_dynamic_friction
+        ),
         cube_friction_combine_mode=args_cli.cube_friction_combine_mode,
     )
     if probe_j_evidence is None:

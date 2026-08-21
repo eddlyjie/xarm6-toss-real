@@ -123,6 +123,7 @@ def build_candidate(
     detach_plateau_duration_s: float = DETACH_PLATEAU_DURATION_S,
     release_qd_override: np.ndarray | None = None,
     joint_position_offset_rad: np.ndarray | None = None,
+    preposition_duration_s: float = PREPOSITION_DURATION_S,
 ) -> tuple[Path, dict[str, object]]:
     joint_position_offset = (
         np.zeros(6, dtype=float)
@@ -151,7 +152,7 @@ def build_candidate(
     zeros = np.zeros(6, dtype=float)
     segments = (
         QuinticJointSegment(
-            "preposition", PREPOSITION_DURATION_S,
+            "preposition", preposition_duration_s,
             tuple(start_q), tuple(zeros), tuple(preburst_q), tuple(zeros),
             tuple(zeros), tuple(zeros),
         ),
@@ -233,6 +234,10 @@ def build_candidate(
         "predicted_flight_time_for_target_s": expected_flight_for_target,
         "reference_limit_evidence": limits,
     }
+    if preposition_duration_s != PREPOSITION_DURATION_S:
+        config["kinematic_design"]["preposition_duration_s"] = (
+            preposition_duration_s
+        )
     config["gripper_events"] = [
         {"time_s": G1_OPEN_COMMAND_TIME_S, "name": "release_partial_open", "real_position": 520.0}
     ]
@@ -321,6 +326,21 @@ def main() -> int:
     config["lineage"]["goal"] = "goal.md v6"
     config["lineage"]["coordination"] = (
         "118 mm higher joint-limit fast stock-G1 catchable reference"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r10cfp",
+        10.0,
+        1.0,
+        0.120,
+        FAST_CATCHABLE_RELEASE_QD_RAD_S,
+        HIGH_RELEASE_JOINT_OFFSET_RAD,
+        0.320,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "60 ms earlier burst with an extended constant-velocity release plateau"
     )
     path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     path, config = build_candidate(
