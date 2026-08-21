@@ -535,6 +535,22 @@ parser.add_argument(
     help="Weighted-pseudoinverse preference for J5 with --catch-allow-j5.",
 )
 parser.add_argument(
+    "--catch-joint-target-rad",
+    type=float,
+    nargs=6,
+    default=None,
+    metavar=("J1", "J2", "J3", "J4", "J5", "J6"),
+    help="Explicit joint-space catch target used for IK-path validation.",
+)
+parser.add_argument(
+    "--catch-joint-pretarget-rad",
+    type=float,
+    nargs=6,
+    default=None,
+    metavar=("J1", "J2", "J3", "J4", "J5", "J6"),
+    help="Joint-space clearance waypoint used before the intercept switch time.",
+)
+parser.add_argument(
     "--catch-allow-j5",
     action="store_true",
     help="With --catch-lock-wrist, use J1/J2/J3/J5 while preserving J4/J6.",
@@ -2893,6 +2909,8 @@ def summarize(
         "catch_lock_wrist": bool(args_cli.catch_lock_wrist),
         "catch_allow_j5": bool(args_cli.catch_allow_j5),
         "catch_j5_weight": float(args_cli.catch_j5_weight),
+        "catch_joint_target_rad": args_cli.catch_joint_target_rad,
+        "catch_joint_pretarget_rad": args_cli.catch_joint_pretarget_rad,
         "catch_lateral_only": bool(args_cli.catch_lateral_only),
         "catch_hold_throw_joints": bool(
             args_cli.catch_hold_throw_joints
@@ -4106,6 +4124,23 @@ def main() -> int:
                 proposed_catch_arm_target[0, catch_fixed_joint_indices] = (
                     catch_wrist_position
                 )
+            explicit_joint_target = None
+            if (
+                args_cli.catch_joint_pretarget_rad is not None
+                and (
+                    args_cli.catch_intercept_switch_time_s is None
+                    or time_s < args_cli.catch_intercept_switch_time_s
+                )
+            ):
+                explicit_joint_target = args_cli.catch_joint_pretarget_rad
+            elif args_cli.catch_joint_target_rad is not None:
+                explicit_joint_target = args_cli.catch_joint_target_rad
+            if explicit_joint_target is not None:
+                proposed_catch_arm_target = torch.tensor(
+                    [explicit_joint_target],
+                    dtype=torch.float32,
+                    device=sim.device,
+                )
             if catch_active:
                 catch_arm_target = proposed_catch_arm_target
         if catch_active and catch_arm_target is not None:
@@ -4200,6 +4235,14 @@ def main() -> int:
         if (
             time_s >= release_dynamics_start_s
             and not release_gripper_dynamics_applied
+            and not (
+                args_cli.catch_preclose_time_s is not None
+                and time_s >= args_cli.catch_preclose_time_s
+            )
+            and not (
+                args_cli.catch_close_time_s is not None
+                and time_s >= args_cli.catch_close_time_s
+            )
         ):
             if args_cli.release_gripper_effort_limit_n is not None:
                 robot.write_joint_effort_limit_to_sim_index(

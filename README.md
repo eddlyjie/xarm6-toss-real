@@ -1,5 +1,33 @@
 # xArm6 fixed-cube toss/catch
 
+## 2026-08-21 stock-G1 10-degree stable-regrasp checkpoint
+
+The frozen same-trial result uses the stock G1 with no release insert:
+0.332 s strict all-link free flight, 9.840 degrees signed forward tumble,
+0.994 target-axis alignment, bilateral recapture, and stable hold.
+
+Evidence committed to Git:
+
+```text
+docs/media/stock_g1_10deg_v86/global.mp4
+docs/media/stock_g1_10deg_v86/third_view.mp4
+docs/media/stock_g1_10deg_v86/wrist.mp4
+docs/media/stock_g1_10deg_v86/summary.json
+```
+
+Isaac reproduction:
+
+```bash
+bash sim/scripts/15_run_stock_g1_10deg_regrasp.sh
+```
+
+Status remains `sim_validated_real_unverified`. The 10-degree reference has
+not yet been exported as a cube-enabled real timeline. The existing
+`scripts/22_run_j5_dynamic_regrasp.py` hardware runner remains the 5-degree
+closed-loop candidate. Use the 10-degree reference for empty-arm preview and
+return actual tracking plus G1 detach timing before freezing its cube timeline.
+The frozen sim runner assumes the wrist-camera hardware is removed.
+
 ## 2026-08-21 standard-G1 11.5-degree throw-only checkpoint
 
 A real soft-mat trial entry now freezes native sim `v62` without any
