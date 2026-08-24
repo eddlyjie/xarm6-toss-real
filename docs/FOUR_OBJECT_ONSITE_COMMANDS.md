@@ -59,6 +59,16 @@ O0 low 接住后立刻保存日志和保底视频。当天不先追大角度。
 `object` 三阶段文件和执行顺序。下面以 O1 为例；`--label` 使用当天日期或本次实验名：
 
 ```bash
+# [OFFLINE] Preview a single candidate without reading hardware config.
+python scripts/30_measure_g1_position.py \
+  --object O1 --purpose held --position <CANDIDATE>
+
+# [ROBOT] Move only G1 after the dry-run; type MOVE G1 at the prompt.
+python scripts/30_measure_g1_position.py \
+  --object O1 --purpose held --position <CANDIDATE> \
+  --output real_handoff/cuboid30/low/20260826/held_measurement.json \
+  --execute
+
 # [OFFLINE]
 python scripts/29_prepare_object_commissioning.py \
   --object O1 --label 20260826 \

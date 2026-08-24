@@ -60,6 +60,16 @@ O0 baseline的单独 plan-only：
 以 O1 low 为例，先把 `<...>` 换成现场实测整数：
 
 ```bash
+# Preview one candidate. This does not read hardware config.
+../.venv/bin/python scripts/30_measure_g1_position.py \
+  --object O1 --purpose held --position <CANDIDATE>
+
+# Move G1 only; type MOVE G1 at the interactive prompt.
+../.venv/bin/python scripts/30_measure_g1_position.py \
+  --object O1 --purpose held --position <CANDIDATE> \
+  --output real_handoff/cuboid30/low/20260826/held_measurement.json \
+  --execute
+
 # Preferred: create empty_g1, throw_only, and object stages together.
 ../.venv/bin/python scripts/29_prepare_object_commissioning.py \
   --object O1 --label 20260826 \
