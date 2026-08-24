@@ -145,6 +145,43 @@ def check_hardware_config(path: Path) -> dict:
     }
 
 
+def discover_commissioning_bundles(root: Path) -> dict:
+    object_dirs = {"O1": "cuboid30", "O2": "cuboid33", "O3": "cuboid38"}
+    result = {}
+    for object_key, directory in object_dirs.items():
+        records = []
+        base = root / "real_handoff" / directory / "low"
+        for path in sorted(base.glob("*/commissioning_bundle.json")):
+            try:
+                bundle = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            profiles = bundle.get("profiles", {})
+            expected_stages = ("empty_g1", "throw_only", "object")
+            if (
+                bundle.get("schema") != "xarm6_object_commissioning_bundle_v1"
+                or bundle.get("object_key") != object_key
+                or tuple(profiles) != expected_stages
+            ):
+                continue
+            profile_paths = [root / profiles[stage] for stage in expected_stages]
+            if not all(profile_path.is_file() for profile_path in profile_paths):
+                continue
+            records.append(
+                {
+                    "label": bundle.get("label", path.parent.name),
+                    "bundle": str(path.relative_to(root)),
+                    "profiles": profiles,
+                }
+            )
+        result[object_key] = {
+            "ready": bool(records),
+            "latest": records[-1] if records else None,
+            "bundles": records,
+        }
+    return result
+
+
 def build_report(
     root: Path = ROOT,
     hardware_path: Path = DEFAULT_HARDWARE,
@@ -158,6 +195,11 @@ def build_report(
     calibration = {
         row["key"]: row["baseline"]["g1_calibration"]["complete"]
         for row in handoff["objects"]
+    }
+    commissioning = discover_commissioning_bundles(root)
+    staged_ready = {
+        key: complete or commissioning.get(key, {}).get("ready", False)
+        for key, complete in calibration.items()
     }
     files_ready = all(
         profile["plan_only_verified"] and profile["joint_envelope_pass"]
@@ -183,9 +225,11 @@ def build_report(
         "handoff": {
             "files_and_joint_envelopes_ready": files_ready,
             "g1_calibration_complete": calibration,
+            "commissioning_bundles": commissioning,
+            "staged_execution_ready": staged_ready,
             "o0_staged_profile_ready": calibration.get("O0", False),
             "objects_awaiting_g1_calibration": [
-                key for key, complete in calibration.items() if not complete
+                key for key, ready in staged_ready.items() if not ready
             ],
         },
         "environment_ready": environment_ready,
@@ -231,9 +275,16 @@ def render_summary(report: dict) -> str:
         f"[{'PASS' if handoff['files_and_joint_envelopes_ready'] else 'FAIL'}] "
         "four-object profiles, timelines, and joint envelopes"
     )
-    for key, complete in handoff["g1_calibration_complete"].items():
-        state = "ready" if complete else "onsite calibration required"
-        lines.append(f"[{'PASS' if complete else 'WAIT'}] {key} G1: {state}")
+    for key, ready in handoff["staged_execution_ready"].items():
+        canonical = handoff["g1_calibration_complete"][key]
+        latest = handoff["commissioning_bundles"].get(key, {}).get("latest")
+        if canonical:
+            state = "ready"
+        elif latest is not None:
+            state = f"ready via commissioning bundle {latest['label']}"
+        else:
+            state = "onsite calibration required"
+        lines.append(f"[{'PASS' if ready else 'WAIT'}] {key} G1: {state}")
     lines.append(
         "RESULT: "
         + ("environment ready" if report["environment_ready"] else "environment not ready")

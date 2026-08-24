@@ -44,6 +44,12 @@ def test_preflight_is_offline_and_reports_real_commissioning_state():
         "O2": False,
         "O3": False,
     }
+    assert report["handoff"]["staged_execution_ready"] == {
+        "O0": True,
+        "O1": False,
+        "O2": False,
+        "O3": False,
+    }
     assert report["handoff"]["objects_awaiting_g1_calibration"] == [
         "O1",
         "O2",
@@ -87,3 +93,51 @@ def test_summary_distinguishes_ready_o0_from_uncalibrated_cuboids():
     assert "[PASS] O0 G1: ready" in summary
     assert "[WAIT] O1 G1: onsite calibration required" in summary
     assert "No robot connection or command was attempted." in summary
+
+
+def test_discovery_requires_a_complete_three_stage_bundle(tmp_path):
+    base = tmp_path / "real_handoff/cuboid30/low/day1"
+    base.mkdir(parents=True)
+    profiles = {
+        "empty_g1": "configs/real/O1/day1/empty_g1.json",
+        "throw_only": "configs/real/O1/day1/throw_only.json",
+        "object": "configs/real/O1/day1/object.json",
+    }
+    bundle = {
+        "schema": "xarm6_object_commissioning_bundle_v1",
+        "object_key": "O1",
+        "label": "day1",
+        "profiles": profiles,
+    }
+    (base / "commissioning_bundle.json").write_text(json.dumps(bundle))
+
+    missing = preflight.discover_commissioning_bundles(tmp_path)
+    assert missing["O1"]["ready"] is False
+
+    for relative in profiles.values():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}")
+    complete = preflight.discover_commissioning_bundles(tmp_path)
+    assert complete["O1"]["ready"] is True
+    assert complete["O1"]["latest"]["label"] == "day1"
+    assert complete["O2"]["ready"] is False
+
+
+def test_report_marks_generated_bundle_ready(monkeypatch):
+    discovered = {
+        key: {"ready": False, "latest": None, "bundles": []}
+        for key in ("O1", "O2", "O3")
+    }
+    discovered["O1"] = {
+        "ready": True,
+        "latest": {"label": "day1", "bundle": "bundle.json", "profiles": {}},
+        "bundles": [],
+    }
+    monkeypatch.setattr(preflight, "discover_commissioning_bundles", lambda root: discovered)
+
+    report = preflight.build_report(package_resolver=resolver(GOOD_VERSIONS))
+    assert report["handoff"]["staged_execution_ready"]["O1"] is True
+    assert report["handoff"]["objects_awaiting_g1_calibration"] == ["O2", "O3"]
+    summary = preflight.render_summary(report)
+    assert "[PASS] O1 G1: ready via commissioning bundle day1" in summary

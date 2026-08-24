@@ -33,6 +33,8 @@ O0 is the first staged real baseline. O1–O3 must each receive measured real G1
 held/release/preclose/close positions through
 `scripts/29_prepare_object_commissioning.py` before any G1 or object trial.
 The lower-level `scripts/26_calibrate_open_loop_profile.py` remains available.
+Rerun `scripts/28_check_real_robot_environment.py` after writing a bundle; the
+object then changes from `WAIT` to `PASS ... ready via commissioning bundle`.
 
 ## Current Sim result matrix
 
