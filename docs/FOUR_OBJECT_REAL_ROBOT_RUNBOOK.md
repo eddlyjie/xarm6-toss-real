@@ -167,6 +167,17 @@ toss_project_sim_handoff/toss_project/real_cube_demo/outputs/open_loop_object_de
 每个物体先得到一个完整成功，随后再运行 `next_pose_profile`。顺序是 low → continuous 5.5° → high。
 报告使用视频实测角度。20°、30°及更大角度属于 stretch，不应在四物体主结果完成前长期调试。
 
+O1–O3 的 low 成功后，直接复用该物体已经实测的 G1位置生成 next/high 分阶段 profiles：
+
+```bash
+../.venv/bin/python scripts/32_prepare_pose_ladder.py \
+  --commissioning-bundle real_handoff/cuboid30/low/<LABEL>/commissioning_bundle.json \
+  --write
+```
+
+生成的 `pose_ladder_bundle.json` 包含两档各自的 plan-only、空臂、空 G1、throw-only 和 recatch 命令；每一档
+仍需从 0.25×空臂开始。
+
 ## 7. 现场记录表
 
 | Object | Profile | held | release | preclose | close | 完全离手 | 实测角度 | 接住 | 保持≥0.5s | Video |
@@ -177,15 +188,17 @@ toss_project_sim_handoff/toss_project/real_cube_demo/outputs/open_loop_object_de
 | O3 | low |  |  |  |  |  |  |  |  |  |
 
 ```bash
-# Save each trial as an independent offline record.
-../.venv/bin/python scripts/31_record_real_trials.py record \
-  --object O1 --trial-id o1_low_01 --profile <OBJECT_PROFILE> \
-  --desired-angle-deg 3.0 --measured-angle-deg <MEASURED> \
+# Measure the free-flight interval, then save one independent trial record.
+../.venv/bin/python scripts/25_measure_cube_rotation.py measure \
+  --video <VIDEO> --start-s <DETACH_TIME> --end-s <RECATCH_TIME> \
+  --output-dir <ANGLE_OUTPUT>
+
+../.venv/bin/python scripts/31_record_real_trials.py record-from-runner \
+  --runner-summary <SUMMARY_JSON> --trial-id o1_low_01 \
+  --angle-summary <ANGLE_OUTPUT>/summary.json \
   --rotation-axis forward_tumble \
-  --held-position <HELD> --release-position <RELEASE> \
-  --preclose-position <PRECLOSE> --close-position <CLOSE> \
   --detached yes --caught yes --hold-s <SECONDS> \
-  --video <VIDEO> --runner-summary <SUMMARY_JSON> \
+  --video <VIDEO> \
   --output real_results/O1/o1_low_01.trial.json --write
 
 ../.venv/bin/python scripts/31_record_real_trials.py summarize \

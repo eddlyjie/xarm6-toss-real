@@ -98,6 +98,7 @@ def runner_args(tmp_path: Path, summary_path: Path, **overrides):
         "runner_summary": summary_path,
         "trial_id": "o2_low_01",
         "measured_angle_deg": 5.1,
+        "angle_summary": None,
         "rotation_axis": "forward_tumble",
         "detached": "yes",
         "caught": "yes",
@@ -159,6 +160,40 @@ def test_runner_execution_error_prevents_success_label(tmp_path):
     trial = trials.build_trial_from_runner(runner_args(tmp_path, summary_path))
     assert trial["complete_demo_success"] is False
     assert trial["runner_execution_error"]["type"] == "RuntimeError"
+
+
+def test_angle_summary_auto_fills_measured_rotation(tmp_path):
+    summary_path = tmp_path / "runner" / "summary.json"
+    summary_path.parent.mkdir()
+    write_runner_summary(summary_path)
+    angle_path = tmp_path / "angle" / "summary.json"
+    angle_path.parent.mkdir()
+    angle_path.write_text(
+        json.dumps(
+            {
+                "schema": "xarm6_offline_marker_rotation_v1",
+                "measurement_scope": "2d_image_plane_rotation",
+                "detected_frame_count": 18,
+                "first_time_s": 1.20,
+                "last_time_s": 1.35,
+                "signed_rotation_first_to_last_deg": 5.42,
+                "peak_absolute_rotation_deg": 5.57,
+                "annotated_video": "angle/annotated.mp4",
+            }
+        ),
+        encoding="utf-8",
+    )
+    trial = trials.build_trial_from_runner(
+        runner_args(
+            tmp_path,
+            summary_path,
+            measured_angle_deg=None,
+            angle_summary=angle_path,
+        )
+    )
+    assert trial["measured_angle_deg"] == 5.42
+    assert trial["angle_measurement"]["detected_frame_count"] == 18
+    assert trial["angle_measurement"]["peak_absolute_rotation_deg"] == 5.57
 
 
 def test_record_from_runner_requires_full_recatch_mode(tmp_path):

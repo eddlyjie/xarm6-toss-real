@@ -45,13 +45,15 @@ not have to be copied by hand:
 ```bash
 python scripts/31_record_real_trials.py record-from-runner \
   --runner-summary <RUN_OUTPUT>/summary.json --trial-id o1_low_01 \
-  --measured-angle-deg <MEASURED> --rotation-axis forward_tumble \
+  --angle-summary <ANGLE_OUTPUT>/summary.json --rotation-axis forward_tumble \
   --detached yes --caught yes --hold-s <SECONDS> --video <VIDEO> \
   --output real_results/O1/o1_low_01.trial.json --write
 ```
 
-The recorder is offline and never connects to the robot. The complete command
-sequence and manual fallback are in the onsite command card.
+The recorder is offline and never connects to the robot. It reads the signed
+image-plane rotation from `scripts/25_measure_cube_rotation.py`; use the
+`--measured-angle-deg` fallback only when a valid marker summary is unavailable.
+The complete command sequence is in the onsite command card.
 
 Once one cuboid's low profile has been caught successfully, reuse that same
 object's measured G1 positions to generate its staged next/high profiles:

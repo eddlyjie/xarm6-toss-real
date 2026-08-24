@@ -144,11 +144,16 @@ normal-speed video / slow-motion video / output summary path
 ```
 
 ```bash
+# [OFFLINE] Measure the marked object over the free-flight interval first.
+python scripts/25_measure_cube_rotation.py measure \
+  --video <VIDEO> --start-s <DETACH_TIME> --end-s <RECATCH_TIME> \
+  --output-dir <ANGLE_OUTPUT>
+
 # [OFFLINE] Preferred: read object/profile/target/G1 positions from the runner output.
 # Preview by omitting --write.
 python scripts/31_record_real_trials.py record-from-runner \
   --runner-summary <SUMMARY_JSON> --trial-id o1_low_01 \
-  --measured-angle-deg <MEASURED> \
+  --angle-summary <ANGLE_OUTPUT>/summary.json \
   --rotation-axis forward_tumble \
   --detached yes --caught yes --hold-s <SECONDS> \
   --video <VIDEO> \
@@ -158,8 +163,8 @@ python scripts/31_record_real_trials.py summarize \
   --input-root real_results --output real_results/summary.json
 ```
 
-`record-from-runner` 会自动读取本次执行的 object、profile、目标角和四个 G1整数，并在 runner 报错时禁止把该次
-标成完整成功。只有历史执行没有 `summary.json` 时才使用兼容的手工 `record` 子命令。
+`record-from-runner` 会自动读取本次执行的 object、profile、目标角、四个 G1整数和视频测角结果，并在 runner
+报错时禁止把该次标成完整成功。只有历史执行没有 `summary.json` 或 marker测角不可用时，才使用兼容的手工字段。
 
 出现 tracking error、异常振动、G1/cable 干涉或物体飞出软垫范围时，停止当前 profile，保留日志，回到离线
 调整。不要在现场临时升级 SDK，也不要跳过低速空臂阶段。

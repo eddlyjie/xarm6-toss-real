@@ -94,6 +94,29 @@ def _g1_positions_from_plan(plan: dict) -> dict[str, int]:
     return result
 
 
+def _measured_angle_from_args(args: argparse.Namespace) -> tuple[float, dict | None]:
+    angle_summary = getattr(args, "angle_summary", None)
+    if angle_summary is None:
+        return float(args.measured_angle_deg), None
+    path = Path(angle_summary)
+    if not path.is_file():
+        raise FileNotFoundError(f"angle summary does not exist: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("schema") != "xarm6_offline_marker_rotation_v1":
+        raise ValueError("unsupported angle measurement summary")
+    measured_angle = float(payload["signed_rotation_first_to_last_deg"])
+    return measured_angle, {
+        "summary": str(path),
+        "measurement_scope": payload.get("measurement_scope"),
+        "detected_frame_count": int(payload["detected_frame_count"]),
+        "first_time_s": float(payload["first_time_s"]),
+        "last_time_s": float(payload["last_time_s"]),
+        "signed_rotation_first_to_last_deg": measured_angle,
+        "peak_absolute_rotation_deg": float(payload["peak_absolute_rotation_deg"]),
+        "annotated_video": payload.get("annotated_video"),
+    }
+
+
 def build_trial_from_runner(args: argparse.Namespace) -> dict:
     summary_path = Path(args.runner_summary)
     if not summary_path.is_file():
@@ -108,12 +131,13 @@ def build_trial_from_runner(args: argparse.Namespace) -> dict:
     if plan.get("mode") not in {"cube", "object"}:
         raise ValueError("record-from-runner requires a cube/object recatch run")
     positions = _g1_positions_from_plan(plan)
+    measured_angle_deg, angle_measurement = _measured_angle_from_args(args)
     derived = argparse.Namespace(
         object=OBJECT_ID_TO_KEY[object_id],
         trial_id=args.trial_id,
         profile=plan["profile"],
         desired_angle_deg=float(plan["desired_angle_deg"]),
-        measured_angle_deg=args.measured_angle_deg,
+        measured_angle_deg=measured_angle_deg,
         rotation_axis=args.rotation_axis,
         held_position=positions["held"],
         release_position=positions["release"],
@@ -131,6 +155,8 @@ def build_trial_from_runner(args: argparse.Namespace) -> dict:
     trial["runner_fields_auto_filled"] = True
     trial["runner_mode"] = plan["mode"]
     trial["runner_execution_error"] = execution_error
+    if angle_measurement is not None:
+        trial["angle_measurement"] = angle_measurement
     if execution_error is not None:
         trial["complete_demo_success"] = False
     return trial
@@ -208,7 +234,9 @@ def add_record_arguments(parser: argparse.ArgumentParser) -> None:
 def add_runner_record_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--runner-summary", type=Path, required=True)
     parser.add_argument("--trial-id", required=True)
-    parser.add_argument("--measured-angle-deg", type=float, required=True)
+    angle = parser.add_mutually_exclusive_group(required=True)
+    angle.add_argument("--measured-angle-deg", type=float)
+    angle.add_argument("--angle-summary", type=Path)
     parser.add_argument(
         "--rotation-axis",
         choices=("forward_tumble", "backward_tumble"),
