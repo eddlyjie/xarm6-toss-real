@@ -138,7 +138,7 @@ python scripts/32_prepare_pose_ladder.py \
 ## 5. 每次运行马上记录
 
 ```text
-object / profile / held / release / preclose / close
+object / profile / held / release / preclose / close / runner pre/post G1 position
 是否完全离手 / 实测旋转角 / 是否接住 / 保持时间
 normal-speed video / slow-motion video / output summary path
 ```

@@ -62,10 +62,36 @@ def validate_hardware_g1_speed(plan: dict, hardware) -> None:
         )
 
 
-def execute_reference(robot, samples: list[dict], events: list[dict]) -> tuple[list[dict], dict]:
+def _sample_g1_position(robot, label: str, time_s: float) -> dict:
+    try:
+        return {
+            "label": label,
+            "time_s": float(time_s),
+            "position": float(robot.gripper_position(check_baud=False)),
+            "error": None,
+        }
+    except Exception as exc:
+        return {
+            "label": label,
+            "time_s": float(time_s),
+            "position": None,
+            "error": {"type": type(exc).__name__, "message": str(exc)},
+        }
+
+
+def execute_reference(
+    robot,
+    samples: list[dict],
+    events: list[dict],
+    *,
+    observe_g1: bool = False,
+) -> tuple[list[dict], dict]:
     records: list[dict] = []
     event_records: list[dict] = []
+    g1_position_samples: list[dict] = []
     next_event = 0
+    if observe_g1:
+        g1_position_samples.append(_sample_g1_position(robot, "before_servo", 0.0))
     robot.enter_servo_mode()
     start = time.monotonic()
     error = None
@@ -110,9 +136,14 @@ def execute_reference(robot, samples: list[dict], events: list[dict]) -> tuple[l
         error = {"type": type(exc).__name__, "message": str(exc)}
     finally:
         robot.enter_position_mode()
+    if observe_g1:
+        g1_position_samples.append(
+            _sample_g1_position(robot, "after_servo", time.monotonic() - start)
+        )
     return records, {
         "error": error,
         "g1_events": event_records,
+        "g1_position_samples": g1_position_samples,
         "duration_s": time.monotonic() - start,
     }
 
@@ -209,7 +240,12 @@ def main() -> int:
                     )
                 robot.set_gripper_position(float(plan["g1_held_position"]))
             input("Workspace clear, soft mat placed, e-stop operator ready; press Enter to run: ")
-            records, execution = execute_reference(robot, samples, plan["g1_events"])
+            records, execution = execute_reference(
+                robot,
+                samples,
+                plan["g1_events"],
+                observe_g1=operate_g1,
+            )
             if execution["error"] is not None:
                 robot.stop()
         except Exception:

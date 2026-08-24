@@ -239,6 +239,7 @@ def test_fixed_g1_events_and_arm_reference_share_one_host_clock(monkeypatch):
     class FakeRobot:
         def __init__(self):
             self.gripper = []
+            self.reported_gripper = [370.0, 371.0]
             self.arm = []
             self.modes = []
 
@@ -250,6 +251,10 @@ def test_fixed_g1_events_and_arm_reference_share_one_host_clock(monkeypatch):
 
         def command_gripper_position(self, position):
             self.gripper.append(position)
+
+        def gripper_position(self, *, check_baud):
+            assert check_baud is False
+            return self.reported_gripper.pop(0)
 
         def servo_j(self, joint_rad):
             self.arm.append(joint_rad)
@@ -273,7 +278,9 @@ def test_fixed_g1_events_and_arm_reference_share_one_host_clock(monkeypatch):
         {"name": "release", "time_s": 0.005, "position": 520},
         {"name": "close", "time_s": 0.015, "position": 370},
     ]
-    records, result = runner.execute_reference(robot, samples, events)
+    records, result = runner.execute_reference(
+        robot, samples, events, observe_g1=True
+    )
 
     assert result["error"] is None
     assert robot.modes == ["servo", "position"]
@@ -281,6 +288,10 @@ def test_fixed_g1_events_and_arm_reference_share_one_host_clock(monkeypatch):
     assert len(robot.arm) == 2
     assert len(records) == 2
     assert [event["name"] for event in result["g1_events"]] == ["release", "close"]
+    assert result["g1_position_samples"] == [
+        {"label": "before_servo", "time_s": 0.0, "position": 370.0, "error": None},
+        {"label": "after_servo", "time_s": 0.52, "position": 371.0, "error": None},
+    ]
 
 
 def test_runner_requires_hardware_g1_speed_to_match_profile():

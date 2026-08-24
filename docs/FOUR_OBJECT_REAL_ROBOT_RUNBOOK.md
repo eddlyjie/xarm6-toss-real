@@ -161,7 +161,7 @@ toss_project_sim_handoff/toss_project/real_cube_demo/outputs/open_loop_object_de
 - 同一物体始终按 marker 朝向和标记深度装入；
 - 物体下方和预计飞行方向铺软垫，急停由独立操作者看守；
 - 侧视手机优先使用 120 fps 或 240 fps，画面同时包含 G1、物体和静止参考方向；
-- 每次记录 profile、物体、实测 G1整数、是否完全离手、是否接住、保持时间和视频文件；
+- 每次记录 profile、物体、实测 G1整数、runner 的动作前后 G1位置、是否完全离手、是否接住、保持时间和视频文件；
 - 若出现 C60、tracking异常、G1/cable碰撞、明显冲击或飞出软垫范围，停止该 profile并回到离线修改。
 
 ## 6. 多 pose 推进

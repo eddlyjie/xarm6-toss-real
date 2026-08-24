@@ -128,7 +128,13 @@ def write_runner_summary(path: Path, *, error=None, mode="object"):
                 {"name": "close", "time_s": 0.86, "position": 355},
             ],
         },
-        "execution": {"error": error},
+        "execution": {
+            "error": error,
+            "g1_position_samples": [
+                {"label": "before_servo", "time_s": 0.0, "position": 355.0, "error": None},
+                {"label": "after_servo", "time_s": 2.32, "position": 354.0, "error": None},
+            ],
+        },
     }
     path.write_text(json.dumps(payload), encoding="utf-8")
 
@@ -148,6 +154,10 @@ def test_runner_summary_auto_fills_profile_object_angle_and_g1(tmp_path):
         "close": 355,
     }
     assert trial["runner_fields_auto_filled"] is True
+    assert [row["position"] for row in trial["runner_g1_position_samples"]] == [
+        355.0,
+        354.0,
+    ]
     assert trial["complete_demo_success"] is True
 
 

@@ -231,7 +231,8 @@ python scripts/24_run_cube_open_loop_demo.py --angle-deg 8 --execute-cube
 Real logs are written under
 `toss_project_sim_handoff/toss_project/real_cube_demo/outputs/open_loop_cube_demo/`.
 The runner records commanded/actual q, dq, effort/current, fixed G1 event times,
-controller status, and setup values. Use an external side-view phone at 120/240
+reported G1 positions before/after the servo timeline, controller status, and
+setup values. Use an external side-view phone at 120/240
 fps with an asymmetric marker on the cube for the actual rotation measurement.
 
 Generate and print a 25--30 mm ArUco marker for one cube face:
