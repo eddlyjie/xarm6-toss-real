@@ -128,5 +128,21 @@ object / profile / held / release / preclose / close
 normal-speed video / slow-motion video / output summary path
 ```
 
+```bash
+# [OFFLINE] Save one manual trial label. Preview by omitting --write.
+python scripts/31_record_real_trials.py record \
+  --object O1 --trial-id o1_low_01 --profile <OBJECT_PROFILE> \
+  --desired-angle-deg 3.0 --measured-angle-deg <MEASURED> \
+  --rotation-axis forward_tumble \
+  --held-position <HELD> --release-position <RELEASE> \
+  --preclose-position <PRECLOSE> --close-position <CLOSE> \
+  --detached yes --caught yes --hold-s <SECONDS> \
+  --video <VIDEO> --runner-summary <SUMMARY_JSON> \
+  --output real_results/O1/o1_low_01.trial.json --write
+
+python scripts/31_record_real_trials.py summarize \
+  --input-root real_results --output real_results/summary.json
+```
+
 出现 tracking error、异常振动、G1/cable 干涉或物体飞出软垫范围时，停止当前 profile，保留日志，回到离线
 调整。不要在现场临时升级 SDK，也不要跳过低速空臂阶段。

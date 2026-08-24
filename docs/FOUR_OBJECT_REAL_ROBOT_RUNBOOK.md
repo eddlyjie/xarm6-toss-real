@@ -175,3 +175,19 @@ toss_project_sim_handoff/toss_project/real_cube_demo/outputs/open_loop_object_de
 | O1 | low |  |  |  |  |  |  |  |  |  |
 | O2 | low |  |  |  |  |  |  |  |  |  |
 | O3 | low |  |  |  |  |  |  |  |  |  |
+
+```bash
+# Save each trial as an independent offline record.
+../.venv/bin/python scripts/31_record_real_trials.py record \
+  --object O1 --trial-id o1_low_01 --profile <OBJECT_PROFILE> \
+  --desired-angle-deg 3.0 --measured-angle-deg <MEASURED> \
+  --rotation-axis forward_tumble \
+  --held-position <HELD> --release-position <RELEASE> \
+  --preclose-position <PRECLOSE> --close-position <CLOSE> \
+  --detached yes --caught yes --hold-s <SECONDS> \
+  --video <VIDEO> --runner-summary <SUMMARY_JSON> \
+  --output real_results/O1/o1_low_01.trial.json --write
+
+../.venv/bin/python scripts/31_record_real_trials.py summarize \
+  --input-root real_results --output real_results/summary.json
+```
