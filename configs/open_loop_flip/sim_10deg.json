@@ -1,0 +1,31 @@
+{
+  "schema": "xarm6_open_loop_flip_profile_v1",
+  "profile_id": "cube_sim_10deg_reference",
+  "object_profile": "configs/objects/cube_38mm_8g.json",
+  "desired_angle_deg": 10.0,
+  "timeline": "real_handoff/stock_g1_10deg_regrasp_timeline.json",
+  "status": "sim_validated_requires_open_loop_recatch_conversion",
+  "hardware_modes_allowed": ["empty_arm", "empty_g1", "throw_only"],
+  "control_period_s": 0.02,
+  "active_throw_joints_one_based": [2, 3, 5],
+  "fixed_throw_joints_one_based": [1, 4, 6],
+  "g1": {
+    "speed": 5000,
+    "held_position": 370,
+    "full_open_position": 850,
+    "events": [
+      {"name": "release", "time_s": 0.620, "position": 520},
+      {"name": "preclose", "time_s": 0.840, "position": 441},
+      {"name": "close", "time_s": 0.920, "position": 370}
+    ]
+  },
+  "evidence": {
+    "source": "docs/media/stock_g1_10deg_v86/summary.json",
+    "sim_measured_rotation_deg": 9.840416328251768,
+    "sim_free_flight_s": 0.332,
+    "sim_axis_alignment": 0.9939441059892239,
+    "sim_stable_recatch": true,
+    "real_verified": false,
+    "note": "The stable Sim result used detach-relative correction; cube recatch remains disabled in this open-loop profile."
+  }
+}

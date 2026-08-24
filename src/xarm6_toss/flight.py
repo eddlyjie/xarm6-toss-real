@@ -1,4 +1,4 @@
-"""Nominal 6-D free-flight physics for a released cube.
+"""Nominal 6-D free-flight physics for a released cuboid.
 
 The ideal propagator intentionally does not require object mass or side length:
 gravity-only translation is mass independent, and a uniform cube has isotropic
@@ -72,25 +72,41 @@ def _rotation_from_wxyz(value, name: str) -> np.ndarray:
     )
 
 
+def cuboid_ground_clearance_m(
+    center_position_m,
+    quaternion_wxyz,
+    dimensions_m,
+    ground_height_m: float = 0.0,
+) -> float:
+    """Clearance from an oriented cuboid's lowest corner to horizontal ground."""
+    center = _vector3(center_position_m, "center_position_m")
+    dimensions = _vector3(dimensions_m, "dimensions_m")
+    ground_height = float(ground_height_m)
+    if np.any(dimensions <= 0.0):
+        raise ValueError("dimensions_m must be positive")
+    if not math.isfinite(ground_height):
+        raise ValueError("ground_height_m must be finite")
+    rotation = _rotation_from_wxyz(quaternion_wxyz, "quaternion_wxyz")
+    vertical_half_extent = 0.5 * float(
+        np.dot(np.abs(rotation[2, :]), dimensions)
+    )
+    return float(center[2] - vertical_half_extent - ground_height)
+
+
 def cube_ground_clearance_m(
     center_position_m,
     quaternion_wxyz,
     side_length_m: float,
     ground_height_m: float = 0.0,
 ) -> float:
-    """Clearance from an oriented cube's lowest corner to a horizontal ground."""
-    center = _vector3(center_position_m, "center_position_m")
+    """Backward-compatible cube wrapper around :func:`cuboid_ground_clearance_m`."""
     side_length = float(side_length_m)
-    ground_height = float(ground_height_m)
-    if not math.isfinite(side_length) or side_length <= 0.0:
-        raise ValueError("side_length_m must be finite and positive")
-    if not math.isfinite(ground_height):
-        raise ValueError("ground_height_m must be finite")
-    rotation = _rotation_from_wxyz(quaternion_wxyz, "quaternion_wxyz")
-    vertical_half_extent = 0.5 * side_length * float(
-        np.sum(np.abs(rotation[2, :]))
+    return cuboid_ground_clearance_m(
+        center_position_m,
+        quaternion_wxyz,
+        (side_length, side_length, side_length),
+        ground_height_m,
     )
-    return float(center[2] - vertical_half_extent - ground_height)
 
 
 def _robot_contact_forces(record) -> tuple[dict[str, float], bool]:

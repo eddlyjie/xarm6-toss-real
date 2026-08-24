@@ -1,0 +1,33 @@
+{
+  "schema": "xarm6_demo_object_v1",
+  "object_id": "yellow_cube_38mm_8g",
+  "shape": "cube",
+  "dimensions_m": [0.038, 0.038, 0.038],
+  "mass_kg": 0.008,
+  "mass_source": "user_measurement_2026_08_24_recheck_before_trials",
+  "grasp": {
+    "loading": "operator_places_object_in_open_g1",
+    "orientation": "fixed_single_orientation",
+    "depth": "calibrate_and_mark_on_cube",
+    "held_g1_position": 370,
+    "full_open_g1_position": 850
+  },
+  "sim_open_loop_calibration": {
+    "cube_offset_hand_m": [0.004, 0.0, 0.024],
+    "held_drive_rad": 0.56,
+    "release_preopen_drive_rad": 0.55,
+    "release_time_s": 0.615,
+    "gripper_open_command_time_s": 0.580,
+    "gripper_preopen_command_time_s": 0.36,
+    "gripper_transition_s": 0.10279,
+    "catch_preclose_drive_rad": 0.48,
+    "catch_drive_rad": 0.70,
+    "validated_profiles": ["low", "medium", "high"]
+  },
+  "vision": {
+    "control_role": "record_only",
+    "marker": "add_asymmetric_arrow_or_two_color_faces",
+    "preferred_measurement": "side_view_phone_120_or_240_fps"
+  },
+  "historical_sim_note": "Older 25 g and 35 g results are references only; new simulation must use 8 g."
+}

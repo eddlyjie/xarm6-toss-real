@@ -1,0 +1,91 @@
+{
+  "schema": "xarm6_four_object_pose_endpoints_v1",
+  "objects": [
+    {
+      "object_profile": "configs/objects/cube_38mm_8g.json",
+      "low": {
+        "summary": "outputs/cube8g_smalltier_r10cfm_close081_v44/summary.json",
+        "arm_config": "sim/configs/pose_rotation_throwonly_r10cfm.json",
+        "catch_intercept_time_s": 0.84,
+        "catch_preclose_time_s": 0.76,
+        "catch_close_time_s": 0.81
+      },
+      "high": {
+        "summary": "outputs/cube8g_stock_g1_10deg_j235_centered_v13_export/summary.json",
+        "arm_config": "sim/configs/pose_rotation_throwonly_r10cfh.json",
+        "catch_intercept_time_s": 1.02,
+        "catch_preclose_time_s": 0.84,
+        "catch_close_time_s": 0.92
+      }
+    },
+    {
+      "object_profile": "configs/objects/cuboid30_20g.json",
+      "low": {
+        "summary": "outputs/cuboid30_20g_low_v4/summary.json",
+        "arm_config": "sim/configs/pose_rotation_throwonly_r10cfm.json",
+        "catch_intercept_time_s": 0.84,
+        "catch_preclose_time_s": 0.76,
+        "catch_close_time_s": 0.81
+      },
+      "high": {
+        "summary": "outputs/cuboid30_20g_medium_v1/summary.json",
+        "arm_config": "sim/configs/pose_rotation_throwonly_r10cfh.json",
+        "catch_intercept_time_s": 0.94,
+        "catch_preclose_time_s": 0.80,
+        "catch_close_time_s": 0.86
+      },
+      "additional_stable_trials": [
+        {
+          "action_alpha": 0.7039466147747399,
+          "summary": "outputs/pose_conditioned_cuboid30_5p5deg_v2/summary.json"
+        }
+      ]
+    },
+    {
+      "object_profile": "configs/objects/cuboid33_26p6g.json",
+      "low": {
+        "summary": "outputs/cuboid33_26p6g_low_v1/summary.json",
+        "arm_config": "sim/configs/pose_rotation_throwonly_r10cfm.json",
+        "catch_intercept_time_s": 0.84,
+        "catch_preclose_time_s": 0.76,
+        "catch_close_time_s": 0.81
+      },
+      "high": {
+        "summary": "outputs/cuboid33_26p6g_medium_v1/summary.json",
+        "arm_config": "sim/configs/pose_rotation_throwonly_r10cfh.json",
+        "catch_intercept_time_s": 0.94,
+        "catch_preclose_time_s": 0.80,
+        "catch_close_time_s": 0.86
+      },
+      "additional_stable_trials": [
+        {
+          "action_alpha": 0.4833576883176665,
+          "summary": "outputs/pose_conditioned_cuboid33_5p5deg_v1/summary.json"
+        }
+      ]
+    },
+    {
+      "object_profile": "configs/objects/cuboid38_37g.json",
+      "low": {
+        "summary": "outputs/cuboid38_37g_low_v1/summary.json",
+        "arm_config": "sim/configs/pose_rotation_throwonly_r10cfm.json",
+        "catch_intercept_time_s": 0.84,
+        "catch_preclose_time_s": 0.76,
+        "catch_close_time_s": 0.81
+      },
+      "high": {
+        "summary": "outputs/cuboid38_37g_medium_v1/summary.json",
+        "arm_config": "sim/configs/pose_rotation_throwonly_r10cfh.json",
+        "catch_intercept_time_s": 0.94,
+        "catch_preclose_time_s": 0.80,
+        "catch_close_time_s": 0.86
+      },
+      "additional_stable_trials": [
+        {
+          "action_alpha": 0.4490357783741021,
+          "summary": "outputs/pose_conditioned_cuboid38_5p5deg_v1/summary.json"
+        }
+      ]
+    }
+  ]
+}

@@ -12,7 +12,9 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from xarm6_toss.control_reference import QuinticJointSegment, generate_joint_reference
 from xarm6_toss.motion_limits import (
+    FLOAT32_COMMAND_QUANTIZATION_RAD,
     TRANSFER_MAX_JOINT_ACCELERATION_RAD_S2,
+    TRANSFER_MAX_JOINT_STEP_RAD,
     TRANSFER_MAX_JOINT_SPEED_RAD_S,
     evaluate_joint_trajectory,
     evaluate_reference_samples,
@@ -77,6 +79,19 @@ class MotionLimitTests(unittest.TestCase):
         evidence = evaluate_joint_trajectory(q, dq, ddq)
         self.assertFalse(evidence["joint_acceleration_pass"])
         self.assertFalse(evidence["qdot_change_pass"])
+
+    def test_float32_command_step_at_limit_is_not_a_false_violation(self) -> None:
+        q = np.zeros((2, 6))
+        q[1, 2] = np.float32(0.03489673137664795)
+        evidence = evaluate_joint_trajectory(
+            q, np.zeros((2, 6)), np.zeros((2, 6))
+        )
+        self.assertTrue(evidence["joint_step_pass"], evidence)
+        q[1, 2] = TRANSFER_MAX_JOINT_STEP_RAD + 10.0 * FLOAT32_COMMAND_QUANTIZATION_RAD
+        evidence = evaluate_joint_trajectory(
+            q, np.zeros((2, 6)), np.zeros((2, 6))
+        )
+        self.assertFalse(evidence["joint_step_pass"])
 
     def test_joint_margin_and_effort_are_hard_gates(self) -> None:
         q = np.zeros((2, 6))

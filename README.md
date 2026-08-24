@@ -1,4 +1,208 @@
-# xArm6 fixed-cube toss/catch
+# xArm6 four-object pose-conditioned open-loop toss/catch
+
+This repository is the handoff package for the xArm6 + stock UFACTORY G1 demo.
+The real robot replays an offline-selected 20 ms J2/J3/J5 arm reference and a
+measured G1 event schedule. Cameras record the result; they are not part of the
+high-speed control loop. Read [`goal.md`](goal.md) and
+[`REAL_ROBOT_TEST_20260817.md`](REAL_ROBOT_TEST_20260817.md) before hardware use.
+
+## Onsite entry for the four-object demo
+
+Start with the complete Chinese runbook:
+[`docs/FOUR_OBJECT_REAL_ROBOT_RUNBOOK.md`](docs/FOUR_OBJECT_REAL_ROBOT_RUNBOOK.md).
+Activate the Python environment prepared on the real-robot computer first.
+The following command is offline and does not import the robot SDK:
+
+```bash
+python scripts/27_check_four_object_handoff.py \
+  --output real_handoff/four_object_plan_check.json
+```
+
+O0 is the first staged real baseline. O1–O3 must each receive measured real G1
+held/release/preclose/close positions through
+`scripts/26_calibrate_open_loop_profile.py` before any G1 or object trial.
+
+## Current Sim result matrix
+
+All listed runs use the same xArm6/G1 model, fixed J1/J4/J6, and dynamic
+J2/J3/J5. Each result contains continuous finger-free flight, target-axis
+rotation, bilateral recatch, and a stable hold.
+
+| Object | Size / mass | Low | Continuous target 5.5° | High | Real status |
+|---|---|---:|---:|---:|---|
+| `cube38` | 38×38×38 mm / 8 g | 4.59° | 6.48° medium | 7.87° | O0 G1 positions available; staged real verification pending |
+| `cuboid30` | 44.5×46×30 mm / 20 g | 2.96° | 5.71° | 6.57° | arm ready; G1 positions must be measured |
+| `cuboid33` | 50.5×51×33.5 mm / 26.6 g | 4.61° | 5.62° | 6.45° | arm ready; G1 positions must be measured |
+| `cuboid38` | 57.5×58×38 mm / 37 g | 4.40° | 5.58° | 6.85° | arm ready; G1 positions must be measured |
+
+The O1–O3 high runs also pass the Sim `obvious_toss_success` condition. These
+successful transfer results currently use fixed-reference replay and are
+labelled `M0_fixed_replay_transfer_candidate` in the profiles. They are useful
+demo candidates and a baseline, but they do not yet prove the learned
+object-conditioned M3 method.
+
+## Handoff layout
+
+```text
+configs/objects/                         measured geometry, mass, inertia, grip axis
+configs/open_loop_flip/<object>/<pose>  profile and evidence
+real_handoff/<object>/<pose>/timeline.json
+real_handoff/<object>/<pose>/plan.json
+real_handoff/<object>/<pose>/g1_schedule*.json
+outputs/<run>/summary.json               Sim metrics
+outputs/<run>/spectator.mp4              normal-speed Sim video
+```
+
+The three new cuboids intentionally ship with
+`g1_schedule.template.json`: arm timelines are validated, while unknown real G1
+positions remain `null`. Their profiles allow `empty_arm` only and refuse G1 or
+object execution until onsite calibration is filled in.
+
+Plan-only commands never import the xArm SDK or connect to the robot:
+
+```bash
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 5
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 6.5
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 8
+
+python scripts/24_run_cube_open_loop_demo.py \
+  --profile configs/open_loop_flip/cuboid30/high_6p5deg.json
+python scripts/24_run_cube_open_loop_demo.py \
+  --profile configs/open_loop_flip/cuboid33/high_6p5deg.json
+python scripts/24_run_cube_open_loop_demo.py \
+  --profile configs/open_loop_flip/cuboid38/high_6p5deg.json
+```
+
+The new cuboid arm references can be previewed without operating G1:
+
+```bash
+python scripts/24_run_cube_open_loop_demo.py \
+  --profile configs/open_loop_flip/cuboid30/low_3deg.json \
+  --speed-scale 0.25 --execute-empty-arm
+```
+
+Repeat at 0.5× and 1.0× only after the previous stage passes. Before enabling
+G1 for O1/O2/O3, measure the real held, release, preclose, and close positions
+at the marked grasp depth; update both low/high schedules and profiles; then
+run the relevant tests and the empty-G1 stage. Sim drive radians must never be
+copied into the real G1 integer position field.
+
+Selected videos are under `docs/media/four_object_open_loop/`; the authoritative
+metrics remain in each source output directory.
+
+## Historical single-cube development notes
+
+## Current real-demo deployment entry
+
+The current hardware target is one marked yellow cube, approximately 38 mm and
+8 g, on xArm6 with the stock UFACTORY G1. The real controller is intentionally
+open loop: simulation/offline code selects a complete angle-conditioned arm and
+G1 profile; the real runner replays it and records robot state. Cameras are for
+video and offline angle measurement only.
+
+Read [`goal.md`](goal.md) and `REAL_ROBOT_TEST_20260817.md` before running any
+hardware command. The measured starting parameters are:
+
+```text
+arm control period                 20 ms servo_j
+arm tracking lag                  about 80 ms
+G1 held / partial-open / close    370 / 520 / 370
+G1 speed                          5000
+physical detach delay             25--44 ms after open command
+G1 full target travel             about 103 ms
+linear speed limit factor         1.6
+real micro-toss release / close   0.636 / 0.720 s
+```
+
+Available exact-angle profiles:
+
+| Angle | Status | Permitted stage |
+|---:|---|---|
+| 0° | real micro-toss baseline | empty previews, throw-only, cube recatch |
+| 5° | Sim stable-recatch reference | empty previews and soft-mat throw-only |
+| 8° | Sim open-loop J2/J3/J5 stable recatch | staged empty, throw-only, then cube |
+| 10° | Sim 9.84° stable-recatch reference | empty previews and soft-mat throw-only |
+| 20°+ | planned | no trajectory yet |
+
+The 8° profile is the first converted real-reference candidate. It uses 92
+commands at 20 ms, keeps J1/J4/J6 fixed, passes the measured joint envelope,
+and achieved 0.266 s free flight, 7.87° total rotation, and stable bilateral
+recatch with the measured 38 mm / 8 g cube in Sim. Real execution is pending.
+
+The 5° and 10° Sim successes used detach-relative catch correction. Their
+references are useful for commissioning, but the new open-loop runner will not
+allow a cube-recatch command until an open-loop Sim replay has passed. It never
+silently substitutes the nearest available angle.
+
+Plan-only commands do not import the xArm SDK or connect to the robot:
+
+```bash
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 0
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 5
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 8
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 10
+
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 0 \
+  --output-plan real_handoff/open_loop_cube/baseline_0deg_plan.json
+```
+
+On the real computer, use this commissioning order. Every command below still
+asks the operator to confirm a clear workspace and accessible e-stop before the
+timeline begins.
+
+```bash
+# Preserved real baseline: arm only, then G1 without an object.
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 0 \
+  --speed-scale 0.25 --execute-empty-arm
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 0 \
+  --speed-scale 0.5 --execute-empty-arm
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 0 \
+  --speed-scale 1.0 --execute-empty-arm
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 0 \
+  --speed-scale 1.0 --execute-empty-g1
+
+# Object commands only after the empty ladder and a soft mat are ready.
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 0 --execute-throw-only
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 0 --execute-cube
+```
+
+After the 0° baseline is reconfirmed, commission the new 8° reference in the
+same order. The cube command is the last step, not the first:
+
+```bash
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 8 --speed-scale 0.25 --execute-empty-arm
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 8 --speed-scale 0.5 --execute-empty-arm
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 8 --speed-scale 1.0 --execute-empty-arm
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 8 --execute-empty-g1
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 8 --execute-throw-only
+python scripts/24_run_cube_open_loop_demo.py --angle-deg 8 --execute-cube
+```
+
+Real logs are written under
+`toss_project_sim_handoff/toss_project/real_cube_demo/outputs/open_loop_cube_demo/`.
+The runner records commanded/actual q, dq, effort/current, fixed G1 event times,
+controller status, and setup values. Use an external side-view phone at 120/240
+fps with an asymmetric marker on the cube for the actual rotation measurement.
+
+Generate and print a 25--30 mm ArUco marker for one cube face:
+
+```bash
+python scripts/25_measure_cube_rotation.py generate-marker \
+  --output real_handoff/open_loop_cube/aruco_4x4_id0.png
+```
+
+Record from the side with the camera optical axis aligned to the intended
+forward-tumble axis. After the run, measure only the free-flight interval:
+
+```bash
+python scripts/25_measure_cube_rotation.py measure \
+  --video /path/to/side_view.mp4 \
+  --start-s 1.20 --end-s 1.55 \
+  --output-dir /path/to/angle_measurement
+```
+
+The command writes `angle_measurements.csv`, `summary.json`, and an annotated
+video. The value is 2-D image-plane rotation, so keep the side camera fixed.
 
 ## 2026-08-21 stock-G1 10-degree stable-regrasp checkpoint
 
@@ -225,3 +429,21 @@ python scripts/21_preview_handoff.py --speed-scale 1.0 \
 sim 已消费同结构的 paired actuator-effort Probe 并让 posterior 改变 J，但尚未消费真机 current；
 strict clear-flight stable success 仍是 physics observation。不能把 nominal timing 当成跨物体参数，
 也不能把 1× 当成已批准真机动作。
+## Pose-conditioned warm-start update (2026-08-25)
+
+The repository now contains continuous target-pose generation in addition to
+the fixed low/high endpoint profiles. Stable same-object Sim trials define a
+piecewise response from desired rotation to action strength; the selected
+action interpolates the validated 20 ms J2/J3/J5 command references.
+
+| Object | Requested | Measured | Free flight | Stable recatch | Handoff |
+|---|---:|---:|---:|---|---|
+| `cuboid30` / 20 g | 5.5 deg | 5.71 deg | 0.193 s | yes | `real_handoff/cuboid30/pose_conditioned_5p5deg/` |
+| `cuboid33` / 26.6 g | 5.5 deg | 5.62 deg | 0.190 s | yes | `real_handoff/cuboid33/pose_conditioned_5p5deg/` |
+| `cuboid38` / 37 g | 5.5 deg | 5.58 deg | 0.189 s | yes | `real_handoff/cuboid38/pose_conditioned_5p5deg/` |
+
+O2's first intermediate action caught successfully at 4.78 deg. Adding that
+stable trial to the response model produced the corrected 5.62 deg result.
+This is seen-object pose conditioning, not formal unseen-object generalization.
+Both profiles remain `empty_arm` only until real G1 positions are calibrated.
+

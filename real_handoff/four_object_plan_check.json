@@ -1,0 +1,214 @@
+{
+  "schema": "xarm6_four_object_handoff_check_v1",
+  "robot_connection_attempted": false,
+  "dynamic_joints_one_based": [
+    2,
+    3,
+    5
+  ],
+  "fixed_joints_one_based": [
+    1,
+    4,
+    6
+  ],
+  "objects": [
+    {
+      "key": "O0",
+      "object_id": "yellow_cube_38mm_8g",
+      "real_object_mode": "cube",
+      "baseline": {
+        "profile": "configs/open_loop_flip/cube38/low_5deg.json",
+        "profile_id": "cube38_low_4p59deg_j235",
+        "object_id": "yellow_cube_38mm_8g",
+        "desired_angle_deg": 5.0,
+        "sample_count": 92,
+        "duration_s": 1.82,
+        "joint_envelope_pass": true,
+        "hardware_modes_allowed": [
+          "empty_arm",
+          "empty_g1",
+          "throw_only",
+          "cube"
+        ],
+        "g1_calibration": {
+          "complete": true,
+          "held_position": 370,
+          "missing_event_positions": []
+        },
+        "plan_only_verified": true
+      },
+      "next_pose": {
+        "profile": "configs/open_loop_flip/cube38/medium_6p5deg.json",
+        "profile_id": "cube38_medium_6p48deg_j235",
+        "object_id": "yellow_cube_38mm_8g",
+        "desired_angle_deg": 6.5,
+        "sample_count": 92,
+        "duration_s": 1.82,
+        "joint_envelope_pass": true,
+        "hardware_modes_allowed": [
+          "empty_arm",
+          "empty_g1",
+          "throw_only",
+          "cube"
+        ],
+        "g1_calibration": {
+          "complete": true,
+          "held_position": 370,
+          "missing_event_positions": []
+        },
+        "plan_only_verified": true
+      },
+      "onsite_next_action": "run staged O0 baseline"
+    },
+    {
+      "key": "O1",
+      "object_id": "cuboid_44p5x46x30mm_20g",
+      "real_object_mode": "object",
+      "baseline": {
+        "profile": "configs/open_loop_flip/cuboid30/low_3deg.json",
+        "profile_id": "cuboid30_low_2p96deg_j235",
+        "object_id": "cuboid_44p5x46x30mm_20g",
+        "desired_angle_deg": 5.0,
+        "sample_count": 92,
+        "duration_s": 1.82,
+        "joint_envelope_pass": true,
+        "hardware_modes_allowed": [
+          "empty_arm"
+        ],
+        "g1_calibration": {
+          "complete": false,
+          "held_position": null,
+          "missing_event_positions": [
+            "release",
+            "preclose",
+            "close"
+          ]
+        },
+        "plan_only_verified": true
+      },
+      "next_pose": {
+        "profile": "configs/open_loop_flip/cuboid30/pose_conditioned_5p5deg.json",
+        "profile_id": "cuboid30_pose_conditioned_5p5deg_j235",
+        "object_id": "cuboid_44p5x46x30mm_20g",
+        "desired_angle_deg": 5.5,
+        "sample_count": 92,
+        "duration_s": 1.82,
+        "joint_envelope_pass": true,
+        "hardware_modes_allowed": [
+          "empty_arm"
+        ],
+        "g1_calibration": {
+          "complete": false,
+          "held_position": null,
+          "missing_event_positions": [
+            "release",
+            "preclose",
+            "close"
+          ]
+        },
+        "plan_only_verified": true
+      },
+      "onsite_next_action": "measure held/release/preclose/close G1 positions"
+    },
+    {
+      "key": "O2",
+      "object_id": "cuboid_50p5x51x33p5mm_26p6g",
+      "real_object_mode": "object",
+      "baseline": {
+        "profile": "configs/open_loop_flip/cuboid33/low_5deg.json",
+        "profile_id": "cuboid33_low_4p61deg_j235",
+        "object_id": "cuboid_50p5x51x33p5mm_26p6g",
+        "desired_angle_deg": 5.0,
+        "sample_count": 92,
+        "duration_s": 1.82,
+        "joint_envelope_pass": true,
+        "hardware_modes_allowed": [
+          "empty_arm"
+        ],
+        "g1_calibration": {
+          "complete": false,
+          "held_position": null,
+          "missing_event_positions": [
+            "release",
+            "preclose",
+            "close"
+          ]
+        },
+        "plan_only_verified": true
+      },
+      "next_pose": {
+        "profile": "configs/open_loop_flip/cuboid33/pose_conditioned_5p5deg.json",
+        "profile_id": "cuboid33_pose_conditioned_5p5deg_j235",
+        "object_id": "cuboid_50p5x51x33p5mm_26p6g",
+        "desired_angle_deg": 5.5,
+        "sample_count": 92,
+        "duration_s": 1.82,
+        "joint_envelope_pass": true,
+        "hardware_modes_allowed": [
+          "empty_arm"
+        ],
+        "g1_calibration": {
+          "complete": false,
+          "held_position": null,
+          "missing_event_positions": [
+            "release",
+            "preclose",
+            "close"
+          ]
+        },
+        "plan_only_verified": true
+      },
+      "onsite_next_action": "measure held/release/preclose/close G1 positions"
+    },
+    {
+      "key": "O3",
+      "object_id": "cuboid_57p5x58x38mm_37g",
+      "real_object_mode": "object",
+      "baseline": {
+        "profile": "configs/open_loop_flip/cuboid38/low_4p5deg.json",
+        "profile_id": "cuboid38_low_4p40deg_j235",
+        "object_id": "cuboid_57p5x58x38mm_37g",
+        "desired_angle_deg": 5.0,
+        "sample_count": 92,
+        "duration_s": 1.82,
+        "joint_envelope_pass": true,
+        "hardware_modes_allowed": [
+          "empty_arm"
+        ],
+        "g1_calibration": {
+          "complete": false,
+          "held_position": null,
+          "missing_event_positions": [
+            "release",
+            "preclose",
+            "close"
+          ]
+        },
+        "plan_only_verified": true
+      },
+      "next_pose": {
+        "profile": "configs/open_loop_flip/cuboid38/pose_conditioned_5p5deg.json",
+        "profile_id": "cuboid38_pose_conditioned_5p5deg_j235",
+        "object_id": "cuboid_57p5x58x38mm_37g",
+        "desired_angle_deg": 5.5,
+        "sample_count": 92,
+        "duration_s": 1.82,
+        "joint_envelope_pass": true,
+        "hardware_modes_allowed": [
+          "empty_arm"
+        ],
+        "g1_calibration": {
+          "complete": false,
+          "held_position": null,
+          "missing_event_positions": [
+            "release",
+            "preclose",
+            "close"
+          ]
+        },
+        "plan_only_verified": true
+      },
+      "onsite_next_action": "measure held/release/preclose/close G1 positions"
+    }
+  ]
+}

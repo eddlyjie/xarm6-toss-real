@@ -1,0 +1,64 @@
+{
+  "schema": "xarm6_open_loop_demo_plan_v1",
+  "mode": "plan",
+  "profile_id": "cuboid33_low_4p61deg_j235",
+  "profile_status": "sim_validated_arm_reference_g1_calibration_required",
+  "desired_angle_deg": 5.0,
+  "object_id": "cuboid_50p5x51x33p5mm_26p6g",
+  "object_dimensions_m": [
+    0.0505,
+    0.0335,
+    0.051
+  ],
+  "object_mass_kg": 0.0266,
+  "profile": "configs/open_loop_flip/cuboid33/low_5deg.json",
+  "source_timeline": "real_handoff/cuboid33/low/timeline.json",
+  "speed_scale": 1.0,
+  "control_period_s": 0.02,
+  "duration_s": 1.82,
+  "sample_count": 92,
+  "g1_events": [
+    {
+      "name": "release",
+      "time_s": 0.62,
+      "position": null
+    },
+    {
+      "name": "preclose",
+      "time_s": 0.76,
+      "position": null
+    },
+    {
+      "name": "close",
+      "time_s": 0.81,
+      "position": null
+    }
+  ],
+  "joint_limits": {
+    "joint_hard_bounds_pass": true,
+    "handoff_joint_margin_pass": true,
+    "minimum_joint_margin_rad": 0.2602068328857423,
+    "per_joint_minimum_margin_rad": [
+      3.0789134757220746,
+      1.7698783260583877,
+      0.7241773562240602,
+      0.2602068328857423,
+      1.2450231631570539,
+      3.115412714081355
+    ],
+    "joint_speed_pass": true,
+    "max_joint_speed_rad_s": 1.7448344230651829,
+    "joint_acceleration_pass": true,
+    "max_joint_acceleration_rad_s2": 13.057392120361328,
+    "joint_step_pass": true,
+    "max_joint_step_rad": 0.03489668667316431,
+    "qdot_change_pass": true,
+    "max_qdot_change_rad_s": 0.2611478567123704,
+    "effort_pass": true,
+    "per_joint_peak_effort_nm": null,
+    "joint_mechanical_limits_pass": true
+  },
+  "online_probe": false,
+  "online_vision": false,
+  "online_ballistic_correction": false
+}

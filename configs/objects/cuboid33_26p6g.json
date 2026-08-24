@@ -1,0 +1,35 @@
+{
+  "schema": "xarm6_demo_object_v1",
+  "object_id": "cuboid_50p5x51x33p5mm_26p6g",
+  "shape": "cuboid",
+  "measured_dimensions_m": [0.0505, 0.051, 0.0335],
+  "dimensions_m": [0.0505, 0.0335, 0.051],
+  "mass_kg": 0.0266,
+  "principal_inertia_kg_m2": [8.25320416666667e-06, 1.14186041666667e-05, 8.14070833333333e-06],
+  "axis_convention": "local_y_is_g1_closing_and_front_flip_axis",
+  "grasp": {
+    "loading": "operator_places_object_in_open_g1",
+    "gripped_dimension_m": 0.0335,
+    "orientation": "fixed_marker_outward",
+    "depth": "calibrate_and_mark_on_object",
+    "held_g1_position": null,
+    "sim_held_drive_rad_initial": 0.58
+  },
+  "sim_open_loop_calibration": {
+    "cube_offset_hand_m": [0.004, 0.0, 0.0305],
+    "held_drive_rad": 0.58,
+    "release_preopen_drive_rad": 0.57,
+    "release_time_s": 0.66,
+    "gripper_open_command_time_s": 0.62,
+    "gripper_preopen_command_time_s": 0.36,
+    "gripper_transition_s": 0.10279,
+    "catch_preclose_drive_rad": 0.49,
+    "catch_drive_rad": 0.74,
+    "validated_profiles": ["low", "high"]
+  },
+  "vision": {
+    "control_role": "record_only",
+    "marker": "asymmetric_face_marker",
+    "preferred_measurement": "side_view_phone_120_or_240_fps"
+  }
+}

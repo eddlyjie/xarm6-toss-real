@@ -1,0 +1,36 @@
+{
+  "schema": "xarm6_open_loop_flip_profile_v1",
+  "profile_id": "cuboid38_low_4p40deg_j235",
+  "object_profile": "configs/objects/cuboid38_37g.json",
+  "desired_angle_deg": 5.0,
+  "timeline": "real_handoff/cuboid38/low/timeline.json",
+  "g1_schedule": "real_handoff/cuboid38/low/g1_schedule.template.json",
+  "status": "sim_validated_arm_reference_g1_calibration_required",
+  "hardware_modes_allowed": ["empty_arm"],
+  "control_period_s": 0.02,
+  "active_throw_joints_one_based": [2, 3, 5],
+  "fixed_throw_joints_one_based": [1, 4, 6],
+  "g1": {
+    "speed": 5000,
+    "events": [
+      {"name": "release", "time_s": 0.62, "position": null},
+      {"name": "preclose", "time_s": 0.76, "position": null},
+      {"name": "close", "time_s": 0.81, "position": null}
+    ]
+  },
+  "evidence": {
+    "source": "outputs/cuboid38_37g_low_v1/summary.json",
+    "method_stage": "M0_fixed_replay_transfer_candidate",
+    "object_conditioned_policy_pending": true,
+    "sim_measured_rotation_deg": 4.398300045151973,
+    "sim_signed_target_axis_rotation_deg": 4.1121966754796,
+    "sim_free_flight_s": 0.14800000000000013,
+    "sim_axis_alignment": 0.9693314774747196,
+    "sim_stable_recatch": true,
+    "sim_bilateral_contact_fraction": 1.0,
+    "command_sample_count": 92,
+    "command_period_s": 0.02,
+    "command_joint_envelope_pass": true,
+    "real_verified": false
+  }
+}

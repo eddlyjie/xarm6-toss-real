@@ -46,10 +46,9 @@ class PoseRotationLadderTests(unittest.TestCase):
                 self.assertTrue(limits["joint_mechanical_limits_pass"], limits)
                 q = np.asarray([sample.joint_position_rad for sample in samples])
                 dq = np.asarray([sample.joint_velocity_rad_s for sample in samples])
-                np.testing.assert_allclose(q[:, 3], q[0, 3], atol=1.0e-12)
-                np.testing.assert_allclose(q[:, 5], q[0, 5], atol=1.0e-12)
-                np.testing.assert_allclose(dq[:, 3], 0.0, atol=1.0e-12)
-                np.testing.assert_allclose(dq[:, 5], 0.0, atol=1.0e-12)
+                for joint_index in (0, 3, 5):
+                    np.testing.assert_allclose(q[:, joint_index], q[0, joint_index], atol=1.0e-12)
+                    np.testing.assert_allclose(dq[:, joint_index], 0.0, atol=1.0e-12)
                 self.assertAlmostEqual(
                     config["kinematic_design"]["requested_rotation_deg"], requested
                 )
@@ -161,6 +160,107 @@ class PoseRotationLadderTests(unittest.TestCase):
         self.assertAlmostEqual(velocity[3], 0.0)
         self.assertAlmostEqual(velocity[5], 0.0)
 
+    def test_ten_degree_pose_conditioned_candidate_is_independently_selected(self) -> None:
+        config = json.loads(
+            (ROOT / "sim/configs/pose_rotation_throwonly_r10pc.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        design = config["kinematic_design"]
+        self.assertEqual(design["requested_rotation_deg"], 10.0)
+        self.assertEqual(design["search_target_rotation_deg"], 10.0)
+        self.assertGreater(design["predicted_peak_tcp_position_m"][2], 0.40)
+        self.assertGreater(design["predicted_hand_axis_omega_rad_s"], 3.0)
+        self.assertLess(design["predicted_peak_tcp_speed_m_s"], 1.40)
+        velocity = design["release_joint_velocity_rad_s"]
+        assert [velocity[index] for index in (0, 3, 5)] == [0.0, 0.0, 0.0]
+        assert all(abs(velocity[index]) > 0.1 for index in (1, 2, 4))
+
+    def test_ten_degree_air_candidate_adds_release_height(self) -> None:
+        config = json.loads(
+            (ROOT / "sim/configs/pose_rotation_throwonly_r10air.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        design = config["kinematic_design"]
+        low = json.loads(
+            (ROOT / "sim/configs/pose_rotation_throwonly_r10pc.json").read_text(
+                encoding="utf-8"
+            )
+        )["kinematic_design"]
+        self.assertEqual(design["requested_rotation_deg"], 10.0)
+        self.assertEqual(
+            design["release_joint_velocity_rad_s"],
+            low["release_joint_velocity_rad_s"],
+        )
+        self.assertGreater(
+            design["predicted_peak_tcp_position_m"][2]
+            - low["predicted_peak_tcp_position_m"][2],
+            0.05,
+        )
+        self.assertLessEqual(design["predicted_peak_tcp_speed_m_s"], 1.6)
+        self.assertTrue(design["reference_limit_evidence"]["joint_mechanical_limits_pass"])
+
+    def test_twelve_degree_candidate_combines_clearance_pose_and_catchable_velocity(self) -> None:
+        config = json.loads(
+            (ROOT / "sim/configs/pose_rotation_throwonly_r12sep.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        design = config["kinematic_design"]
+        self.assertEqual(design["requested_rotation_deg"], 12.0)
+        self.assertIn("post-detach separation", design["design_hypothesis"])
+        self.assertEqual(
+            design["release_joint_velocity_rad_s"],
+            [0.0, -0.419, -1.495, 0.0, 1.744, 0.0],
+        )
+        r15 = json.loads(
+            (ROOT / "sim/configs/pose_rotation_throwonly_r15opt.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(
+            config["kinematic_design"]["joint_position_offset_rad"],
+            r15["kinematic_design"]["joint_position_offset_rad"],
+        )
+        self.assertGreater(design["predicted_hand_axis_omega_rad_s"], 3.4)
+        self.assertLessEqual(design["predicted_peak_tcp_speed_m_s"], 1.6)
+        self.assertTrue(design["reference_limit_evidence"]["joint_mechanical_limits_pass"])
+        velocity = design["release_joint_velocity_rad_s"]
+        self.assertEqual([velocity[index] for index in (0, 3, 5)], [0.0, 0.0, 0.0])
+
+    def test_fifteen_degree_pose_search_candidate_uses_only_j2_j3_j5(self) -> None:
+        config = json.loads(
+            (ROOT / "sim/configs/pose_rotation_throwonly_r15opt.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        design = config["kinematic_design"]
+        self.assertEqual(design["requested_rotation_deg"], 15.0)
+        self.assertGreater(design["predicted_hand_axis_omega_rad_s"], 3.70)
+        self.assertGreater(design["predicted_peak_tcp_position_m"][2], 0.40)
+        self.assertGreater(design["predicted_cube_com_velocity_m_s"][2], 1.9)
+        self.assertLess(
+            np.linalg.norm(design["predicted_cube_com_velocity_m_s"][:2]),
+            0.20,
+        )
+        self.assertLessEqual(design["predicted_peak_tcp_speed_m_s"], 1.6)
+        self.assertTrue(
+            design["reference_limit_evidence"]["joint_mechanical_limits_pass"]
+        )
+        samples = generate_joint_reference(
+            tuple(
+                QuinticJointSegment(**segment)
+                for segment in config["reference_segments"]
+            ),
+            config["control_period_s"],
+        )
+        q = np.asarray([sample.joint_position_rad for sample in samples])
+        dq = np.asarray([sample.joint_velocity_rad_s for sample in samples])
+        for joint_index in (0, 3, 5):
+            np.testing.assert_allclose(q[:, joint_index], q[0, joint_index], atol=1.0e-12)
+            np.testing.assert_allclose(dq[:, joint_index], 0.0, atol=1.0e-12)
+
     def test_tracking_compensated_reference_preserves_static_j4_j6(self) -> None:
         config = json.loads(
             (ROOT / "sim/configs/pose_rotation_throwonly_r10cy.json").read_text(
@@ -175,6 +275,24 @@ class PoseRotationLadderTests(unittest.TestCase):
         velocity = np.asarray(design["release_joint_velocity_rad_s"])
         self.assertAlmostEqual(velocity[3], 0.0)
         self.assertAlmostEqual(velocity[5], 0.0)
+
+    def test_stock_cube_catch_controls_only_j2_j3_j5(self) -> None:
+        runner = (ROOT / "sim/scripts/04_native_release_smoke.py").read_text(
+            encoding="utf-8"
+        )
+        launcher = (
+            ROOT / "sim/scripts/15_run_stock_g1_10deg_regrasp.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("--catch-j235-only", launcher)
+        self.assertNotIn("--catch-allow-j5", launcher)
+        self.assertIn(
+            "[1, 2, 4]\n                if args_cli.catch_j235_only",
+            runner,
+        )
+        self.assertIn(
+            "[0, 3, 5]\n                    if args_cli.catch_j235_only",
+            runner,
+        )
 
 
 if __name__ == "__main__":

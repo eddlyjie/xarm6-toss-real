@@ -1,0 +1,11 @@
+{
+  "schema": "xarm6_g1_open_loop_schedule_v1",
+  "profile_id": "cube38_low_4p59deg_j235",
+  "speed": 5000,
+  "events": [
+    {"name": "release", "time_s": 0.62, "position": 520},
+    {"name": "preclose", "time_s": 0.76, "position": 441},
+    {"name": "close", "time_s": 0.81, "position": 370}
+  ],
+  "mapping_note": "Real G1 positions use the measured handoff mapping; Sim drive radians are not sent to hardware."
+}

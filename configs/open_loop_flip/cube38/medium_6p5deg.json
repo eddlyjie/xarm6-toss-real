@@ -1,0 +1,36 @@
+{
+  "schema": "xarm6_open_loop_flip_profile_v1",
+  "profile_id": "cube38_medium_6p48deg_j235",
+  "object_profile": "configs/objects/cube_38mm_8g.json",
+  "desired_angle_deg": 6.5,
+  "timeline": "real_handoff/cube38/medium/timeline.json",
+  "g1_schedule": "real_handoff/cube38/medium/g1_schedule.json",
+  "status": "sim_validated_open_loop_reference_real_unverified",
+  "hardware_modes_allowed": ["empty_arm", "empty_g1", "throw_only", "cube"],
+  "control_period_s": 0.02,
+  "active_throw_joints_one_based": [2, 3, 5],
+  "fixed_throw_joints_one_based": [1, 4, 6],
+  "g1": {
+    "speed": 5000,
+    "held_position": 370,
+    "full_open_position": 850,
+    "events": [
+      {"name": "release", "time_s": 0.62, "position": 520},
+      {"name": "preclose", "time_s": 0.80, "position": 441},
+      {"name": "close", "time_s": 0.86, "position": 370}
+    ]
+  },
+  "evidence": {
+    "source": "outputs/cube8g_smalltier_r10cfh_close086_v47/summary.json",
+    "sim_measured_rotation_deg": 6.477942640013333,
+    "sim_signed_target_axis_rotation_deg": 6.090471197568456,
+    "sim_free_flight_s": 0.2190000000000002,
+    "sim_axis_alignment": 0.9014140268098381,
+    "sim_stable_recatch": true,
+    "sim_bilateral_contact_fraction": 1.0,
+    "command_sample_count": 92,
+    "command_period_s": 0.02,
+    "command_joint_envelope_pass": true,
+    "real_verified": false
+  }
+}

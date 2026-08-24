@@ -61,6 +61,42 @@ FAST_CATCHABLE_RELEASE_QD_RAD_S = np.asarray(
     [0.0, -0.419, -1.495, 0.0, 1.744, 0.0],
     dtype=float,
 )
+CATCH_ALIGNED_RELEASE_QD_RAD_S = np.asarray(
+    [0.0, -1.25933, 0.0, 0.0, 1.7448, 0.0],
+    dtype=float,
+)
+MOMENTUM_COMPATIBLE_RELEASE_QD_RAD_S = np.asarray(
+    [0.0, 0.235124, -0.600000, 0.0, 1.744800, 0.0],
+    dtype=float,
+)
+UPWARD_MOMENTUM_RELEASE_QD_RAD_S = np.asarray(
+    [0.0, -0.111191, -0.600000, 0.0, 1.744800, 0.0],
+    dtype=float,
+)
+TWENTY_DEG_UPWARD_RELEASE_QD_RAD_S = np.asarray(
+    [0.0, -0.456295, -0.600000, 0.0, 1.744800, 0.0],
+    dtype=float,
+)
+TEN_DEG_POSE_CONDITIONED_RELEASE_QD_RAD_S = np.asarray(
+    [0.0, -0.2908, -1.7448, 0.0, 1.1632, 0.0],
+    dtype=float,
+)
+TEN_DEG_POSE_CONDITIONED_OFFSET_RAD = np.asarray(
+    [0.0, -0.190, 0.050, 0.0, 0.0, 0.0],
+    dtype=float,
+)
+TEN_DEG_HIGH_RELEASE_OFFSET_RAD = np.asarray(
+    [0.0, -0.190, -0.070, 0.0, 0.0, 0.0],
+    dtype=float,
+)
+FIFTEEN_DEG_POSE_OPTIMIZED_RELEASE_QD_RAD_S = np.asarray(
+    [0.0, -0.4105, -1.7448, 0.0, 1.7448, 0.0],
+    dtype=float,
+)
+FIFTEEN_DEG_POSE_OFFSET_RAD = np.asarray(
+    [0.0, -0.190, 0.050, 0.0, 0.0, 0.0],
+    dtype=float,
+)
 RESIDUAL_COMPENSATED_RELEASE_QD_RAD_S = np.asarray(
     [0.0, -0.942, -1.7448, 0.0, -0.174, 0.0],
     dtype=float,
@@ -124,6 +160,9 @@ def build_candidate(
     release_qd_override: np.ndarray | None = None,
     joint_position_offset_rad: np.ndarray | None = None,
     preposition_duration_s: float = PREPOSITION_DURATION_S,
+    burst_duration_s: float = BURST_DURATION_S,
+    contact_burst_duration_s: float = 0.0,
+    contact_burst_start_velocity_scale: float = 1.0,
 ) -> tuple[Path, dict[str, object]]:
     joint_position_offset = (
         np.zeros(6, dtype=float)
@@ -132,13 +171,30 @@ def build_candidate(
     )
     start_q = np.deg2rad(base.START_DEG) + joint_position_offset
     peak_q = PEAK_Q_RAD + joint_position_offset
+    # The deployable real-robot policy has exactly three dynamic arm joints.
+    # Preserve the measured pre-throw values of J1/J4/J6 for every phase.
+    fixed_joint_indices = np.asarray([0, 3, 5], dtype=int)
+    peak_q[fixed_joint_indices] = start_q[fixed_joint_indices]
     release_qd = (
         velocity_scale * MAX_RELEASE_QD_RAD_S
         if release_qd_override is None
         else np.asarray(release_qd_override, dtype=float)
     )
-    burst_acceleration = release_qd / BURST_DURATION_S
-    preburst_q = peak_q - 0.5 * release_qd * BURST_DURATION_S
+    if not np.allclose(release_qd[fixed_joint_indices], 0.0, atol=0.0):
+        raise ValueError("J1/J4/J6 release velocities must remain exactly zero")
+
+    mid_qd = (
+        contact_burst_start_velocity_scale * release_qd
+        if contact_burst_duration_s > 0.0
+        else release_qd
+    )
+    burst_acceleration = mid_qd / burst_duration_s
+    burst_end_q = (
+        peak_q - 0.5 * (mid_qd + release_qd) * contact_burst_duration_s
+        if contact_burst_duration_s > 0.0
+        else peak_q
+    )
+    preburst_q = burst_end_q - 0.5 * mid_qd * burst_duration_s
     plateau_end_q = peak_q + release_qd * detach_plateau_duration_s
     brake_end_qd = REVERSE_VELOCITY_SCALE * release_qd
     brake_acceleration = (
@@ -150,6 +206,18 @@ def build_candidate(
     stop_acceleration = -brake_end_qd / REVERSE_STOP_DURATION_S
     stop_q = brake_end_q + 0.5 * brake_end_qd * REVERSE_STOP_DURATION_S
     zeros = np.zeros(6, dtype=float)
+    contact_burst_segments = (
+        (
+            QuinticJointSegment(
+                "contact_burst", contact_burst_duration_s,
+                tuple(burst_end_q), tuple(mid_qd), tuple(peak_q), tuple(release_qd),
+                tuple((release_qd - mid_qd) / contact_burst_duration_s),
+                tuple((release_qd - mid_qd) / contact_burst_duration_s),
+            ),
+        )
+        if contact_burst_duration_s > 0.0
+        else ()
+    )
     segments = (
         QuinticJointSegment(
             "preposition", preposition_duration_s,
@@ -157,10 +225,11 @@ def build_candidate(
             tuple(zeros), tuple(zeros),
         ),
         QuinticJointSegment(
-            "late_burst", BURST_DURATION_S,
-            tuple(preburst_q), tuple(zeros), tuple(peak_q), tuple(release_qd),
+            "late_burst", burst_duration_s,
+            tuple(preburst_q), tuple(zeros), tuple(burst_end_q), tuple(mid_qd),
             tuple(burst_acceleration), tuple(burst_acceleration),
         ),
+        *contact_burst_segments,
         QuinticJointSegment(
             "detach_plateau", detach_plateau_duration_s,
             tuple(peak_q), tuple(release_qd), tuple(plateau_end_q), tuple(release_qd),
@@ -181,8 +250,12 @@ def build_candidate(
     limits = evaluate_reference_samples(samples)
     if not limits["joint_mechanical_limits_pass"]:
         raise RuntimeError(f"{label} violates the real transfer envelope: {limits}")
+    reference_evaluation_time_s = max(
+        REFERENCE_PEAK_TIME_S,
+        preposition_duration_s + burst_duration_s + contact_burst_duration_s,
+    )
     peak_sample = min(
-        samples, key=lambda sample: abs(sample.time_s - REFERENCE_PEAK_TIME_S)
+        samples, key=lambda sample: abs(sample.time_s - reference_evaluation_time_s)
     )
     reference_peak_q = np.asarray(peak_sample.joint_position_rad, dtype=float)
     peak_dq = np.asarray(peak_sample.joint_velocity_rad_s, dtype=float)
@@ -211,7 +284,10 @@ def build_candidate(
     config["kinematic_design"] = {
         "requested_rotation_deg": requested_rotation_deg,
         "velocity_scale": velocity_scale,
-        "reference_peak_time_s": REFERENCE_PEAK_TIME_S,
+        "reference_peak_time_s": reference_evaluation_time_s,
+        "burst_duration_s": burst_duration_s,
+        "contact_burst_duration_s": contact_burst_duration_s,
+        "contact_burst_start_velocity_scale": contact_burst_start_velocity_scale,
         "detach_plateau_duration_s": detach_plateau_duration_s,
         "contact_phase_brake_advance_s": DETACH_PLATEAU_DURATION_S - detach_plateau_duration_s,
         "release_joint_velocity_rad_s": base.vector(release_qd),
@@ -345,6 +421,115 @@ def main() -> int:
     path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     path, config = build_candidate(
         kinematics,
+        "r10cfa",
+        10.0,
+        1.0,
+        0.120,
+        CATCH_ALIGNED_RELEASE_QD_RAD_S,
+        HIGH_RELEASE_JOINT_OFFSET_RAD,
+        0.320,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "q3-zero catch-aligned release with an extended velocity plateau"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r10cfm",
+        10.0,
+        1.0,
+        0.120,
+        MOMENTUM_COMPATIBLE_RELEASE_QD_RAD_S,
+        HIGH_RELEASE_JOINT_OFFSET_RAD,
+        0.320,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "bounded-q3 release optimized for 0.30 m/s horizontal cube speed"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r10cfu",
+        10.0,
+        1.0,
+        0.120,
+        UPWARD_MOMENTUM_RELEASE_QD_RAD_S,
+        HIGH_RELEASE_JOINT_OFFSET_RAD,
+        0.320,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "bounded-q3 release optimized for upward velocity at 0.40 m/s horizontal cap"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r20cfu",
+        20.0,
+        1.0,
+        0.120,
+        TWENTY_DEG_UPWARD_RELEASE_QD_RAD_S,
+        TWENTY_DEG_RELEASE_JOINT_OFFSET_RAD,
+        0.380,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "high-release bounded-q3 action optimized at a 0.50 m/s horizontal cap"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r20cfa",
+        20.0,
+        1.0,
+        0.120,
+        TWENTY_DEG_UPWARD_RELEASE_QD_RAD_S,
+        TWENTY_DEG_RELEASE_JOINT_OFFSET_RAD,
+        0.440,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "physical detach aligned to the end of the late-burst acceleration"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r20cfb",
+        20.0,
+        1.0,
+        0.120,
+        TWENTY_DEG_UPWARD_RELEASE_QD_RAD_S,
+        TWENTY_DEG_RELEASE_JOINT_OFFSET_RAD,
+        0.420,
+        0.160,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "high-pose late burst ending at the physical-detach tracking phase"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r20cfd",
+        20.0,
+        1.0,
+        0.120,
+        TWENTY_DEG_UPWARD_RELEASE_QD_RAD_S,
+        TWENTY_DEG_RELEASE_JOINT_OFFSET_RAD,
+        0.380,
+        0.140,
+        0.060,
+        0.85,
+    )
+    config["lineage"]["goal"] = "goal.md v6"
+    config["lineage"]["coordination"] = (
+        "85-to-100-percent contact-window acceleration at the high release pose"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
         "r20fh",
         20.0,
         1.0,
@@ -356,6 +541,84 @@ def main() -> int:
     config["lineage"]["coordination"] = (
         "extra-high joint-limit fast stock-G1 20-degree reference"
     )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r10pc",
+        10.0,
+        1.0,
+        CONTACT_ALIGNED_DETACH_PLATEAU_DURATION_S,
+        TEN_DEG_POSE_CONDITIONED_RELEASE_QD_RAD_S,
+        TEN_DEG_POSE_CONDITIONED_OFFSET_RAD,
+    )
+    config["lineage"]["goal"] = "goal.md 2026-08-24"
+    config["lineage"]["coordination"] = (
+        "10-degree selection from calibrated pose-conditioned J2/J3/J5 search"
+    )
+    config["kinematic_design"]["search_target_rotation_deg"] = 10.0
+    config["kinematic_design"]["search_report"] = (
+        "real_handoff/open_loop_cube/pose_conditioned_j235_search.json"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r10air",
+        10.0,
+        1.0,
+        CONTACT_ALIGNED_DETACH_PLATEAU_DURATION_S,
+        TEN_DEG_POSE_CONDITIONED_RELEASE_QD_RAD_S,
+        TEN_DEG_HIGH_RELEASE_OFFSET_RAD,
+    )
+    config["lineage"]["goal"] = "goal.md 2026-08-24"
+    config["lineage"]["coordination"] = (
+        "high-release J2/J3/J5 action selected for 10-degree tumble and "
+        "additional catch height"
+    )
+    config["kinematic_design"]["search_target_rotation_deg"] = 10.0
+    config["kinematic_design"]["design_hypothesis"] = (
+        "raise the 10-degree intercept without increasing joint speed"
+    )
+    config["kinematic_design"]["search_report"] = (
+        "real_handoff/open_loop_cube/pose_conditioned_j235_search.json"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r12sep",
+        12.0,
+        1.0,
+        CONTACT_ALIGNED_DETACH_PLATEAU_DURATION_S,
+        FAST_CATCHABLE_RELEASE_QD_RAD_S,
+        FIFTEEN_DEG_POSE_OFFSET_RAD,
+    )
+    config["lineage"]["goal"] = "goal.md 2026-08-24"
+    config["lineage"]["coordination"] = (
+        "r15 finger-clearance release pose with the lower-drift J2/J3/J5 "
+        "velocity previously validated by the stock-G1 catch"
+    )
+    config["kinematic_design"]["design_hypothesis"] = (
+        "preserve natural post-detach separation while reducing outward cube drift"
+    )
+    config["kinematic_design"]["measured_reference_family"] = (
+        "cube8g_stock_g1_10deg_j235_centered"
+    )
+    path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    path, config = build_candidate(
+        kinematics,
+        "r15opt",
+        15.0,
+        1.0,
+        CONTACT_ALIGNED_DETACH_PLATEAU_DURATION_S,
+        FIFTEEN_DEG_POSE_OPTIMIZED_RELEASE_QD_RAD_S,
+        FIFTEEN_DEG_POSE_OFFSET_RAD,
+    )
+    config["lineage"]["goal"] = "goal.md 2026-08-24"
+    config["lineage"]["coordination"] = (
+        "J2/J3/J5 release-pose search maximizing forward tumble while "
+        "constraining TCP speed and cube-COM lateral velocity"
+    )
+    config["kinematic_design"]["search_target_rotation_deg"] = 15.0
+    config["kinematic_design"]["search_measured_baseline_rotation_deg"] = 7.865743678202105
     path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
     path, config = build_candidate(
         kinematics,

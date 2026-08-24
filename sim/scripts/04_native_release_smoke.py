@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Native xArm6+G1 grasp and partial-release smoke with a light cube.
+"""Native xArm6+G1 grasp and partial-release smoke with a light cuboid.
 
 The cube pose and velocity are written exactly once at episode initialization.
 Every subsequent state is produced by the arm controller, G1 contacts and
@@ -36,6 +36,20 @@ parser.add_argument("--output", type=Path, required=True)
 parser.add_argument("--video-path", type=Path, default=None)
 parser.add_argument("--cube-size-m", type=float, default=0.038)
 parser.add_argument("--cube-mass-kg", type=float, default=0.035)
+parser.add_argument(
+    "--object-profile",
+    type=Path,
+    default=None,
+    help="JSON object profile; dimensions and mass replace legacy cube arguments.",
+)
+parser.add_argument(
+    "--object-dimensions-m",
+    type=float,
+    nargs=3,
+    default=None,
+    metavar=("X", "Y", "Z"),
+    help="Local cuboid X/Y/Z dimensions. Y is the intended G1 closing axis.",
+)
 parser.add_argument(
     "--cube-offset-hand-m",
     type=float,
@@ -499,6 +513,18 @@ parser.add_argument(
     help="Enable closed-loop Cartesian catch servo at this episode time.",
 )
 parser.add_argument(
+    "--catch-joint-reference",
+    type=Path,
+    default=None,
+    help="Replay an offline J2/J3/J5 intercept reference instead of Cartesian bias control.",
+)
+parser.add_argument(
+    "--catch-reference-lead-time-s",
+    type=float,
+    default=0.0,
+    help="Phase-advance an offline catch reference to compensate measured arm tracking delay.",
+)
+parser.add_argument(
     "--catch-close-time-s",
     type=float,
     default=None,
@@ -532,7 +558,7 @@ parser.add_argument(
     "--catch-j5-weight",
     type=float,
     default=1.0,
-    help="Weighted-pseudoinverse preference for J5 with --catch-allow-j5.",
+    help="Weighted-pseudoinverse preference for J5 when J5 is catch-controlled.",
 )
 parser.add_argument(
     "--catch-joint-target-rad",
@@ -554,6 +580,14 @@ parser.add_argument(
     "--catch-allow-j5",
     action="store_true",
     help="With --catch-lock-wrist, use J1/J2/J3/J5 while preserving J4/J6.",
+)
+parser.add_argument(
+    "--catch-j235-only",
+    action="store_true",
+    help=(
+        "Use only J2/J3/J5 for catch control; preserve J1/J4/J6 at their "
+        "measured values when catch servo activates."
+    ),
 )
 parser.add_argument(
     "--catch-lateral-only",
@@ -724,6 +758,45 @@ parser.add_argument("--camera-dropout-probability", type=float, default=0.05)
 parser.add_argument("--camera-seed", type=int, default=20260816)
 AppLauncher.add_app_launcher_args(parser)
 args_cli = parser.parse_args()
+if args_cli.object_profile is not None and args_cli.object_dimensions_m is not None:
+    parser.error("use either --object-profile or --object-dimensions-m")
+object_profile_data: dict[str, object] | None = None
+if args_cli.object_profile is not None:
+    object_profile_data = json.loads(args_cli.object_profile.read_text(encoding="utf-8"))
+    args_cli.object_dimensions_m = tuple(
+        float(value) for value in object_profile_data["dimensions_m"]
+    )
+    args_cli.cube_mass_kg = float(object_profile_data["mass_kg"])
+    args_cli.object_id = str(object_profile_data["object_id"])
+else:
+    args_cli.object_dimensions_m = tuple(
+        float(value) for value in (
+            args_cli.object_dimensions_m
+            if args_cli.object_dimensions_m is not None
+            else (args_cli.cube_size_m,) * 3
+        )
+    )
+    args_cli.object_id = "legacy_cli_cube" if len(set(args_cli.object_dimensions_m)) == 1 else "cli_cuboid"
+if len(args_cli.object_dimensions_m) != 3 or any(
+    value <= 0.0 or not math.isfinite(value)
+    for value in args_cli.object_dimensions_m
+):
+    parser.error("object dimensions must contain three positive finite values")
+if args_cli.cube_mass_kg <= 0.0 or not math.isfinite(args_cli.cube_mass_kg):
+    parser.error("object mass must be positive and finite")
+object_x_m, object_y_m, object_z_m = args_cli.object_dimensions_m
+args_cli.object_principal_inertia_kg_m2 = (
+    args_cli.cube_mass_kg * (object_y_m**2 + object_z_m**2) / 12.0,
+    args_cli.cube_mass_kg * (object_x_m**2 + object_z_m**2) / 12.0,
+    args_cli.cube_mass_kg * (object_x_m**2 + object_y_m**2) / 12.0,
+)
+if args_cli.catch_j235_only and args_cli.catch_lateral_only:
+    parser.error("--catch-j235-only and --catch-lateral-only are mutually exclusive")
+if args_cli.catch_j235_only and args_cli.catch_allow_j5:
+    parser.error(
+        "--catch-j235-only already enables J5 and cannot be combined with "
+        "--catch-allow-j5"
+    )
 
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
@@ -763,13 +836,17 @@ from xarm6_toss.release_insert import (  # noqa: E402
 )
 from xarm6_toss.flight import (  # noqa: E402
     continuous_free_flight_evidence,
-    cube_ground_clearance_m,
+    cuboid_ground_clearance_m,
     g1_release_response,
     release_transfer_evidence,
 )
 from xarm6_toss.motion_limits import (  # noqa: E402
     evaluate_joint_trajectory,
     evaluate_reference_samples,
+)
+from xarm6_toss.pose_conditioned_catch import (  # noqa: E402
+    catch_reference_sample,
+    load_catch_reference,
 )
 
 
@@ -1094,13 +1171,15 @@ def robot_cfg(usd_path: Path, held_drive_rad: float) -> ArticulationCfg:
     )
 
 
-def cube_cfg(
-    size_m: float, mass_kg: float, cube_physics: dict[str, object]
+def cuboid_cfg(
+    dimensions_m: tuple[float, float, float],
+    mass_kg: float,
+    cube_physics: dict[str, object],
 ) -> RigidObjectCfg:
     return RigidObjectCfg(
         prim_path="/World/Cube",
         spawn=sim_utils.CuboidCfg(
-            size=(size_m, size_m, size_m),
+            size=dimensions_m,
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
                 max_linear_velocity=3.0,
                 max_angular_velocity=30.0,
@@ -1139,8 +1218,11 @@ def cube_cfg(
     )
 
 
-def spawn_cube_rotation_marker(size_m: float) -> None:
+def spawn_cube_rotation_marker(dimensions_m: tuple[float, float, float]) -> None:
     """Add a visual-only asymmetric corner marker for spectator evidence."""
+    size_x_m, size_y_m, size_z_m = dimensions_m
+    marker_y_m = min(0.009, 0.25 * size_y_m)
+    marker_z_m = min(0.009, 0.25 * size_z_m)
     marker = sim_utils.CuboidCfg(
         size=(0.0015, 0.010, 0.010),
         visual_material=sim_utils.PreviewSurfaceCfg(
@@ -1151,7 +1233,7 @@ def spawn_cube_rotation_marker(size_m: float) -> None:
     marker.func(
         "/World/Cube/RotationMarker",
         marker,
-        translation=(0.5 * size_m + 0.00075, 0.009, 0.009),
+        translation=(0.5 * size_x_m + 0.00075, marker_y_m, marker_z_m),
     )
 
 
@@ -2133,7 +2215,7 @@ def xyzw_quaternion_to_matrix(quaternion: torch.Tensor) -> torch.Tensor:
 
 def estimate_cube_position_from_camera(
     camera: Camera,
-    cube_size_m: float,
+    object_dimensions_m: tuple[float, float, float],
     expected_position_base_m: torch.Tensor,
     source_camera: str,
 ) -> tuple[torch.Tensor | None, dict[str, float]]:
@@ -2215,7 +2297,7 @@ def estimate_cube_position_from_camera(
     v = torch.mean(pixels[:, 0].to(torch.float32))
     u = torch.mean(pixels[:, 1].to(torch.float32))
     z_surface = torch.median(depth[mask])
-    z_center = z_surface + 0.5 * cube_size_m
+    z_center = z_surface + 0.5 * max(object_dimensions_m)
     camera_point = torch.stack(
         (
             (u - intrinsic[0, 2]) / intrinsic[0, 0] * z_center,
@@ -2272,7 +2354,7 @@ def wrist_camera_cube_clearance_m(
     hand_position: torch.Tensor,
     hand_quaternion_xyzw: torch.Tensor,
     cube_position: torch.Tensor,
-    cube_size_m: float,
+    object_dimensions_m: tuple[float, float, float],
 ) -> float:
     camera_position, camera_xyzw = wrist_camera_world_pose(
         hand_position, hand_quaternion_xyzw
@@ -2284,7 +2366,7 @@ def wrist_camera_cube_clearance_m(
     half_extents = WRIST_CAMERA_PROXY_HALF_EXTENTS_M.to(cube_position.device)
     outside = torch.clamp(torch.abs(cube_camera) - half_extents, min=0.0)
     center_to_box = torch.linalg.vector_norm(outside)
-    cube_bounding_radius = 0.5 * float(cube_size_m) * np.sqrt(3.0)
+    cube_bounding_radius = 0.5 * float(np.linalg.norm(object_dimensions_m))
     return float(center_to_box.item() - cube_bounding_radius)
 
 
@@ -2401,17 +2483,20 @@ def record_state(
         contact_forces["wrist_camera_proxy"] = 0.0
     else:
         wrist_clearance_m = wrist_camera_cube_clearance_m(
-            hand_position, hand_quaternion, cube_pose[:3], args_cli.cube_size_m
+            hand_position,
+            hand_quaternion,
+            cube_pose[:3],
+            args_cli.object_dimensions_m,
         )
         contact_forces["wrist_camera_proxy"] = (
             1.0 if wrist_clearance_m <= 0.0 else 0.0
         )
     # The ground cuboid does not expose a rigid-body prim that accepts an
     # Isaac ContactSensor. End ballistic flight when the cube bottom reaches it.
-    ground_clearance_m = cube_ground_clearance_m(
+    ground_clearance_m = cuboid_ground_clearance_m(
         cube_pose[:3].tolist(),
         cube_quaternion_wxyz.tolist(),
-        args_cli.cube_size_m,
+        args_cli.object_dimensions_m,
     )
     contact_forces["ground"] = 1.0 if ground_clearance_m <= 0.001 else 0.0
     return {
@@ -2739,7 +2824,7 @@ def summarize(
             and min(
                 float(record["cube_position_w_m"][2])
                 for record in evidence_records
-            ) > args_cli.cube_size_m * 0.75
+            ) > max(args_cli.object_dimensions_m) * 0.75
         )
     motion_records: list[dict[str, object]] = []
     for record in records:
@@ -2840,6 +2925,12 @@ def summarize(
         "maximum_separation_m": maximum_separation_m,
         "catch_servo_enabled": args_cli.catch_servo_start_time_s is not None,
         "catch_servo_start_time_s": args_cli.catch_servo_start_time_s,
+        "offline_catch_joint_reference": (
+            None
+            if args_cli.catch_joint_reference is None
+            else str(args_cli.catch_joint_reference)
+        ),
+        "offline_catch_reference_lead_time_s": args_cli.catch_reference_lead_time_s,
         "catch_close_time_s": args_cli.catch_close_time_s,
         "catch_preclose_time_s": args_cli.catch_preclose_time_s,
         "catch_preclose_drive_rad": args_cli.catch_preclose_drive_rad,
@@ -2882,7 +2973,19 @@ def summarize(
         "final_cube_linear_velocity_w_m_s": (
             final_record["cube_linear_velocity_w_m_s"]
         ),
-        "cube_size_m": args_cli.cube_size_m,
+        "object_profile": (
+            None if args_cli.object_profile is None else str(args_cli.object_profile)
+        ),
+        "object_id": args_cli.object_id,
+        "object_dimensions_m": list(args_cli.object_dimensions_m),
+        "object_principal_inertia_kg_m2": list(
+            args_cli.object_principal_inertia_kg_m2
+        ),
+        "cube_size_m": (
+            args_cli.object_dimensions_m[0]
+            if len(set(args_cli.object_dimensions_m)) == 1
+            else None
+        ),
         "cube_mass_kg": args_cli.cube_mass_kg,
         "wrist_camera_hardware_removed": bool(
             args_cli.wrist_camera_hardware_removed
@@ -2908,6 +3011,7 @@ def summarize(
         "catch_gripper_stiffness": args_cli.catch_gripper_stiffness,
         "catch_lock_wrist": bool(args_cli.catch_lock_wrist),
         "catch_allow_j5": bool(args_cli.catch_allow_j5),
+        "catch_j235_only": bool(args_cli.catch_j235_only),
         "catch_j5_weight": float(args_cli.catch_j5_weight),
         "catch_joint_target_rad": args_cli.catch_joint_target_rad,
         "catch_joint_pretarget_rad": args_cli.catch_joint_pretarget_rad,
@@ -3033,6 +3137,32 @@ def main() -> int:
         else json.loads(args_cli.probe_j_config.read_text(encoding="utf-8"))
     )
     config, reference, reference_limit_evidence = load_reference(args_cli.config)
+    catch_joint_reference = (
+        None
+        if args_cli.catch_joint_reference is None
+        else load_catch_reference(args_cli.catch_joint_reference)
+    )
+    if catch_joint_reference is not None:
+        if not 0.0 <= args_cli.catch_reference_lead_time_s <= 0.15:
+            raise ValueError("offline catch reference lead must be in [0, 0.15] s")
+        if not args_cli.catch_j235_only:
+            raise ValueError("offline catch reference requires --catch-j235-only")
+        if (
+            args_cli.catch_servo_start_time_s is None
+            or args_cli.catch_servo_start_time_s
+            > catch_joint_reference["start_time_s"] + 1.0e-9
+        ):
+            raise ValueError("catch servo must start no later than offline reference")
+        if (
+            args_cli.catch_joint_target_rad is not None
+            or args_cli.catch_joint_pretarget_rad is not None
+        ):
+            raise ValueError("offline catch reference cannot be combined with joint targets")
+        if not np.isclose(
+            float(config["control_period_s"]),
+            float(catch_joint_reference["control_period_s"]),
+        ):
+            raise ValueError("offline catch and throw control periods differ")
     if (
         args_cli.release_gripper_effort_limit_n is not None
         and args_cli.release_gripper_effort_limit_n > 50.0
@@ -3222,13 +3352,13 @@ def main() -> int:
                 insert_geometry["mirror_prim_path"]
             )
     cube = RigidObject(
-        cube_cfg(
-            args_cli.cube_size_m,
+        cuboid_cfg(
+            args_cli.object_dimensions_m,
             args_cli.cube_mass_kg,
             config.get("cube_physics", {}),
         )
     )
-    spawn_cube_rotation_marker(args_cli.cube_size_m)
+    spawn_cube_rotation_marker(args_cli.object_dimensions_m)
     global_camera = None
     wrist_camera = None
     spectator_camera = None
@@ -3706,7 +3836,10 @@ def main() -> int:
             args_cli.catch_servo_start_time_s is not None
             and time_s >= args_cli.catch_servo_start_time_s
         )
-        if catch_active and not catch_was_active:
+        catch_just_activated = catch_active and not catch_was_active
+        catch_entry_command_position = None
+        catch_entry_command_velocity = None
+        if catch_just_activated:
             if (
                 args_cli.catch_lateral_only
                 and args_cli.catch_hold_throw_joints
@@ -3717,10 +3850,30 @@ def main() -> int:
                 commanded_arm_velocity[1:] = 0.0
             elif not args_cli.catch_lateral_only:
                 if not args_cli.catch_preserve_nominal_momentum:
-                    commanded_arm_position = robot.data.joint_pos.torch[0, arm_ids].clone()
-                    commanded_arm_velocity = robot.data.joint_vel.torch[0, arm_ids].clone()
+                    measured_arm_position = robot.data.joint_pos.torch[0, arm_ids]
+                    if args_cli.catch_j235_only:
+                        dynamic_joint_indices = [1, 2, 4]
+                        catch_entry_command_position = commanded_arm_position.clone()
+                        catch_entry_command_velocity = commanded_arm_velocity.clone()
+                        measured_arm_velocity = robot.data.joint_vel.torch[
+                            0, arm_ids
+                        ]
+                        commanded_arm_position[dynamic_joint_indices] = (
+                            measured_arm_position[dynamic_joint_indices]
+                        )
+                        commanded_arm_velocity[dynamic_joint_indices] = (
+                            measured_arm_velocity[dynamic_joint_indices]
+                        )
+                    else:
+                        measured_arm_velocity = robot.data.joint_vel.torch[
+                            0, arm_ids
+                        ]
+                        commanded_arm_position = measured_arm_position.clone()
+                        commanded_arm_velocity = measured_arm_velocity.clone()
                 catch_fixed_joint_indices = (
-                    [3, 5]
+                    [0, 3, 5]
+                    if args_cli.catch_j235_only
+                    else [3, 5]
                     if args_cli.catch_lock_wrist and args_cli.catch_allow_j5
                     else [3, 4, 5]
                     if args_cli.catch_lock_wrist
@@ -3856,7 +4009,7 @@ def main() -> int:
                         measured_position, camera_metadata = (
                             estimate_cube_position_from_camera(
                                 camera,
-                                args_cli.cube_size_m,
+                                args_cli.object_dimensions_m,
                                 prior_cube_position,
                                 source_camera,
                             )
@@ -4066,6 +4219,8 @@ def main() -> int:
             controlled_joint_indices = (
                 [0]
                 if args_cli.catch_lateral_only
+                else [1, 2, 4]
+                if args_cli.catch_j235_only
                 else [0, 1, 2, 4]
                 if args_cli.catch_lock_wrist and args_cli.catch_allow_j5
                 else [0, 1, 2]
@@ -4075,7 +4230,7 @@ def main() -> int:
             jacobian = full_jacobian[:, controlled_joint_indices]
             damping = 1.0e-3 * torch.eye(3, device=sim.device)
             joint_weights = torch.ones(jacobian.shape[1], device=sim.device)
-            if args_cli.catch_allow_j5 and 4 in controlled_joint_indices:
+            if 4 in controlled_joint_indices:
                 joint_weights[controlled_joint_indices.index(4)] = args_cli.catch_j5_weight
             weighted_jacobian_transpose = (
                 joint_weights[:, None] * jacobian.T
@@ -4092,8 +4247,9 @@ def main() -> int:
             if (
                 args_cli.catch_joint1_start_time_s is not None
                 and time_s < args_cli.catch_joint1_start_time_s
+                and 0 in controlled_joint_indices
             ):
-                controlled_delta[0] = 0.0
+                controlled_delta[controlled_joint_indices.index(0)] = 0.0
             if catch_active and catch_control_update_count == 1:
                 catch_first_jacobian = [
                     [float(value) for value in row]
@@ -4141,6 +4297,20 @@ def main() -> int:
                     dtype=torch.float32,
                     device=sim.device,
                 )
+            if (
+                catch_joint_reference is not None
+                and time_s >= catch_joint_reference["start_time_s"] - 1.0e-9
+            ):
+                offline_sample = catch_reference_sample(
+                    catch_joint_reference,
+                    time_s + args_cli.catch_reference_lead_time_s,
+                )
+                offline_target = torch.tensor(
+                    offline_sample["joint_position_rad"],
+                    dtype=torch.float32,
+                    device=sim.device,
+                )
+                proposed_catch_arm_target[0, [1, 2, 4]] = offline_target[[1, 2, 4]]
             if catch_active:
                 catch_arm_target = proposed_catch_arm_target
         if catch_active and catch_arm_target is not None:
@@ -4169,6 +4339,69 @@ def main() -> int:
                     commanded_arm_position
                     + commanded_arm_velocity * control_period
                 )
+                if (
+                    catch_just_activated
+                    and args_cli.catch_j235_only
+                    and catch_entry_command_position is not None
+                    and catch_entry_command_velocity is not None
+                ):
+                    dynamic_joint_indices = [1, 2, 4]
+                    max_entry_step = (
+                        0.999
+                        * args_cli.catch_max_joint_speed_rad_s
+                        * control_period
+                    )
+                    max_entry_velocity_change = (
+                        0.999
+                        * args_cli.catch_max_joint_acceleration_rad_s2
+                        * control_period
+                    )
+                    commanded_arm_position[dynamic_joint_indices] = torch.maximum(
+                        torch.minimum(
+                            commanded_arm_position[dynamic_joint_indices],
+                            catch_entry_command_position[dynamic_joint_indices]
+                            + max_entry_step,
+                        ),
+                        catch_entry_command_position[dynamic_joint_indices]
+                        - max_entry_step,
+                    )
+                    commanded_arm_velocity[dynamic_joint_indices] = torch.clamp(
+                        commanded_arm_velocity[dynamic_joint_indices],
+                        catch_entry_command_velocity[dynamic_joint_indices]
+                        - max_entry_velocity_change,
+                        catch_entry_command_velocity[dynamic_joint_indices]
+                        + max_entry_velocity_change,
+                    )
+                    acceleration = (
+                        commanded_arm_velocity - catch_entry_command_velocity
+                    ) / control_period
+                if (
+                    catch_joint_reference is not None
+                    and time_s >= catch_joint_reference["start_time_s"] - 1.0e-9
+                ):
+                    offline_sample = catch_reference_sample(
+                        catch_joint_reference,
+                        time_s + args_cli.catch_reference_lead_time_s,
+                    )
+                    offline_position = torch.tensor(
+                        offline_sample["joint_position_rad"],
+                        dtype=torch.float32,
+                        device=sim.device,
+                    )
+                    offline_velocity = torch.tensor(
+                        offline_sample["joint_velocity_rad_s"],
+                        dtype=torch.float32,
+                        device=sim.device,
+                    )
+                    offline_acceleration = torch.tensor(
+                        offline_sample["joint_acceleration_rad_s2"],
+                        dtype=torch.float32,
+                        device=sim.device,
+                    )
+                    dynamic_joint_indices = [1, 2, 4]
+                    commanded_arm_position[dynamic_joint_indices] = offline_position[dynamic_joint_indices]
+                    commanded_arm_velocity[dynamic_joint_indices] = offline_velocity[dynamic_joint_indices]
+                    acceleration[dynamic_joint_indices] = offline_acceleration[dynamic_joint_indices]
             else:
                 next_velocity = torch.tensor(
                     reference[sample_index].joint_velocity_rad_s,
@@ -4459,23 +4692,41 @@ def main() -> int:
                         encoder_prior_position.detach().cpu().numpy(),
                         encoder_prior_velocity.detach().cpu().numpy(),
                     )
-        records.append(
-            record_state(
-                time_s,
-                phase,
-                robot,
-                cube,
-                arm_ids,
-                drive_id,
-                roller_joint_id,
-                retract_joint_id,
-                roller_retract_joint_id,
-                release_body_ids,
-                gripper_body_id,
-                finger_body_ids,
-                contact_sensors,
-            )
+        record = record_state(
+            time_s,
+            phase,
+            robot,
+            cube,
+            arm_ids,
+            drive_id,
+            roller_joint_id,
+            retract_joint_id,
+            roller_retract_joint_id,
+            release_body_ids,
+            gripper_body_id,
+            finger_body_ids,
+            contact_sensors,
         )
+        record.update(
+            arm_control_tick=bool(new_control_tick),
+            arm_command_position_rad=(
+                commanded_arm_position.detach().cpu().tolist()
+                if new_control_tick
+                else None
+            ),
+            arm_command_velocity_rad_s=(
+                commanded_arm_velocity.detach().cpu().tolist()
+                if new_control_tick
+                else None
+            ),
+            arm_command_acceleration_rad_s2=(
+                acceleration.detach().cpu().tolist()
+                if new_control_tick
+                else None
+            ),
+            gripper_command_drive_rad=float(gripper_target.item()),
+        )
+        records.append(record)
         video_frame_index = int((time_s + args_cli.settle_s) * 60.0)
         if (
             args_cli.video_path is not None

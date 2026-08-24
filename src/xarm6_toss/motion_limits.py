@@ -21,6 +21,7 @@ TRANSFER_CONTROL_PERIOD_S = 0.020
 TRANSFER_MAX_JOINT_STEP_RAD = 0.0348967
 TRANSFER_MAX_QDOT_CHANGE_RAD_S = 0.261148
 HANDOFF_MIN_JOINT_MARGIN_RAD = 0.15
+FLOAT32_COMMAND_QUANTIZATION_RAD = 1.0e-7
 
 
 def _matrix(values: Sequence[Sequence[float]], name: str) -> np.ndarray:
@@ -75,7 +76,10 @@ def evaluate_joint_trajectory(
     acceleration_pass = (
         max_acceleration <= TRANSFER_MAX_JOINT_ACCELERATION_RAD_S2 + 1.0e-9
     )
-    step_pass = max_step <= TRANSFER_MAX_JOINT_STEP_RAD + 1.0e-9
+    step_pass = (
+        max_step
+        <= TRANSFER_MAX_JOINT_STEP_RAD + FLOAT32_COMMAND_QUANTIZATION_RAD
+    )
     qdot_change_pass = (
         max_qdot_change <= TRANSFER_MAX_QDOT_CHANGE_RAD_S + 1.0e-9
     )

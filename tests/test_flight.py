@@ -14,6 +14,7 @@ from xarm6_toss.flight import (
     angular_velocity_for_target_rotation,
     continuous_free_flight_evidence,
     cube_ground_clearance_m,
+    cuboid_ground_clearance_m,
     flight_time_to_height,
     g1_release_response,
     make_flight_state,
@@ -88,6 +89,27 @@ class FlightPhysicsTests(unittest.TestCase):
             0.027 - 0.5 * size_m * math.sqrt(2.0),
         )
         self.assertLess(tilted_clearance, identity_clearance)
+
+    def test_oriented_cuboid_ground_clearance_uses_all_three_dimensions(self):
+        dimensions = [0.0445, 0.046, 0.030]
+        center = [0.0, 0.0, 0.050]
+        identity_clearance = cuboid_ground_clearance_m(
+            center, [1.0, 0.0, 0.0, 0.0], dimensions
+        )
+        tilted_xyzw = Rotation.from_euler("x", 90.0, degrees=True).as_quat()
+        tilted_clearance = cuboid_ground_clearance_m(
+            center,
+            [tilted_xyzw[3], *tilted_xyzw[:3]],
+            dimensions,
+        )
+        self.assertAlmostEqual(identity_clearance, 0.050 - 0.5 * 0.030)
+        self.assertAlmostEqual(tilted_clearance, 0.050 - 0.5 * 0.046)
+
+    def test_cuboid_ground_clearance_rejects_nonpositive_dimensions(self):
+        with self.assertRaisesRegex(ValueError, "dimensions_m must be positive"):
+            cuboid_ground_clearance_m(
+                [0.0, 0.0, 0.1], [1.0, 0.0, 0.0, 0.0], [0.04, 0.0, 0.03]
+            )
 
     def test_g1_release_response_uses_opening_direction(self):
         triggered, drive_progress, opening_effort = g1_release_response(

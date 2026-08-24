@@ -1,0 +1,28 @@
+{
+  "schema": "xarm6_open_loop_flip_profile_v1",
+  "profile_id": "cube_real_micro_toss_baseline",
+  "object_profile": "configs/objects/cube_38mm_8g.json",
+  "desired_angle_deg": 0.0,
+  "timeline": "real_handoff/nominal_timeline.json",
+  "status": "real_micro_toss_baseline",
+  "hardware_modes_allowed": ["empty_arm", "empty_g1", "throw_only", "cube"],
+  "control_period_s": 0.02,
+  "active_throw_joints_one_based": [2, 3, 5],
+  "fixed_throw_joints_one_based": [1, 4, 6],
+  "g1": {
+    "speed": 5000,
+    "held_position": 370,
+    "full_open_position": 850,
+    "events": [
+      {"name": "release", "time_s": 0.636, "position": 520},
+      {"name": "close", "time_s": 0.720, "position": 370}
+    ]
+  },
+  "evidence": {
+    "source": "REAL_ROBOT_TEST_20260817.md",
+    "real_controller_complete_runs": 3,
+    "operator_confirmed_recatch": true,
+    "measured_rotation_deg": null,
+    "note": "Preserved micro-toss baseline; free flight is visually short."
+  }
+}

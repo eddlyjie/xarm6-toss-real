@@ -1,0 +1,41 @@
+{
+  "schema": "xarm6_open_loop_flip_catalog_v1",
+  "object_profile": "configs/objects/cube_38mm_8g.json",
+  "profiles": [
+    {
+      "desired_angle_deg": 0,
+      "profile": "configs/open_loop_flip/baseline_0deg.json",
+      "status": "real_micro_toss_baseline"
+    },
+    {
+      "desired_angle_deg": 5,
+      "profile": "configs/open_loop_flip/cube38/low_5deg.json",
+      "status": "sim_validated_open_loop_reference_real_unverified"
+    },
+    {
+      "desired_angle_deg": 6.5,
+      "profile": "configs/open_loop_flip/cube38/medium_6p5deg.json",
+      "status": "sim_validated_open_loop_reference_real_unverified"
+    },
+    {
+      "desired_angle_deg": 8,
+      "profile": "configs/open_loop_flip/cube38/high_8deg.json",
+      "status": "sim_validated_open_loop_reference_real_unverified"
+    },
+    {
+      "desired_angle_deg": 10,
+      "profile": "configs/open_loop_flip/sim_10deg.json",
+      "status": "sim_validated_requires_open_loop_recatch_conversion"
+    },
+    {"desired_angle_deg": 20, "profile": null, "status": "planned"},
+    {"desired_angle_deg": 30, "profile": null, "status": "planned"},
+    {"desired_angle_deg": 40, "profile": null, "status": "planned"},
+    {"desired_angle_deg": 60, "profile": null, "status": "stretch"},
+    {"desired_angle_deg": 80, "profile": null, "status": "stretch"}
+  ],
+  "selection": {
+    "mode": "exact_desired_angle_only",
+    "nearest_angle_fallback": false,
+    "reason": "A requested angle must never silently execute another trajectory."
+  }
+}

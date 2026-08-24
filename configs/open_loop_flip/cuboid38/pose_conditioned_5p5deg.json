@@ -1,0 +1,39 @@
+{
+  "schema": "xarm6_open_loop_flip_profile_v1",
+  "profile_id": "cuboid38_pose_conditioned_5p5deg_j235",
+  "object_profile": "configs/objects/cuboid38_37g.json",
+  "desired_angle_deg": 5.5,
+  "timeline": "real_handoff/cuboid38/pose_conditioned_5p5deg/timeline.json",
+  "g1_schedule": "real_handoff/cuboid38/pose_conditioned_5p5deg/g1_schedule.template.json",
+  "status": "sim_validated_pose_conditioned_arm_reference_g1_calibration_required",
+  "hardware_modes_allowed": ["empty_arm"],
+  "control_period_s": 0.02,
+  "active_throw_joints_one_based": [2, 3, 5],
+  "fixed_throw_joints_one_based": [1, 4, 6],
+  "g1": {
+    "speed": 5000,
+    "events": [
+      {"name": "release", "time_s": 0.62, "position": null},
+      {"name": "preclose", "time_s": 0.7829023390983445, "position": null},
+      {"name": "close", "time_s": 0.8386279238729306, "position": null}
+    ]
+  },
+  "evidence": {
+    "source": "outputs/pose_conditioned_cuboid38_5p5deg_v2/summary.json",
+    "candidate_report": "outputs/object_pose_policy/cuboid38_5p5deg_candidate_v2.json",
+    "method_stage": "M3_object_pose_conditioned_piecewise_response",
+    "training_boundary": "piecewise_interpolation_among_stable_same_object_trials",
+    "formal_unseen_generalization": false,
+    "requested_rotation_deg": 5.5,
+    "sim_measured_rotation_deg": 5.581893526589635,
+    "sim_signed_target_axis_rotation_deg": 5.458234256724792,
+    "sim_absolute_target_error_deg": 0.081893526589635,
+    "sim_free_flight_s": 0.18900000000000017,
+    "sim_stable_recatch": true,
+    "sim_bilateral_contact_fraction": 1.0,
+    "command_sample_count": 92,
+    "command_period_s": 0.02,
+    "command_joint_envelope_pass": true,
+    "real_verified": false
+  }
+}

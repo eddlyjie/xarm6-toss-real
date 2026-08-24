@@ -1,0 +1,12 @@
+{
+  "schema": "xarm6_g1_schedule_template_v1",
+  "calibration_required": true,
+  "object_id": "cuboid_50p5x51x33p5mm_26p6g",
+  "gripped_dimension_m": 0.0335,
+  "events": [
+    {"name": "release", "time_s": 0.62, "position": null},
+    {"name": "preclose", "time_s": 0.76, "position": null},
+    {"name": "close", "time_s": 0.81, "position": null}
+  ],
+  "unlock_rule": "measure held/open/close positions on the real G1, fill all positions, then enable G1 modes in the profile"
+}
