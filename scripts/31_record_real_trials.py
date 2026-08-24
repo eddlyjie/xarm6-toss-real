@@ -13,6 +13,12 @@ from statistics import mean, pstdev
 
 TRIAL_SCHEMA = "xarm6_real_open_loop_trial_v1"
 OBJECTS = ("O0", "O1", "O2", "O3")
+OBJECT_ID_TO_KEY = {
+    "yellow_cube_38mm_8g": "O0",
+    "cuboid_44p5x46x30mm_20g": "O1",
+    "cuboid_50p5x51x33p5mm_26p6g": "O2",
+    "cuboid_57p5x58x38mm_37g": "O3",
+}
 
 
 def _label(value: str, name: str) -> str:
@@ -64,6 +70,70 @@ def build_trial(args: argparse.Namespace) -> dict:
         "manual_label": True,
         "robot_connection_attempted_by_this_tool": False,
     }
+
+
+def _g1_positions_from_plan(plan: dict) -> dict[str, int]:
+    positions = {"held": plan.get("g1_held_position")}
+    for event in plan.get("g1_events", []):
+        name = event.get("name")
+        if name in {"release", "preclose", "close"}:
+            positions[name] = event.get("position")
+    missing = [
+        name
+        for name in ("held", "release", "preclose", "close")
+        if positions.get(name) is None
+    ]
+    if missing:
+        raise ValueError(f"runner summary is missing G1 positions: {missing}")
+    result = {}
+    for name, value in positions.items():
+        numeric = float(value)
+        if not numeric.is_integer():
+            raise ValueError(f"runner G1 {name} position must be an integer")
+        result[name] = int(numeric)
+    return result
+
+
+def build_trial_from_runner(args: argparse.Namespace) -> dict:
+    summary_path = Path(args.runner_summary)
+    if not summary_path.is_file():
+        raise FileNotFoundError(f"runner summary does not exist: {summary_path}")
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    plan = summary.get("plan")
+    if not isinstance(plan, dict) or plan.get("schema") != "xarm6_open_loop_demo_plan_v1":
+        raise ValueError("runner summary does not contain an open-loop demo plan")
+    object_id = plan.get("object_id")
+    if object_id not in OBJECT_ID_TO_KEY:
+        raise ValueError(f"runner summary has unknown object_id: {object_id}")
+    if plan.get("mode") not in {"cube", "object"}:
+        raise ValueError("record-from-runner requires a cube/object recatch run")
+    positions = _g1_positions_from_plan(plan)
+    derived = argparse.Namespace(
+        object=OBJECT_ID_TO_KEY[object_id],
+        trial_id=args.trial_id,
+        profile=plan["profile"],
+        desired_angle_deg=float(plan["desired_angle_deg"]),
+        measured_angle_deg=args.measured_angle_deg,
+        rotation_axis=args.rotation_axis,
+        held_position=positions["held"],
+        release_position=positions["release"],
+        preclose_position=positions["preclose"],
+        close_position=positions["close"],
+        detached=args.detached,
+        caught=args.caught,
+        hold_s=args.hold_s,
+        video=args.video,
+        runner_summary=str(summary_path),
+        notes=args.notes,
+    )
+    trial = build_trial(derived)
+    execution_error = summary.get("execution", {}).get("error")
+    trial["runner_fields_auto_filled"] = True
+    trial["runner_mode"] = plan["mode"]
+    trial["runner_execution_error"] = execution_error
+    if execution_error is not None:
+        trial["complete_demo_success"] = False
+    return trial
 
 
 def write_trial(trial: dict, output: Path) -> None:
@@ -135,18 +205,42 @@ def add_record_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--write", action="store_true")
 
 
+def add_runner_record_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--runner-summary", type=Path, required=True)
+    parser.add_argument("--trial-id", required=True)
+    parser.add_argument("--measured-angle-deg", type=float, required=True)
+    parser.add_argument(
+        "--rotation-axis",
+        choices=("forward_tumble", "backward_tumble"),
+        required=True,
+    )
+    parser.add_argument("--detached", choices=("yes", "no"), required=True)
+    parser.add_argument("--caught", choices=("yes", "no"), required=True)
+    parser.add_argument("--hold-s", type=float, required=True)
+    parser.add_argument("--video", required=True)
+    parser.add_argument("--notes", default="")
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--write", action="store_true")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
     record = subparsers.add_parser("record")
     add_record_arguments(record)
+    runner_record = subparsers.add_parser("record-from-runner")
+    add_runner_record_arguments(runner_record)
     summary = subparsers.add_parser("summarize")
     summary.add_argument("--input-root", type=Path, required=True)
     summary.add_argument("--output", type=Path)
     args = parser.parse_args()
 
-    if args.command == "record":
-        trial = build_trial(args)
+    if args.command in {"record", "record-from-runner"}:
+        trial = (
+            build_trial(args)
+            if args.command == "record"
+            else build_trial_from_runner(args)
+        )
         print(json.dumps(trial, indent=2))
         if not args.write:
             print("preview only; no trial file was written")

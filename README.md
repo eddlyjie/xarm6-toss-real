@@ -36,6 +36,21 @@ The lower-level `scripts/26_calibrate_open_loop_profile.py` remains available.
 Rerun `scripts/28_check_real_robot_environment.py` after writing a bundle; the
 object then changes from `WAIT` to `PASS ... ready via commissioning bundle`.
 
+After each full recatch run, record the observed result directly from the
+runner output so the object, profile, requested angle, and four G1 positions do
+not have to be copied by hand:
+
+```bash
+python scripts/31_record_real_trials.py record-from-runner \
+  --runner-summary <RUN_OUTPUT>/summary.json --trial-id o1_low_01 \
+  --measured-angle-deg <MEASURED> --rotation-axis forward_tumble \
+  --detached yes --caught yes --hold-s <SECONDS> --video <VIDEO> \
+  --output real_results/O1/o1_low_01.trial.json --write
+```
+
+The recorder is offline and never connects to the robot. The complete command
+sequence and manual fallback are in the onsite command card.
+
 ## Current Sim result matrix
 
 All listed runs use the same xArm6/G1 model, fixed J1/J4/J6, and dynamic
@@ -460,4 +475,3 @@ O2's first intermediate action caught successfully at 4.78 deg. Adding that
 stable trial to the response model produced the corrected 5.62 deg result.
 This is seen-object pose conditioning, not formal unseen-object generalization.
 Both profiles remain `empty_arm` only until real G1 positions are calibrated.
-

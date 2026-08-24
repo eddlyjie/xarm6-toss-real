@@ -129,20 +129,22 @@ normal-speed video / slow-motion video / output summary path
 ```
 
 ```bash
-# [OFFLINE] Save one manual trial label. Preview by omitting --write.
-python scripts/31_record_real_trials.py record \
-  --object O1 --trial-id o1_low_01 --profile <OBJECT_PROFILE> \
-  --desired-angle-deg 3.0 --measured-angle-deg <MEASURED> \
+# [OFFLINE] Preferred: read object/profile/target/G1 positions from the runner output.
+# Preview by omitting --write.
+python scripts/31_record_real_trials.py record-from-runner \
+  --runner-summary <SUMMARY_JSON> --trial-id o1_low_01 \
+  --measured-angle-deg <MEASURED> \
   --rotation-axis forward_tumble \
-  --held-position <HELD> --release-position <RELEASE> \
-  --preclose-position <PRECLOSE> --close-position <CLOSE> \
   --detached yes --caught yes --hold-s <SECONDS> \
-  --video <VIDEO> --runner-summary <SUMMARY_JSON> \
+  --video <VIDEO> \
   --output real_results/O1/o1_low_01.trial.json --write
 
 python scripts/31_record_real_trials.py summarize \
   --input-root real_results --output real_results/summary.json
 ```
+
+`record-from-runner` 会自动读取本次执行的 object、profile、目标角和四个 G1整数，并在 runner 报错时禁止把该次
+标成完整成功。只有历史执行没有 `summary.json` 时才使用兼容的手工 `record` 子命令。
 
 出现 tracking error、异常振动、G1/cable 干涉或物体飞出软垫范围时，停止当前 profile，保留日志，回到离线
 调整。不要在现场临时升级 SDK，也不要跳过低速空臂阶段。

@@ -91,3 +91,78 @@ def test_summary_groups_profile_trials_and_computes_rate(tmp_path):
 def test_invalid_manual_record_is_rejected(overrides, message):
     with pytest.raises(ValueError, match=message):
         trials.build_trial(args(**overrides))
+
+
+def runner_args(tmp_path: Path, summary_path: Path, **overrides):
+    values = {
+        "runner_summary": summary_path,
+        "trial_id": "o2_low_01",
+        "measured_angle_deg": 5.1,
+        "rotation_axis": "forward_tumble",
+        "detached": "yes",
+        "caught": "yes",
+        "hold_s": 0.7,
+        "video": "videos/o2_low_01.mp4",
+        "notes": "",
+        "output": tmp_path / "o2_low_01.trial.json",
+        "write": False,
+    }
+    values.update(overrides)
+    return argparse.Namespace(**values)
+
+
+def write_runner_summary(path: Path, *, error=None, mode="object"):
+    payload = {
+        "plan": {
+            "schema": "xarm6_open_loop_demo_plan_v1",
+            "mode": mode,
+            "profile_id": "cuboid33_low_real_day1_object",
+            "profile": "configs/open_loop_flip/real_calibrated/cuboid33/day1/object.json",
+            "desired_angle_deg": 5.0,
+            "object_id": "cuboid_50p5x51x33p5mm_26p6g",
+            "g1_held_position": 355,
+            "g1_events": [
+                {"name": "release", "time_s": 0.62, "position": 545},
+                {"name": "preclose", "time_s": 0.80, "position": 430},
+                {"name": "close", "time_s": 0.86, "position": 355},
+            ],
+        },
+        "execution": {"error": error},
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_runner_summary_auto_fills_profile_object_angle_and_g1(tmp_path):
+    summary_path = tmp_path / "summary.json"
+    write_runner_summary(summary_path)
+    trial = trials.build_trial_from_runner(runner_args(tmp_path, summary_path))
+
+    assert trial["object_key"] == "O2"
+    assert trial["profile"].endswith("cuboid33/day1/object.json")
+    assert trial["desired_angle_deg"] == 5.0
+    assert trial["g1_positions"] == {
+        "held": 355,
+        "release": 545,
+        "preclose": 430,
+        "close": 355,
+    }
+    assert trial["runner_fields_auto_filled"] is True
+    assert trial["complete_demo_success"] is True
+
+
+def test_runner_execution_error_prevents_success_label(tmp_path):
+    summary_path = tmp_path / "summary.json"
+    write_runner_summary(
+        summary_path,
+        error={"type": "RuntimeError", "message": "servo stopped"},
+    )
+    trial = trials.build_trial_from_runner(runner_args(tmp_path, summary_path))
+    assert trial["complete_demo_success"] is False
+    assert trial["runner_execution_error"]["type"] == "RuntimeError"
+
+
+def test_record_from_runner_requires_full_recatch_mode(tmp_path):
+    summary_path = tmp_path / "summary.json"
+    write_runner_summary(summary_path, mode="throw_only")
+    with pytest.raises(ValueError, match="recatch run"):
+        trials.build_trial_from_runner(runner_args(tmp_path, summary_path))

@@ -354,8 +354,8 @@ README.md                  # 真机电脑入口
    `empty_g1/throw_only/object` profiles、schedules 和 `commissioning_bundle.json`；
 6. 依次执行 plan-only → 0.25×/0.5×/1.0× empty arm → empty G1 → soft-mat throw-only → guarded recatch。
    任一阶段失败就保留日志、缩小动作或修正时序；禁止跳过前级直接完整抛接；
-7. 一旦出现完整成功，使用 `scripts/31_record_real_trials.py record` 保存 object/profile、四个 G1整数、detach、
-   视频实测角、catch、hold时间、视频路径和 runner summary。每物体先保住一个完整成功，再调更高 pose；
+7. 一旦出现完整成功，使用 `scripts/31_record_real_trials.py record-from-runner` 从 runner summary自动带入
+   object/profile/目标角和四个 G1整数，只人工填写detach、视频实测角、catch、hold时间和视频路径。每物体先保住一个完整成功，再调更高 pose；
 8. 四物体各一个成功后，再按 low → next pose → high增加可区分角度，并用
    `scripts/31_record_real_trials.py summarize` 统计 catch rate 和实测角度；
 9. 只有主 demo 已完成且剩余时间充足时，才补重复试验、montage 和 M0–M3。不要在单一大角度、RL形式完整性
