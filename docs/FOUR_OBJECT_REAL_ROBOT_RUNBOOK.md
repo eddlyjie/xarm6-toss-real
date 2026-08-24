@@ -13,9 +13,11 @@
 
 ## 2. 开机前离线检查
 
-先激活真机电脑自己的 Python环境，并确认 `numpy` 与兼容的 `xarm-python-sdk` 可导入。下面保留的
+先激活真机电脑自己的 Python环境，并确认 `numpy`、`scipy`、兼容的 `xarm-python-sdk`，以及带
+`cv2.aruco.ArucoDetector` 的 OpenCV 可用。依赖范围记录在仓库根目录 `requirements.txt`；若环境尚未准备，
+应在实验开始前由真机电脑负责人安装，实验过程中不要临时升级。下面保留的
 `../.venv/bin/python` 是 devserver路径；若真机电脑没有这个 sibling environment，将所有命令前缀替换为当前
-环境的 `python`。不要在实验当天临时升级 SDK。
+环境的 `python`。
 
 随后在 `xarm_6` 仓库内运行：
 
@@ -27,8 +29,8 @@
   --output real_handoff/four_object_plan_check.json
 ```
 
-该命令检查 O0–O3 的 baseline 和 next-pose 共八条 timeline、J2/J3/J5合同、机械包络及 G1 标定状态，
-不会导入 xArm SDK，也不会连接机器人。预期 O0 的 G1 标定完整，O1–O3 显示待标定。
+该命令检查 Python依赖、OpenCV ArUco、O0–O3 的 baseline 和 next-pose 共八条 timeline、J2/J3/J5合同、
+机械包络及 G1 标定状态；不会导入 xArm SDK，也不会连接机器人。预期 O0 的 G1 标定完整，O1–O3显示待标定。
 
 默认 hardware config 位于：
 

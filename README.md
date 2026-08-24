@@ -23,8 +23,12 @@ python scripts/28_check_real_robot_environment.py \
 ```
 
 It checks the installed package versions, local hardware configuration, all
-four object profiles, and G1 calibration state without importing the xArm SDK
-or attempting a network connection. After it passes, rebuild the handoff report:
+four object profiles, G1 calibration state, and the OpenCV ArUco API required
+for offline angle measurement, without importing the xArm SDK or attempting a
+network connection. The reproducible runtime requirements are in
+[`requirements.txt`](requirements.txt). Install them only in the environment
+approved for the real-robot computer, before the experiment session. After the
+preflight passes, rebuild the handoff report:
 
 ```bash
 python scripts/27_check_four_object_handoff.py \

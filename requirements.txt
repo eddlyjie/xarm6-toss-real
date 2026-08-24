@@ -4,3 +4,5 @@
 xarm-python-sdk>=1.16,<2
 numpy>=1.24,<3
 scipy>=1.10,<2
+# Headless is sufficient: cameras only write/read video and never open GUI windows.
+opencv-contrib-python-headless>=4.7,<6

@@ -18,6 +18,7 @@ GOOD_VERSIONS = {
     "xarm-python-sdk": "1.17.0",
     "numpy": "2.1.0",
     "scipy": "1.14.1",
+    "opencv-python-headless": "5.0.0.93",
 }
 
 
@@ -35,6 +36,7 @@ def test_preflight_is_offline_and_reports_real_commissioning_state():
 
     assert report["offline_only"] is True
     assert report["robot_connection_attempted"] is False
+    assert report["video_angle_runtime"]["ok"] is True
     assert report["environment_ready"] is True
     assert report["ready_for_o0_staged_execution"] is True
     assert report["handoff"]["files_and_joint_envelopes_ready"] is True
@@ -58,7 +60,11 @@ def test_preflight_is_offline_and_reports_real_commissioning_state():
 
 
 def test_missing_sdk_blocks_hardware_readiness_without_importing_it():
-    versions = {"numpy": "2.1.0", "scipy": "1.14.1"}
+    versions = {
+        "numpy": "2.1.0",
+        "scipy": "1.14.1",
+        "opencv-python-headless": "5.0.0.93",
+    }
     report = preflight.build_report(package_resolver=resolver(versions))
 
     sdk = next(row for row in report["packages"] if row["name"] == "xarm-python-sdk")
@@ -66,6 +72,22 @@ def test_missing_sdk_blocks_hardware_readiness_without_importing_it():
     assert sdk["ok"] is False
     assert report["environment_ready"] is False
     assert report["ready_for_o0_staged_execution"] is False
+
+
+def test_missing_aruco_runtime_blocks_environment(monkeypatch):
+    monkeypatch.setattr(
+        preflight,
+        "check_video_angle_runtime",
+        lambda: {
+            "ok": False,
+            "version": "4.6.0",
+            "required_apis": ["aruco.ArucoDetector", "aruco.generateImageMarker"],
+            "detail": "missing OpenCV APIs",
+        },
+    )
+    report = preflight.build_report(package_resolver=resolver(GOOD_VERSIONS))
+    assert report["environment_ready"] is False
+    assert "[FAIL] OpenCV ArUco runtime" in preflight.render_summary(report)
 
 
 def test_wrong_g1_speed_is_reported_before_hardware_use(tmp_path):

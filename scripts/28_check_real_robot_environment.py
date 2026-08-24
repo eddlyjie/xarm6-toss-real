@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Offline preflight for the four-object xArm6 handoff.
 
-This script reads local files and installed-package metadata only. It never
-imports the xArm SDK, opens a socket, or constructs a robot client.
+This script reads local files, installed-package metadata, and the local OpenCV
+ArUco API used for offline video measurement. It never imports the xArm SDK,
+opens a socket, or constructs a robot client.
 """
 
 from __future__ import annotations
@@ -72,6 +73,60 @@ def _package_check(
     }
 
 
+def _opencv_distribution_check(resolver: Callable[[str], str]) -> dict:
+    candidates = (
+        "opencv-python-headless",
+        "opencv-contrib-python-headless",
+        "opencv-python",
+        "opencv-contrib-python",
+    )
+    for distribution in candidates:
+        try:
+            installed = resolver(distribution)
+        except metadata.PackageNotFoundError:
+            continue
+        release = _release(installed)
+        padded = release + (0,) * max(0, 2 - len(release))
+        ok = bool(release) and padded[0] < 6 and padded[:2] >= (4, 7)
+        return {
+            "name": "OpenCV wheel",
+            "distribution": distribution,
+            "installed": installed,
+            "requirement": ">=4.7,<6 with ArUco",
+            "ok": ok,
+            "detail": "compatible" if ok else "installed version is outside the supported range",
+        }
+    return {
+        "name": "OpenCV wheel",
+        "distribution": None,
+        "installed": None,
+        "requirement": ">=4.7,<6 with ArUco",
+        "ok": False,
+        "detail": "no supported OpenCV wheel is installed",
+    }
+
+
+def check_video_angle_runtime() -> dict:
+    try:
+        import cv2
+    except Exception as exc:
+        return {
+            "ok": False,
+            "version": None,
+            "required_apis": ["aruco.ArucoDetector", "aruco.generateImageMarker"],
+            "detail": f"cannot import cv2: {type(exc).__name__}: {exc}",
+        }
+    aruco = getattr(cv2, "aruco", None)
+    required = ("ArucoDetector", "generateImageMarker")
+    missing = [name for name in required if aruco is None or not hasattr(aruco, name)]
+    return {
+        "ok": not missing,
+        "version": getattr(cv2, "__version__", None),
+        "required_apis": [f"aruco.{name}" for name in required],
+        "detail": "compatible" if not missing else f"missing OpenCV APIs: {missing}",
+    }
+
+
 def check_packages(
     resolver: Callable[[str], str] = metadata.version,
 ) -> list[dict]:
@@ -98,6 +153,7 @@ def check_packages(
             lambda value: value[0] == 1 and at_least(value, (1, 10)),
             ">=1.10,<2",
         ),
+        _opencv_distribution_check(resolver),
     ]
 
 
@@ -188,6 +244,7 @@ def build_report(
     package_resolver: Callable[[str], str] = metadata.version,
 ) -> dict:
     packages = check_packages(package_resolver)
+    video_angle_runtime = check_video_angle_runtime()
     hardware = check_hardware_config(hardware_path)
     handoff_module = _load_handoff_checker()
     handoff = handoff_module.build_report(root)
@@ -206,8 +263,10 @@ def build_report(
         for row in handoff["objects"]
         for profile in (row["baseline"], row["next_pose"])
     )
-    software_ready = sys.version_info >= (3, 10) and all(
-        package["ok"] for package in packages
+    software_ready = (
+        sys.version_info >= (3, 10)
+        and all(package["ok"] for package in packages)
+        and video_angle_runtime["ok"]
     )
     configuration_ready = bool(hardware["configuration_valid"])
     environment_ready = software_ready and configuration_ready
@@ -221,6 +280,7 @@ def build_report(
             "ok": sys.version_info >= (3, 10),
         },
         "packages": packages,
+        "video_angle_runtime": video_angle_runtime,
         "hardware": hardware,
         "handoff": {
             "files_and_joint_envelopes_ready": files_ready,
@@ -263,6 +323,11 @@ def render_summary(report: dict) -> str:
             f"[{'PASS' if package['ok'] else 'FAIL'}] {package['name']} "
             f"{installed} (required {package['requirement']})"
         )
+    video = report["video_angle_runtime"]
+    lines.append(
+        f"[{'PASS' if video['ok'] else 'FAIL'}] OpenCV ArUco runtime: "
+        f"{video['version'] or video['detail']}"
+    )
     hardware = report["hardware"]
     lines.append(
         f"[{'PASS' if hardware['configuration_valid'] else 'FAIL'}] "

@@ -18,7 +18,7 @@ python scripts/27_check_four_object_handoff.py \
   --output real_handoff/four_object_plan_check.json
 ```
 
-预检必须显示 Python、`xarm-python-sdk`、NumPy、SciPy、hardware config 和四物体文件均为 `PASS`。O0 G1
+预检必须显示 Python、`xarm-python-sdk`、NumPy、SciPy、OpenCV ArUco、hardware config 和四物体文件均为 `PASS`。O0 G1
 应为 `PASS`；O1–O3 在标定前显示 `WAIT` 属于正常状态。预检本身不会导入 SDK或连接机器人。
 
 ## 1. 当天先恢复 O0 保底结果

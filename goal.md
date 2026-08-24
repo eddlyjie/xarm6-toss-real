@@ -344,7 +344,7 @@ README.md                  # 真机电脑入口
 
 然后严格按以下顺序推进：
 
-1. 运行 `scripts/28_check_real_robot_environment.py`，确认 Python、NumPy/SciPy、`xarm-python-sdk`、
+1. 运行 `scripts/28_check_real_robot_environment.py`，确认 Python、NumPy/SciPy、`xarm-python-sdk`、OpenCV ArUco、
    hardware config 和四物体 handoff 状态。该命令只做离线检查；缺包时报告并等待用户处理，禁止自行安装或升级；
 2. 运行 `scripts/27_check_four_object_handoff.py` 和四条 low profile 的 plan-only，确认四个 timeline、G1 event、
    动态关节集合和文件路径一致；
