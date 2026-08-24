@@ -339,6 +339,7 @@ README.md                  # 真机电脑入口
 - `REAL_ROBOT_TEST_20260817.md`：已经测得的 xArm6/G1 时延与历史 O0 结果；
 - `docs/FOUR_OBJECT_ONSITE_COMMANDS.md`：现场逐条复制的命令；
 - `docs/FOUR_OBJECT_REAL_ROBOT_RUNBOOK.md`：安全顺序、产物和失败处理；
+- `docs/FOUR_OBJECT_SIM_REFERENCE.md`：四物体 low/next/high 的 Sim视频、profile 与 timeline 对照；
 - `docs/POSE_CONDITIONED_RESULTS_20260825.md`：Sim 的 object/pose-conditioned 结果边界。
 
 然后严格按以下顺序推进：

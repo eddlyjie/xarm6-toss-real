@@ -3,6 +3,9 @@
 这张命令卡按真实执行顺序排列。`[OFFLINE]` 只读本地文件；`[ROBOT]` 会连接并运动 xArm6，必须由现场
 操作者确认软垫、急停和净空后手动运行。真机电脑若已激活 Python 环境，统一使用 `python`。
 
+四物体各档位的 Sim 动作、视频、profile 与 timeline 对照见
+[`FOUR_OBJECT_SIM_REFERENCE.md`](FOUR_OBJECT_SIM_REFERENCE.md)。
+
 ## 0. 开机后先做离线预检
 
 ```bash

@@ -12,7 +12,9 @@ Start with the complete Chinese runbook:
 [`docs/FOUR_OBJECT_REAL_ROBOT_RUNBOOK.md`](docs/FOUR_OBJECT_REAL_ROBOT_RUNBOOK.md),
 or keep the compact
 [`docs/FOUR_OBJECT_ONSITE_COMMANDS.md`](docs/FOUR_OBJECT_ONSITE_COMMANDS.md)
-open beside the robot. Activate the Python environment prepared on the
+open beside the robot. The
+[`four-object Sim reference`](docs/FOUR_OBJECT_SIM_REFERENCE.md) links every
+low/next/high profile to its tracked video and 20 ms timeline. Activate the Python environment prepared on the
 real-robot computer, then run the fully offline environment preflight:
 
 ```bash
