@@ -348,20 +348,22 @@ README.md                  # 真机电脑入口
    hardware config 和四物体 handoff 状态。该命令只做离线检查；缺包时报告并等待用户处理，禁止自行安装或升级；
 2. 运行 `scripts/27_check_four_object_handoff.py` 和四条 low profile 的 plan-only，确认四个 timeline、G1 event、
    动态关节集合和文件路径一致；
-3. 先用 `scripts/24_run_cube_open_loop_demo.py` 恢复 O0 low 的历史 micro-toss，并立即保存当天保底视频；
-4. O1 → O2 → O3 每次只处理一个物体。用 `scripts/30_measure_g1_position.py` 分别测量
+3. 运行 `scripts/33_show_onsite_progress.py --output real_results/onsite_progress.json`，查看当前四物体成功覆盖和唯一
+   最高优先级下一条命令；每保存一条 trial record 后重新运行，避免在单一物体或角度上偏离整体顺序；
+4. 先用 `scripts/24_run_cube_open_loop_demo.py` 恢复 O0 low 的历史 micro-toss，并立即保存当天保底视频；
+5. O1 → O2 → O3 每次只处理一个物体。用 `scripts/30_measure_g1_position.py` 分别测量
    `held/release/preclose/close`。默认 dry-run；只有现场操作者明确启动 `--execute` 并输入 `MOVE G1` 时才连接设备；
-5. 将四个整数交给 `scripts/29_prepare_object_commissioning.py --write`，生成该物体独立的
+6. 将四个整数交给 `scripts/29_prepare_object_commissioning.py --write`，生成该物体独立的
    `empty_g1/throw_only/object` profiles、schedules 和 `commissioning_bundle.json`；
-6. 依次执行 plan-only → 0.25×/0.5×/1.0× empty arm → empty G1 → soft-mat throw-only → guarded recatch。
+7. 依次执行 plan-only → 0.25×/0.5×/1.0× empty arm → empty G1 → soft-mat throw-only → guarded recatch。
    任一阶段失败就保留日志、缩小动作或修正时序；禁止跳过前级直接完整抛接；
-7. 一旦出现完整成功，先用 `scripts/25_measure_cube_rotation.py` 在自由飞行区间离线测角，再用
+8. 一旦出现完整成功，先用 `scripts/25_measure_cube_rotation.py` 在自由飞行区间离线测角，再用
    `scripts/31_record_real_trials.py record-from-runner` 从 runner/angle summaries 自动带入 object/profile、目标角、
    四个 G1整数和实测角；只人工填写detach、catch、hold时间和视频路径。每物体先保住一个完整成功，再调更高 pose；
-8. 四物体各一个成功后，使用 `scripts/32_prepare_pose_ladder.py` 复用同一物体的实测 G1位置，生成独立的
+9. 四物体各一个成功后，使用 `scripts/32_prepare_pose_ladder.py` 复用同一物体的实测 G1位置，生成独立的
    next/high 分阶段 profiles；再按 low → next pose → high增加可区分角度，并用
    `scripts/31_record_real_trials.py summarize` 统计 catch rate 和实测角度；
-9. 只有主 demo 已完成且剩余时间充足时，才补重复试验、montage 和 M0–M3。不要在单一大角度、RL形式完整性
+10. 只有主 demo 已完成且剩余时间充足时，才补重复试验、montage 和 M0–M3。不要在单一大角度、RL形式完整性
    或低概率软件边界上消耗现场时间。
 
 现场结束时的最低交接物是：四个最终 profile、四组 G1整数、每物体至少一个成功 trial record、原速视频、慢放视频、

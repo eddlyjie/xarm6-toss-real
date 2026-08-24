@@ -16,6 +16,10 @@ python scripts/28_check_real_robot_environment.py \
 # [OFFLINE] 重新生成四物体 handoff 报告
 python scripts/27_check_four_object_handoff.py \
   --output real_handoff/four_object_plan_check.json
+
+# [OFFLINE] 随时汇总四物体成功覆盖、pose档位和唯一最高优先级下一步
+python scripts/33_show_onsite_progress.py \
+  --output real_results/onsite_progress.json
 ```
 
 预检必须显示 Python、`xarm-python-sdk`、NumPy、SciPy、OpenCV ArUco、hardware config 和四物体文件均为 `PASS`。O0 G1
@@ -168,3 +172,6 @@ python scripts/31_record_real_trials.py summarize \
 
 出现 tracking error、异常振动、G1/cable 干涉或物体飞出软垫范围时，停止当前 profile，保留日志，回到离线
 调整。不要在现场临时升级 SDK，也不要跳过低速空臂阶段。
+
+每保存一条 `*.trial.json` 后重新运行 `scripts/33_show_onsite_progress.py`。它会优先补齐 O0→O3 各一个完整成功，
+随后才推荐 O0 三 pose、O1–O3 第二 pose 和每档五次重复；该工具仅读取本地文件，不连接机器人。

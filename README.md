@@ -35,6 +35,15 @@ python scripts/27_check_four_object_handoff.py \
   --output real_handoff/four_object_plan_check.json
 ```
 
+At any point during the onsite session, print the four-object coverage and the
+single highest-priority next command from the recorded commissioning bundles
+and trials:
+
+```bash
+python scripts/33_show_onsite_progress.py \
+  --output real_results/onsite_progress.json
+```
+
 O0 is the first staged real baseline. O1–O3 must each receive measured real G1
 held/release/preclose/close positions through
 `scripts/29_prepare_object_commissioning.py` before any G1 or object trial.
