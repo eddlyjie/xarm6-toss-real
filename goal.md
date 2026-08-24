@@ -333,14 +333,36 @@ README.md                  # 真机电脑入口
 
 ## 13. 挂载后的第一批动作
 
-1. 阅读 `README.md`、`REAL_ROBOT_TEST_20260817.md` 和 `docs/POSE_CONDITIONED_RESULTS_20260825.md`；
-2. 运行最小 CPU tests 与 plan-only，确认 runner、object profile、timeline 和 G1 template一致；
-3. 为四个物体生成一页现场命令表，分成 plan-only、empty、throw-only、recatch，禁止默认连接机器人；
-4. 使用 `scripts/26_calibrate_open_loop_profile.py` 为每个物体记录 G1 实测位置；O1–O3 不得沿用 O0 的
-   `370/520/370`；
-5. 先复现 O0 baseline，再按 O1 → O2 → O3推进低角度完整成功；
-6. 每完成一个物体就立即保存 profile、日志、正常速度视频、慢放和人工 label；
-7. 四物体各一个成功后，再进行 angle ladder 和 M0–M3，不在单一失败角度上无限调参。
+挂载后先读：
+
+- `README.md`：代码入口和当前能力；
+- `REAL_ROBOT_TEST_20260817.md`：已经测得的 xArm6/G1 时延与历史 O0 结果；
+- `docs/FOUR_OBJECT_ONSITE_COMMANDS.md`：现场逐条复制的命令；
+- `docs/FOUR_OBJECT_REAL_ROBOT_RUNBOOK.md`：安全顺序、产物和失败处理；
+- `docs/POSE_CONDITIONED_RESULTS_20260825.md`：Sim 的 object/pose-conditioned 结果边界。
+
+然后严格按以下顺序推进：
+
+1. 运行 `scripts/28_check_real_robot_environment.py`，确认 Python、NumPy/SciPy、`xarm-python-sdk`、
+   hardware config 和四物体 handoff 状态。该命令只做离线检查；缺包时报告并等待用户处理，禁止自行安装或升级；
+2. 运行 `scripts/27_check_four_object_handoff.py` 和四条 low profile 的 plan-only，确认四个 timeline、G1 event、
+   动态关节集合和文件路径一致；
+3. 先用 `scripts/24_run_cube_open_loop_demo.py` 恢复 O0 low 的历史 micro-toss，并立即保存当天保底视频；
+4. O1 → O2 → O3 每次只处理一个物体。用 `scripts/30_measure_g1_position.py` 分别测量
+   `held/release/preclose/close`。默认 dry-run；只有现场操作者明确启动 `--execute` 并输入 `MOVE G1` 时才连接设备；
+5. 将四个整数交给 `scripts/29_prepare_object_commissioning.py --write`，生成该物体独立的
+   `empty_g1/throw_only/object` profiles、schedules 和 `commissioning_bundle.json`；
+6. 依次执行 plan-only → 0.25×/0.5×/1.0× empty arm → empty G1 → soft-mat throw-only → guarded recatch。
+   任一阶段失败就保留日志、缩小动作或修正时序；禁止跳过前级直接完整抛接；
+7. 一旦出现完整成功，使用 `scripts/31_record_real_trials.py record` 保存 object/profile、四个 G1整数、detach、
+   视频实测角、catch、hold时间、视频路径和 runner summary。每物体先保住一个完整成功，再调更高 pose；
+8. 四物体各一个成功后，再按 low → next pose → high增加可区分角度，并用
+   `scripts/31_record_real_trials.py summarize` 统计 catch rate 和实测角度；
+9. 只有主 demo 已完成且剩余时间充足时，才补重复试验、montage 和 M0–M3。不要在单一大角度、RL形式完整性
+   或低概率软件边界上消耗现场时间。
+
+现场结束时的最低交接物是：四个最终 profile、四组 G1整数、每物体至少一个成功 trial record、原速视频、慢放视频、
+实测角度和失败备注。任何真实机械臂运动都由现场操作者显式执行；挂载本文件本身不授权自动连接或运动。
 
 ## 14. 明确禁止事项
 
