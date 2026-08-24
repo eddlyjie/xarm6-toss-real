@@ -110,6 +110,18 @@ python scripts/24_run_cube_open_loop_demo.py --profile <OBJECT_PROFILE> \
 
 ## 4. 四物体成功后再做 pose 梯度
 
+每个 O1–O3 的 low profile 成功后，用该物体已经实测的 G1位置离线生成 next/high 两档。以 O1 为例：
+
+```bash
+# [OFFLINE] Creates 13 versioned profile/schedule/bundle files; never connects to the robot.
+python scripts/32_prepare_pose_ladder.py \
+  --commissioning-bundle real_handoff/cuboid30/low/<LABEL>/commissioning_bundle.json \
+  --write
+```
+
+生成的 `pose_ladder_bundle.json` 为 next/high 分别列出完整执行命令。每一档仍然必须从 plan-only 和 0.25×空臂
+重新开始，不能因为 low 已成功就跳级。
+
 | Object | Low | Next pose | High |
 |---|---|---|---|
 | O0 | `cube38/low_5deg.json` | `cube38/medium_6p5deg.json` | `cube38/high_8deg.json` |

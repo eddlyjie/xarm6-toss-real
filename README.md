@@ -51,6 +51,19 @@ python scripts/31_record_real_trials.py record-from-runner \
 The recorder is offline and never connects to the robot. The complete command
 sequence and manual fallback are in the onsite command card.
 
+Once one cuboid's low profile has been caught successfully, reuse that same
+object's measured G1 positions to generate its staged next/high profiles:
+
+```bash
+python scripts/32_prepare_pose_ladder.py \
+  --commissioning-bundle real_handoff/cuboid30/low/<LABEL>/commissioning_bundle.json \
+  --write
+```
+
+This creates separate plan-only, empty-G1, throw-only, and object paths for
+both higher poses. It does not connect to the robot; each generated pose still
+has to pass the complete onsite execution ladder.
+
 ## Current Sim result matrix
 
 All listed runs use the same xArm6/G1 model, fixed J1/J4/J6, and dynamic
