@@ -60,6 +60,14 @@ O0 baseline的单独 plan-only：
 以 O1 low 为例，先把 `<...>` 换成现场实测整数：
 
 ```bash
+# Preferred: create empty_g1, throw_only, and object stages together.
+../.venv/bin/python scripts/29_prepare_object_commissioning.py \
+  --object O1 --label 20260826 \
+  --held-position <HELD> --release-position <RELEASE> \
+  --preclose-position <PRECLOSE> --close-position <CLOSE> \
+  --write
+
+# Low-level fallback: create one stage only.
 ../.venv/bin/python scripts/26_calibrate_open_loop_profile.py \
   --template-profile configs/open_loop_flip/cuboid30/low_3deg.json \
   --output-profile configs/open_loop_flip/real_calibrated/cuboid30/low_empty_g1.json \

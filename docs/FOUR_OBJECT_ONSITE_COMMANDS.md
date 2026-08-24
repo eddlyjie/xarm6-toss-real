@@ -1,27 +1,31 @@
-# xArm6 鍥涚墿浣撶幇鍦哄懡浠ゅ崱
+# xArm6 四物体现场命令卡
 
-杩欏紶鍛戒护鍗℃寜鐪熷疄鎵ц椤哄簭鎺掑垪銆俙[OFFLINE]` 鍙鏈湴鏂囦欢锛沗[ROBOT]` 浼氳繛鎺ュ苟杩愬姩 xArm6锛屽繀椤荤敱鐜板満
-鎿嶄綔鑰呯‘璁よ蒋鍨€佹€ュ仠鍜屽噣绌哄悗鎵嬪姩杩愯銆傜湡鏈虹數鑴戣嫢宸叉縺娲?Python 鐜锛岀粺涓€浣跨敤 `python`銆?
-## 0. 寮€鏈哄悗鍏堝仛绂荤嚎棰勬
+这张命令卡按真实执行顺序排列。`[OFFLINE]` 只读本地文件；`[ROBOT]` 会连接并运动 xArm6，必须由现场
+操作者确认软垫、急停和净空后手动运行。真机电脑若已激活 Python 环境，统一使用 `python`。
+
+## 0. 开机后先做离线预检
 
 ```bash
-# [OFFLINE] 妫€鏌?Python/SDK銆乭ardware config銆佸洓鐗╀綋 profile 鍜?G1 鏍囧畾鐘舵€?python scripts/28_check_real_robot_environment.py \
+# [OFFLINE] 检查 Python/SDK、hardware config、四物体 profile 和 G1 标定状态
+python scripts/28_check_real_robot_environment.py \
   --output real_handoff/onsite_environment.json
 
-# [OFFLINE] 閲嶆柊鐢熸垚鍥涚墿浣?handoff 鎶ュ憡
+# [OFFLINE] 重新生成四物体 handoff 报告
 python scripts/27_check_four_object_handoff.py \
   --output real_handoff/four_object_plan_check.json
 ```
 
-棰勬蹇呴』鏄剧ず Python銆乣xarm-python-sdk`銆丯umPy銆丼ciPy銆乭ardware config 鍜屽洓鐗╀綋鏂囦欢鍧囦负 `PASS`銆侽0 G1
-搴斾负 `PASS`锛汷1鈥揙3 鍦ㄦ爣瀹氬墠鏄剧ず `WAIT` 灞炰簬姝ｅ父鐘舵€併€傞妫€鏈韩涓嶄細瀵煎叆 SDK鎴栬繛鎺ユ満鍣ㄤ汉銆?
-## 1. 褰撳ぉ鍏堟仮澶?O0 淇濆簳缁撴灉
+预检必须显示 Python、`xarm-python-sdk`、NumPy、SciPy、hardware config 和四物体文件均为 `PASS`。O0 G1
+应为 `PASS`；O1–O3 在标定前显示 `WAIT` 属于正常状态。预检本身不会导入 SDK或连接机器人。
+
+## 1. 当天先恢复 O0 保底结果
 
 ```bash
-# [OFFLINE] 妫€鏌ヨ鍒?python scripts/24_run_cube_open_loop_demo.py \
+# [OFFLINE] 检查计划
+python scripts/24_run_cube_open_loop_demo.py \
   --profile configs/open_loop_flip/cube38/low_5deg.json
 
-# [ROBOT] 绌鸿噦閫熷害姊害
+# [ROBOT] 空臂速度梯度
 python scripts/24_run_cube_open_loop_demo.py \
   --profile configs/open_loop_flip/cube38/low_5deg.json \
   --speed-scale 0.25 --execute-empty-arm
@@ -32,7 +36,7 @@ python scripts/24_run_cube_open_loop_demo.py \
   --profile configs/open_loop_flip/cube38/low_5deg.json \
   --speed-scale 1.0 --execute-empty-arm
 
-# [ROBOT] 绌?G1銆佽蒋鍨姏鍑恒€佹渶鍚庢墠瀹屾暣鎺ュ彇
+# [ROBOT] 空 G1、软垫抛出、最后才完整接取
 python scripts/24_run_cube_open_loop_demo.py \
   --profile configs/open_loop_flip/cube38/low_5deg.json --execute-empty-g1
 python scripts/24_run_cube_open_loop_demo.py \
@@ -41,46 +45,41 @@ python scripts/24_run_cube_open_loop_demo.py \
   --profile configs/open_loop_flip/cube38/low_5deg.json --execute-cube
 ```
 
-O0 low 鎺ヤ綇鍚庣珛鍒讳繚瀛樻棩蹇楀拰淇濆簳瑙嗛銆傚綋澶╀笉鍏堣拷澶ц搴︺€?
-## 2. O1鈥揙3 閫愮墿浣撴爣瀹?
+O0 low 接住后立刻保存日志和保底视频。当天不先追大角度。
+
+## 2. O1–O3 逐物体标定
+
 | Object | Template | Calibrated output stem |
 |---|---|---|
 | O1 | `configs/open_loop_flip/cuboid30/low_3deg.json` | `cuboid30/low` |
 | O2 | `configs/open_loop_flip/cuboid33/low_5deg.json` | `cuboid33/low` |
 | O3 | `configs/open_loop_flip/cuboid38/low_4p5deg.json` | `cuboid38/low` |
 
-瀵瑰綋鍓嶇墿浣撳疄娴?`<HELD> <RELEASE> <PRECLOSE> <CLOSE>` 鍚庯紝鍏堢敓鎴?`empty_g1`銆備笅闈互 O1 涓轰緥锛?
+对当前物体实测 `<HELD> <RELEASE> <PRECLOSE> <CLOSE>` 后，用一个命令生成 `empty_g1`、`throw_only`、
+`object` 三阶段文件和执行顺序。下面以 O1 为例；`--label` 使用当天日期或本次实验名：
+
 ```bash
 # [OFFLINE]
-python scripts/26_calibrate_open_loop_profile.py \
-  --template-profile configs/open_loop_flip/cuboid30/low_3deg.json \
-  --output-profile configs/open_loop_flip/real_calibrated/cuboid30/low_empty_g1.json \
-  --output-schedule real_handoff/cuboid30/low/g1_schedule.empty_g1.json \
+python scripts/29_prepare_object_commissioning.py \
+  --object O1 --label 20260826 \
   --held-position <HELD> --release-position <RELEASE> \
   --preclose-position <PRECLOSE> --close-position <CLOSE> \
-  --stage empty_g1
+  --write
 ```
 
-O0 鐨勫巻鍙叉暣鏁颁綅缃彧鑳戒綔涓?O0 璧风偣锛屼笉鑳藉鍒剁粰 O1鈥揙3銆傚畬鎴?empty G1 鍚庯紝鐢ㄥ悓涓€缁勫疄娴嬪€煎垎鍒敓鎴?`throw_only` 鍜?`object`锛屾枃浠跺悕涓?`--stage` 鍚屾鏀瑰彉锛?
-```bash
-# [OFFLINE] 绀轰緥锛氭妸 STAGE 渚濇鏇挎崲涓?throw_only銆乷bject
-python scripts/26_calibrate_open_loop_profile.py \
-  --template-profile configs/open_loop_flip/cuboid30/low_3deg.json \
-  --output-profile configs/open_loop_flip/real_calibrated/cuboid30/low_STAGE.json \
-  --output-schedule real_handoff/cuboid30/low/g1_schedule.STAGE.json \
-  --held-position <HELD> --release-position <RELEASE> \
-  --preclose-position <PRECLOSE> --close-position <CLOSE> \
-  --stage STAGE
-```
+O2、O3 分别使用 `--object O2`、`--object O3`。工具默认只预览；`--write` 才创建七个文件，并拒绝覆盖
+同名实验。生成的 `commissioning_bundle.json` 已包含从 plan-only 到完整接取的可复制命令。O0 的历史整数
+位置只能作为 O0 起点，不能复制给 O1–O3。
 
-## 3. 姣忎釜鏂扮墿浣撶殑鎵ц姊害
+## 3. 每个新物体的执行梯度
 
-涓嬮潰渚濇浣跨敤鍒氱敓鎴愮殑 `<EMPTY_G1_PROFILE>`銆乣<THROW_ONLY_PROFILE>` 鍜?`<OBJECT_PROFILE>`锛?
+下面依次使用刚生成的 `<EMPTY_G1_PROFILE>`、`<THROW_ONLY_PROFILE>` 和 `<OBJECT_PROFILE>`：
+
 ```bash
 # [OFFLINE]
 python scripts/24_run_cube_open_loop_demo.py --profile <EMPTY_G1_PROFILE>
 
-# [ROBOT] 绌鸿噦 0.25x 鈫?0.5x 鈫?1.0x
+# [ROBOT] 空臂 0.25x → 0.5x → 1.0x
 python scripts/24_run_cube_open_loop_demo.py --profile <EMPTY_G1_PROFILE> \
   --speed-scale 0.25 --execute-empty-arm
 python scripts/24_run_cube_open_loop_demo.py --profile <EMPTY_G1_PROFILE> \
@@ -88,7 +87,7 @@ python scripts/24_run_cube_open_loop_demo.py --profile <EMPTY_G1_PROFILE> \
 python scripts/24_run_cube_open_loop_demo.py --profile <EMPTY_G1_PROFILE> \
   --speed-scale 1.0 --execute-empty-arm
 
-# [ROBOT] G1 鈫?杞灚鎶涘嚭 鈫?瀹屾暣鎺ュ彇
+# [ROBOT] G1 → 软垫抛出 → 完整接取
 python scripts/24_run_cube_open_loop_demo.py --profile <EMPTY_G1_PROFILE> \
   --execute-empty-g1
 python scripts/24_run_cube_open_loop_demo.py --profile <THROW_ONLY_PROFILE> \
@@ -97,8 +96,9 @@ python scripts/24_run_cube_open_loop_demo.py --profile <OBJECT_PROFILE> \
   --execute-object
 ```
 
-涓ユ牸鎸?O1 鈫?O2 鈫?O3 鎺ㄨ繘銆傛瘡瀹屾垚涓€涓墿浣撳氨淇濆瓨鎴愬姛 profile銆丟1鏁存暟銆佹棩蹇楀拰瑙嗛锛屼笉绛夊埌鏈€鍚庣粺涓€鏁寸悊銆?
-## 4. 鍥涚墿浣撴垚鍔熷悗鍐嶅仛 pose 姊害
+严格按 O1 → O2 → O3 推进。每完成一个物体就保存成功 profile、G1整数、日志和视频，不等到最后统一整理。
+
+## 4. 四物体成功后再做 pose 梯度
 
 | Object | Low | Next pose | High |
 |---|---|---|---|
@@ -107,15 +107,16 @@ python scripts/24_run_cube_open_loop_demo.py --profile <OBJECT_PROFILE> \
 | O2 | `cuboid33/low_5deg.json` | `cuboid33/pose_conditioned_5p5deg.json` | `cuboid33/high_6p5deg.json` |
 | O3 | `cuboid38/low_4p5deg.json` | `cuboid38/pose_conditioned_5p5deg.json` | `cuboid38/high_6p5deg.json` |
 
-姣忔潯鏂?pose 閮介噸鏂拌蛋 plan-only銆佺┖鑷傘€佺┖ G1銆乼hrow-only銆乷bject 姊害銆傛姤鍛婅搴﹀彇渚ц瑙嗛瀹炴祴鍊硷紱profile
-鍚嶇О涓殑鐩爣瑙掑彧琛ㄧず policy 杈撳叆銆傚洓鐗╀綋鍚勪竴涓畬鏁存垚鍔熶箣鍓嶏紝涓嶆姇鍏ユ椂闂磋拷 20掳浠ヤ笂銆?
-## 5. 姣忔杩愯椹笂璁板綍
+每条新 pose 都重新走 plan-only、空臂、空 G1、throw-only、object 梯度。报告角度取侧视视频实测值；profile
+名称中的目标角只表示 policy 输入。四物体各一个完整成功之前，不投入时间追 20°以上。
+
+## 5. 每次运行马上记录
 
 ```text
 object / profile / held / release / preclose / close
-鏄惁瀹屽叏绂绘墜 / 瀹炴祴鏃嬭浆瑙?/ 鏄惁鎺ヤ綇 / 淇濇寔鏃堕棿
+是否完全离手 / 实测旋转角 / 是否接住 / 保持时间
 normal-speed video / slow-motion video / output summary path
 ```
 
-鍑虹幇 tracking error銆佸紓甯告尟鍔ㄣ€丟1/cable 骞叉秹鎴栫墿浣撻鍑鸿蒋鍨寖鍥存椂锛屽仠姝㈠綋鍓?profile锛屼繚鐣欐棩蹇楋紝鍥炲埌绂荤嚎
-璋冩暣銆備笉瑕佸湪鐜板満涓存椂鍗囩骇 SDK锛屼篃涓嶈璺宠繃浣庨€熺┖鑷傞樁娈点€?
+出现 tracking error、异常振动、G1/cable 干涉或物体飞出软垫范围时，停止当前 profile，保留日志，回到离线
+调整。不要在现场临时升级 SDK，也不要跳过低速空臂阶段。

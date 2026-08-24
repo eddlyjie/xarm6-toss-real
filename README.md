@@ -31,7 +31,8 @@ python scripts/27_check_four_object_handoff.py \
 
 O0 is the first staged real baseline. O1–O3 must each receive measured real G1
 held/release/preclose/close positions through
-`scripts/26_calibrate_open_loop_profile.py` before any G1 or object trial.
+`scripts/29_prepare_object_commissioning.py` before any G1 or object trial.
+The lower-level `scripts/26_calibrate_open_loop_profile.py` remains available.
 
 ## Current Sim result matrix
 
