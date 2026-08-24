@@ -155,6 +155,9 @@ O0 使用 `--execute-cube`；O1–O3 使用 `--execute-object`。runner 在连�
 toss_project_sim_handoff/toss_project/real_cube_demo/outputs/open_loop_object_demo/
 ```
 
+`signals.csv` 同时记录 reference `q,dq` 和 reported `q,dq`；`summary.json` 记录 G1 event timing、动作前后
+G1 position，以及动作前后的 controller state 与 error/warning code。上述查询均在 20 ms servo timeline 之外执行。
+
 ## 5. 现场固定条件
 
 - 动态关节只有 J2/J3/J5，J1/J4/J6固定；

@@ -220,7 +220,7 @@ def test_runner_is_plan_only_by_default(tmp_path):
     assert saved["mode"] == "plan"
 
 
-def test_fixed_g1_events_and_arm_reference_share_one_host_clock(monkeypatch):
+def test_fixed_g1_events_and_arm_reference_share_one_host_clock(monkeypatch, tmp_path):
     spec = importlib.util.spec_from_file_location(
         "open_loop_runner", ROOT / "scripts/24_run_cube_open_loop_demo.py"
     )
@@ -241,6 +241,7 @@ def test_fixed_g1_events_and_arm_reference_share_one_host_clock(monkeypatch):
             self.gripper = []
             self.reported_gripper = [370.0, 371.0]
             self.arm = []
+            self.controller_samples = 0
             self.modes = []
 
         def enter_servo_mode(self):
@@ -255,6 +256,16 @@ def test_fixed_g1_events_and_arm_reference_share_one_host_clock(monkeypatch):
         def gripper_position(self, *, check_baud):
             assert check_baud is False
             return self.reported_gripper.pop(0)
+
+        def controller_status(self):
+            self.controller_samples += 1
+            return {
+                "connected": True,
+                "mode": 0,
+                "state": 0,
+                "err_warn_code": [0, 0],
+                "sample": self.controller_samples,
+            }
 
         def servo_j(self, joint_rad):
             self.arm.append(joint_rad)
@@ -271,15 +282,25 @@ def test_fixed_g1_events_and_arm_reference_share_one_host_clock(monkeypatch):
     monkeypatch.setattr(runner, "time", clock)
     robot = FakeRobot()
     samples = [
-        {"time_s": 0.0, "phase": "throw", "joint_position_rad": [0.0] * 6},
-        {"time_s": 0.02, "phase": "brake", "joint_position_rad": [0.1] * 6},
+        {
+            "time_s": 0.0,
+            "phase": "throw",
+            "joint_position_rad": [0.0] * 6,
+            "joint_velocity_rad_s": [0.2] * 6,
+        },
+        {
+            "time_s": 0.02,
+            "phase": "brake",
+            "joint_position_rad": [0.1] * 6,
+            "joint_velocity_rad_s": [-0.1] * 6,
+        },
     ]
     events = [
         {"name": "release", "time_s": 0.005, "position": 520},
         {"name": "close", "time_s": 0.015, "position": 370},
     ]
     records, result = runner.execute_reference(
-        robot, samples, events, observe_g1=True
+        robot, samples, events, observe_g1=True, observe_controller=True
     )
 
     assert result["error"] is None
@@ -292,6 +313,22 @@ def test_fixed_g1_events_and_arm_reference_share_one_host_clock(monkeypatch):
         {"label": "before_servo", "time_s": 0.0, "position": 370.0, "error": None},
         {"label": "after_servo", "time_s": 0.52, "position": 371.0, "error": None},
     ]
+    assert records[0]["reference_joint_velocity_rad_s"] == [0.2] * 6
+    assert records[1]["reference_joint_velocity_rad_s"] == [-0.1] * 6
+    assert [row["label"] for row in result["controller_status_samples"]] == [
+        "before_servo",
+        "after_servo",
+    ]
+    assert [row["status"]["sample"] for row in result["controller_status_samples"]] == [
+        1,
+        2,
+    ]
+    signals = tmp_path / "signals.csv"
+    runner.write_signals(signals, records)
+    header = signals.read_text(encoding="utf-8").splitlines()[0].split(",")
+    assert "reference_joint_velocity_rad_s_1" in header
+    assert "reference_joint_velocity_rad_s_6" in header
+    assert "joint_velocity_rad_s_1" in header
 
 
 def test_runner_requires_hardware_g1_speed_to_match_profile():
@@ -369,5 +406,8 @@ def test_complete_8deg_reference_executes_on_fake_hardware(monkeypatch):
     assert len(robot.arm) == len(samples) == 92
     assert len(records) == 92
     assert records[-1]["reference_time_s"] == pytest.approx(1.82)
+    assert records[-1]["reference_joint_velocity_rad_s"] == list(
+        samples[-1]["joint_velocity_rad_s"]
+    )
     for joint_index in (0, 3, 5):
         assert all(command[joint_index] == robot.arm[0][joint_index] for command in robot.arm)

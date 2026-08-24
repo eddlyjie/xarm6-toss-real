@@ -48,6 +48,9 @@ O0 is the first staged real baseline. O1–O3 must each receive measured real G1
 held/release/preclose/close positions through
 `scripts/29_prepare_object_commissioning.py` before any G1 or object trial.
 The lower-level `scripts/26_calibrate_open_loop_profile.py` remains available.
+Every hardware run writes the reference `q,dq`, reported `q,dq`, joint effort,
+motor current, G1 event timing, pre/post G1 position, and pre/post controller
+state/error status for the onsite trial record.
 Rerun `scripts/28_check_real_robot_environment.py` after writing a bundle; the
 object then changes from `WAIT` to `PASS ... ready via commissioning bundle`.
 

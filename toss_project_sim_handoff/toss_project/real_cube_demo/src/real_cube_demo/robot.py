@@ -172,6 +172,16 @@ class PickPlaceRobot:
             "motor_current": list(self.arm.currents[:6]),
         }
 
+    def controller_status(self) -> dict[str, Any]:
+        return {
+            "connected": bool(self.arm.connected),
+            "mode": int(self.arm.mode),
+            "state": _value(self.arm.get_state(), "get_state"),
+            "err_warn_code": _value(
+                self.arm.get_err_warn_code(), "get_err_warn_code"
+            ),
+        }
+
     def enter_servo_mode(self) -> None:
         _ok(self.arm.set_mode(1), "set_mode(servo)")
         _ok(self.arm.set_state(0), "set_state")

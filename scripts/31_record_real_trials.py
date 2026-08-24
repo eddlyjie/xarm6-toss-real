@@ -158,6 +158,9 @@ def build_trial_from_runner(args: argparse.Namespace) -> dict:
     trial["runner_g1_position_samples"] = summary.get("execution", {}).get(
         "g1_position_samples", []
     )
+    trial["runner_controller_status_samples"] = summary.get("execution", {}).get(
+        "controller_status_samples", []
+    )
     if angle_measurement is not None:
         trial["angle_measurement"] = angle_measurement
     if execution_error is not None:

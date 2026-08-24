@@ -134,6 +134,20 @@ def write_runner_summary(path: Path, *, error=None, mode="object"):
                 {"label": "before_servo", "time_s": 0.0, "position": 355.0, "error": None},
                 {"label": "after_servo", "time_s": 2.32, "position": 354.0, "error": None},
             ],
+            "controller_status_samples": [
+                {
+                    "label": "before_servo",
+                    "time_s": 0.0,
+                    "status": {"mode": 0, "state": 0, "err_warn_code": [0, 0]},
+                    "error": None,
+                },
+                {
+                    "label": "after_servo",
+                    "time_s": 2.32,
+                    "status": {"mode": 0, "state": 0, "err_warn_code": [0, 0]},
+                    "error": None,
+                },
+            ],
         },
     }
     path.write_text(json.dumps(payload), encoding="utf-8")
@@ -157,6 +171,10 @@ def test_runner_summary_auto_fills_profile_object_angle_and_g1(tmp_path):
     assert [row["position"] for row in trial["runner_g1_position_samples"]] == [
         355.0,
         354.0,
+    ]
+    assert [row["label"] for row in trial["runner_controller_status_samples"]] == [
+        "before_servo",
+        "after_servo",
     ]
     assert trial["complete_demo_success"] is True
 

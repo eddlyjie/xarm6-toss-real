@@ -79,19 +79,42 @@ def _sample_g1_position(robot, label: str, time_s: float) -> dict:
         }
 
 
+def _sample_controller_status(robot, label: str, time_s: float) -> dict:
+    try:
+        return {
+            "label": label,
+            "time_s": float(time_s),
+            "status": robot.controller_status(),
+            "error": None,
+        }
+    except Exception as exc:
+        return {
+            "label": label,
+            "time_s": float(time_s),
+            "status": None,
+            "error": {"type": type(exc).__name__, "message": str(exc)},
+        }
+
+
 def execute_reference(
     robot,
     samples: list[dict],
     events: list[dict],
     *,
     observe_g1: bool = False,
+    observe_controller: bool = False,
 ) -> tuple[list[dict], dict]:
     records: list[dict] = []
     event_records: list[dict] = []
     g1_position_samples: list[dict] = []
+    controller_status_samples: list[dict] = []
     next_event = 0
     if observe_g1:
         g1_position_samples.append(_sample_g1_position(robot, "before_servo", 0.0))
+    if observe_controller:
+        controller_status_samples.append(
+            _sample_controller_status(robot, "before_servo", 0.0)
+        )
     robot.enter_servo_mode()
     start = time.monotonic()
     error = None
@@ -120,6 +143,9 @@ def execute_reference(
 
             command_time = time.monotonic() - start
             command = tuple(float(value) for value in sample["joint_position_rad"])
+            reference_velocity = [
+                float(value) for value in sample["joint_velocity_rad_s"]
+            ]
             robot.servo_j(command)
             actual = robot.reported_joint_signals()
             records.append(
@@ -128,6 +154,7 @@ def execute_reference(
                     "command_time_s": command_time,
                     "phase": sample.get("phase", "reference"),
                     "command_joint_rad": list(command),
+                    "reference_joint_velocity_rad_s": reference_velocity,
                     **actual,
                 }
             )
@@ -140,10 +167,15 @@ def execute_reference(
         g1_position_samples.append(
             _sample_g1_position(robot, "after_servo", time.monotonic() - start)
         )
+    if observe_controller:
+        controller_status_samples.append(
+            _sample_controller_status(robot, "after_servo", time.monotonic() - start)
+        )
     return records, {
         "error": error,
         "g1_events": event_records,
         "g1_position_samples": g1_position_samples,
+        "controller_status_samples": controller_status_samples,
         "duration_s": time.monotonic() - start,
     }
 
@@ -151,6 +183,7 @@ def execute_reference(
 def write_signals(path: Path, records: list[dict]) -> None:
     vector_fields = (
         "command_joint_rad",
+        "reference_joint_velocity_rad_s",
         "joint_position_rad",
         "joint_velocity_rad_s",
         "joint_effort",
@@ -245,6 +278,7 @@ def main() -> int:
                 samples,
                 plan["g1_events"],
                 observe_g1=operate_g1,
+                observe_controller=True,
             )
             if execution["error"] is not None:
                 robot.stop()
