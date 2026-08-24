@@ -20,6 +20,9 @@
 随后在 `xarm_6` 仓库内运行：
 
 ```bash
+../.venv/bin/python scripts/28_check_real_robot_environment.py \
+  --output real_handoff/onsite_environment.json
+
 ../.venv/bin/python scripts/27_check_four_object_handoff.py \
   --output real_handoff/four_object_plan_check.json
 ```

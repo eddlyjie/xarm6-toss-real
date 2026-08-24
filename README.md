@@ -9,9 +9,20 @@ high-speed control loop. Read [`goal.md`](goal.md) and
 ## Onsite entry for the four-object demo
 
 Start with the complete Chinese runbook:
-[`docs/FOUR_OBJECT_REAL_ROBOT_RUNBOOK.md`](docs/FOUR_OBJECT_REAL_ROBOT_RUNBOOK.md).
-Activate the Python environment prepared on the real-robot computer first.
-The following command is offline and does not import the robot SDK:
+[`docs/FOUR_OBJECT_REAL_ROBOT_RUNBOOK.md`](docs/FOUR_OBJECT_REAL_ROBOT_RUNBOOK.md),
+or keep the compact
+[`docs/FOUR_OBJECT_ONSITE_COMMANDS.md`](docs/FOUR_OBJECT_ONSITE_COMMANDS.md)
+open beside the robot. Activate the Python environment prepared on the
+real-robot computer, then run the fully offline environment preflight:
+
+```bash
+python scripts/28_check_real_robot_environment.py \
+  --output real_handoff/onsite_environment.json
+```
+
+It checks the installed package versions, local hardware configuration, all
+four object profiles, and G1 calibration state without importing the xArm SDK
+or attempting a network connection. After it passes, rebuild the handoff report:
 
 ```bash
 python scripts/27_check_four_object_handoff.py \

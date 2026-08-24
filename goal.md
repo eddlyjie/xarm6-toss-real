@@ -3,10 +3,25 @@
 更新日期：2026-08-25
 
 本文件是后续 Codex 挂载执行的真机开发目标。当前只要求维护本文件；挂载前不得连接或运动真实机械臂。
+用户挂载后，Codex 应把本文件视为持续执行目标，直接读取已有代码、报告和 handoff，优先完成可上真机的轨迹、
+标定文件、现场命令和结果整理。不要重新规划同一目标，也不要因为缺少现场数据而停掉所有离线工作；只有真实
+机械臂连接、运动和需要操作者测量时才等待现场指令。
 
 执行优先级固定为：四个物体各得到一个完整成功 demo → 每个物体增加可区分 pose → 重复统计与视频 →
 M0–M3 对比。不要长期钻在一个物体或一个大角度上，也不要把主要精力投入 hash、seal、审计链和低概率防御。
 真机结果优先于形式完整的 RL 或 baseline 矩阵。
+
+## 0. 当前交付任务
+
+当前 Sim/offline 轨迹已经能够覆盖四个物体，接下来工作的核心是把这些结果变成明天能在真机电脑上依次执行的
+demo，而不是重新从零设计 Panda 仿真方法：
+
+1. 先复现 O0 已有的真机 micro-toss 接住结果，并把它固定成当天保底 profile；
+2. 用现场实测值完成 O0–O3 各自独立的 G1 held/release/preclose/close 标定；
+3. O1、O2、O3 从最保守的 low profile 开始，各得到至少一次“离手—可见旋转—接住—保持”的完整成功；
+4. 四物体均成功后，O0 做 low/medium/high，O1–O3 尽量补第二个明显可区分的 pose；
+5. 角度以视频实测为准。能够稳定展示多个不同角度即可，40°/60°/80°均为 stretch target；
+6. 最后再做重复次数、慢放 montage 和 M0–M3。RL/Detach/J 的补充只在它能实际提高 demo 时进行。
 
 ## 1. 最终目标
 
@@ -62,7 +77,7 @@ Iz = m (X² + Y²) / 12
 | arm command period | 20 ms `servo_j` |
 | arm tracking lag | 约 80 ms |
 | G1 speed | 5000 |
-| G1 held / partial-open / close | 370 / 520 / 370 |
+| O0 历史 G1 held / partial-open / close | 370 / 520 / 370（只作当天复测起点） |
 | G1 first observed motion | open 22.64 ms；close 12.57 ms |
 | G1 target reached | open 102.79 ms；close 102.62 ms |
 | physical detach after open command | 约 25–44 ms |
@@ -310,7 +325,7 @@ README.md                  # 真机电脑入口
 7. [现场第一优先] 恢复 O0 已有 micro-toss baseline，并保存当天保底视频；
 8. [现场] 实测 O0–O3 的 G1 held/release/preclose/close position，生成独立 profile；
 9. [现场] 每个物体依次完成 empty arm → empty G1 → soft-mat throw-only → guarded recatch；
-10. [现场] O1/O2/O3 各得到一个完整成功后，再回头增加第二档 pose；
+10. [现场] O1/O2/O3 每完成一个就立刻保存成功 profile 和视频；四物体均成功后再增加第二档 pose；
 11. [结果] 每个最终 profile 做至少 5 次，离线测角并整理四物体 montage；
 12. [可选方法] 补 M0/M1/M2 与 M3 的公平比较，不得阻塞主 demo。
 
@@ -321,7 +336,8 @@ README.md                  # 真机电脑入口
 1. 阅读 `README.md`、`REAL_ROBOT_TEST_20260817.md` 和 `docs/POSE_CONDITIONED_RESULTS_20260825.md`；
 2. 运行最小 CPU tests 与 plan-only，确认 runner、object profile、timeline 和 G1 template一致；
 3. 为四个物体生成一页现场命令表，分成 plan-only、empty、throw-only、recatch，禁止默认连接机器人；
-4. 使用 `scripts/26_calibrate_open_loop_profile.py` 为每个物体记录 G1 实测位置；
+4. 使用 `scripts/26_calibrate_open_loop_profile.py` 为每个物体记录 G1 实测位置；O1–O3 不得沿用 O0 的
+   `370/520/370`；
 5. 先复现 O0 baseline，再按 O1 → O2 → O3推进低角度完整成功；
 6. 每完成一个物体就立即保存 profile、日志、正常速度视频、慢放和人工 label；
 7. 四物体各一个成功后，再进行 angle ladder 和 M0–M3，不在单一失败角度上无限调参。
